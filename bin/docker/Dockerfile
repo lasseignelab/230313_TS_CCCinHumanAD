@@ -1,4 +1,4 @@
-FROM bioconductor/bioconductor_docker:RELEASE_3_16
+FROM bioconductor/bioconductor_docker:RELEASE_3_14
 
 ##----------------------------------------------------------------------------##
 ##  R PACKAGES
@@ -6,10 +6,13 @@ FROM bioconductor/bioconductor_docker:RELEASE_3_16
 
 #### Leave the top line the same for each new project. Uncomment lines to add ####
 RUN R -e 'install.packages(c("tidyverse", "remotes",  "BiocManager", "devtools", "knitr", "lintr", "styler", "here", "markdown", "rmarkdown"))' \
-#  && R -e 'install.packages(c("< insert GitHub repos here >")' \
-#  && R -e 'devtools::install_github("< insert GitHub repos here >")' \
-#  && R -e 'remotes::install_github("< insert GitHub repos here >")' \
-#  && R -e 'BiocManager::install(c("< insert Biconductor repos here >"))'
+  && R -e 'install.packages(c("ggplot2", "circlize", "reshape", "intergraph", "pheatmap", "clustree", "fields", "enrichR", "UpSetR", "scCustomize", "hdf5r", "rliger", "NMF", "gprofiler2", "GGally"))' \
+  && R -e 'devtools::install_github("saeyslab/nichenetr")' \
+  && R -e 'devtools::install_github("saezlab/liana")' \
+  && R -e 'devtools::install_github("eddelbuettel/harmony")' \
+  && R -e 'devtools::install_github("satijalab/sctransform", ref = "develop")' \
+  && R -e 'remotes::install_github(repo = "satijalab/seurat", ref = "develop")' \
+  && R -e 'BiocManager::install(c("STRINGdb", "Nebulosa", "DropletUtils", "dittoSeq", "glmGamPoi", "SummarizedExperiment", "ComplexHeatmap", "limma"))'
 
 
 ##----------------------------------------------------------------------------##
@@ -50,7 +53,7 @@ RUN apt-get install -y \
 ##----------------------------------------------------------------------------##
 
 
-# RUN pip3 install <Insert Python packages here>
+RUN pip3 install leidenalg
 
 
 ##----------------------------------------------------------------------------##
