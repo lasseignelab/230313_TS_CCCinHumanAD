@@ -320,8 +320,6 @@ saveRDS(filtered_seurat, here("data", "geo_processed_seurat.rds"))
 ```{r}
 sessionInfo() # see output below
 ```
-
-
 R version 4.1.3 (2022-03-10)
 Platform: x86_64-pc-linux-gnu (64-bit)
 Running under: Ubuntu 20.04.5 LTS
@@ -395,10 +393,13 @@ fptm <- proc.time() - ptm
 
 # convert to hours
 (fptm[3] / 60) / 60
+
+# Time elapsed: 11.6 hours 
+# Hands-on time however is between 30-60 minutes!
 ```
 
 # Reproducibility
-```{r}
+```{r eval=FALSE, include=FALSE}
 # styler
 style_file(here(
   "src",
