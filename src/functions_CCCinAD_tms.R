@@ -153,7 +153,7 @@ cell_cylce_effects <- function(filtered_seurat){
   # scale data -----
   filtered_seurat <- ScaleData(filtered_seurat)
   # run pca -----
-  filtered_seurat <- RunPCA(filtered_seurat)
+  filtered_seurat <- RunPCA(filtered_seurat, approx = FALSE)
   # plot pca -----
   elbow <- ElbowPlot(filtered_seurat, reduction = "pca", ndims = 50)
   # plot cell cycle scoring -----
