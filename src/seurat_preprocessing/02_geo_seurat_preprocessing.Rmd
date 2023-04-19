@@ -211,8 +211,8 @@ pdf(
   )
 )
 
-tree
-tree2
+#tree
+#tree2
 # plotting UMAP for most stable resolution (0.5) for the number of cells
 DimPlot(filtered_seurat,
   reduction = "umap_harmony",
