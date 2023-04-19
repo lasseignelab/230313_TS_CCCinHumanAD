@@ -1,6 +1,6 @@
 ---
 title: "02_geo_seurat_preprocessing"
-author: "Tabea Soelter"
+author: "Tabea M. Soelter"
 date: '2023-03-22'
 output: html_document
 ---
