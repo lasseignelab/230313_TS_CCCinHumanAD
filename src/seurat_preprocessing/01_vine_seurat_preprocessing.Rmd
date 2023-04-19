@@ -136,7 +136,7 @@ dev.off()
 
 # Normalization and integration
 * We are using harmony as it has been shown to remove technical variation while preserving biological variation.
-* We will have to provide the PCs from the elbow plot above (1:20)
+* We will have to provide the PCs from the elbow plot above (1:30)
 ```{r warning=FALSE}
 filtered_seurat <- harmony_integration(filtered_seurat, dims = 1:30)
 # harmony converged after 6 iterations
