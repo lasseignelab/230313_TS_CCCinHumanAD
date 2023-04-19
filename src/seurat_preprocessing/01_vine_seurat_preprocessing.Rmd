@@ -38,15 +38,18 @@ ptm <- proc.time()
 set.seed(42)
 
 # Load packages
-library(Seurat)
-library(tidyverse)
-library(harmony)
-library(clustree)
-library(stringr)
-library(scCustomize)
-library(styler)
-library(lintr)
-library(here)
+suppressPackageStartupMessages({
+  library(Seurat)
+  library(tidyverse)
+  library(harmony)
+  library(clustree)
+  library(stringr)
+  library(scCustomize)
+  library(here)
+  library(styler)
+  library(lintr)
+})
+
 source(here("src", "functions_CCCinAD_tms.R"))
 ```
 
