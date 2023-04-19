@@ -1,6 +1,6 @@
 README
 ================
-2023-03-28
+2023-04-19
 
 **EDIT THIS DOCUMENT AND KNIT, DO NOT EDIT README.MD DIRECTLY**
 
@@ -41,28 +41,32 @@ the University of Alabama at Birmingham](https://www.lasseigne.org/)
     ## |   |   +-- SAMN19128609_S2_CTRL.sh
     ## |   |   +-- SAMN19128610_S1_CTRL.sh
     ## |   |   \-- SAMN19128611_S7_AD.sh
-    ## |   \-- vine
-    ## |       +-- SRR13278437_S1_CTRL.sh
-    ## |       +-- SRR13278438_S2_AD.sh
-    ## |       +-- SRR13278439_S3_CTRL.sh
-    ## |       +-- SRR13278440_S4_CTRL.sh
-    ## |       +-- SRR13278441_S5_CTRL.sh
-    ## |       +-- SRR13278442_S6_CTRL.sh
-    ## |       +-- SRR13278443_S7_AD.sh
-    ## |       +-- SRR13278444_S8_AD.sh
-    ## |       +-- SRR13278445_S9_CTRL.sh
-    ## |       +-- SRR13278446_S10_CTRL.sh
-    ## |       +-- SRR13278447_S11_AD.sh
-    ## |       +-- SRR13278448_S12_AD.sh
-    ## |       +-- SRR13278449_S13_AD.sh
-    ## |       +-- SRR13278450_S14_CTRL.sh
-    ## |       +-- SRR13278451_S15_AD.sh
-    ## |       +-- SRR13278452_S16_AD.sh
-    ## |       \-- SRR13278453_S17_AD.sh
+    ## |   +-- vine
+    ## |   |   +-- SRR13278437_S1_CTRL.sh
+    ## |   |   +-- SRR13278438_S2_AD.sh
+    ## |   |   +-- SRR13278439_S3_CTRL.sh
+    ## |   |   +-- SRR13278440_S4_CTRL.sh
+    ## |   |   +-- SRR13278441_S5_CTRL.sh
+    ## |   |   +-- SRR13278442_S6_CTRL.sh
+    ## |   |   +-- SRR13278443_S7_AD.sh
+    ## |   |   +-- SRR13278444_S8_AD.sh
+    ## |   |   +-- SRR13278445_S9_CTRL.sh
+    ## |   |   +-- SRR13278446_S10_CTRL.sh
+    ## |   |   +-- SRR13278447_S11_AD.sh
+    ## |   |   +-- SRR13278448_S12_AD.sh
+    ## |   |   +-- SRR13278449_S13_AD.sh
+    ## |   |   +-- SRR13278450_S14_CTRL.sh
+    ## |   |   +-- SRR13278451_S15_AD.sh
+    ## |   |   +-- SRR13278452_S16_AD.sh
+    ## |   |   \-- SRR13278453_S17_AD.sh
+    ## |   \-- vine_cortex
+    ## |       +-- CellRanger_VINE_cortex.sh
+    ## |       \-- sample_sheet.csv
     ## +-- functions_CCCinAD_tms.R
     ## \-- seurat_preprocessing
     ##     +-- 01_vine_seurat_preprocessing.Rmd
-    ##     \-- 02_geo_seurat_preprocessing.Rmd
+    ##     +-- 02_geo_seurat_preprocessing.Rmd
+    ##     \-- 03_vinecortex_seurat_preprocessing.Rmd
 
 ## Authors
 
