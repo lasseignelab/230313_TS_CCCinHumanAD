@@ -242,7 +242,7 @@ top_markers <- find_markers(filtered_seurat,
 dim(top_markers) # 195 6
 ```
 
-# Feature plots of unresolved clusters - EDIT THIS
+# Feature plots of unresolved clusters
 Clusters that remain unresolved:
 * Cluster 5: Astrocytes vs Excitatory Neurons
   * Based on below plots: Astrocytes
