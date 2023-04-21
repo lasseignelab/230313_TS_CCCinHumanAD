@@ -217,6 +217,17 @@ find_markers <- function(object, resolution, identities, value){
   return(top_markers)
 }
 
+## split_objects
+# Split multiple Seurat objects by their condition (orig.ident in my data) and return a list with split objects.
+split_objects <- function(object, active_assay = "RNA") {
+  if(object@active.assay == active_assay) {
+    split_object <- SplitObject(object, split.by = "orig.ident")
+  } else {
+    print(paste0("Active assay is not RNA in ", i))
+  }
+  return(split_object)
+}
+
 ## prep_NicheNet
 # A function which prepares the prioritized NicheNet outputs for mapping to STRINGdb PPI and returns a dataframe with a target and a sender column 
 prep_NicheNet <- function(prioritizedNicheNet, cond_niche){
