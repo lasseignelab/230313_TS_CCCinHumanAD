@@ -325,7 +325,7 @@ filtered_seurat <- SetIdent(filtered_seurat, value = "sub.cluster")
 idents <- c("Neurons_0", "Neurons_1", "Neurons_2", "Neurons_3", "Neurons_4")
 
 # Find markers for sub-clusters
-neurons_markers <- find_markers(neurons_test2,
+neurons_markers <- find_markers(filtered_seurat,
   resolution = "sub.cluster",
   identities = idents,
   value = 5
