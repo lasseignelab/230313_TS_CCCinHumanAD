@@ -257,6 +257,27 @@ split_objects <- function(object, active_assay = "RNA") {
   return(split_object)
 }
 
+## liana_prioritization
+# A function which identified ligands between sender and receiver cells for a seurat object. 
+liana_prioritization <- function(object, sender, receiver) {
+  results <- liana_wrap(object) %>%
+    liana_aggregate() %>% 
+    filter(source %in% sender & target == receiver) %>%
+    dplyr::rename(ligand = ligand.complex, receptor = receptor.complex) %>%
+    arrange(aggregate_rank) %>%
+    mutate(id = fct_inorder(paste0(ligand, " -> ", receptor)))
+  return(results)
+}
+
+## filter_ligands
+# A function which filters duplicate ligands and those present in NicheNet prior
+filter_ligands <- function(df){
+  ligands <- unique(df$ligand)
+  ligands <- ligands[ligands %in% colnames(ligand_target_matrix)]
+  print(length(ligands))
+  return(ligands)
+}
+
 ## prep_NicheNet
 # A function which prepares the prioritized NicheNet outputs for mapping to STRINGdb PPI and returns a dataframe with a target and a sender column 
 prep_NicheNet <- function(prioritizedNicheNet, cond_niche){
