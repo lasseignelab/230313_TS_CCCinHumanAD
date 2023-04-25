@@ -217,6 +217,35 @@ find_markers <- function(object, resolution, identities, value){
   return(top_markers)
 }
 
+## prep_liana
+# Ensures the "RNA" assay is used (or set if not current default) before plotting each object's UMAP split by condition (AD, CTRL). Plots are saved to their respective "results/final_outputs/" directories.
+prep_liana <- function(object_list) {
+  for(name in names(object_list)) {
+    object <- get(name)
+    if(object@active.assay == "RNA") {
+      umap <- DimPlot(object,
+                      label = FALSE,
+                      group.by = "orig.ident",
+                      cols = "Paired",
+                      shuffle = TRUE)
+      ggsave(filename = "UMAP_condition.png",
+             path = paste0(here("results", "final_outputs", name, "/")),
+             plot = umap)
+    } else {
+      DefaultAssay(object) <- "RNA"
+      umap <- DimPlot(object,
+                      label = FALSE,
+                      group.by = "orig.ident",
+                      cols = "Paired",
+                      shuffle = TRUE)
+      ggsave(filename = "UMAP_condition.png",
+             path = paste0(here("results", "final_outputs", name, "/")),
+             plot = umap)
+    }
+  }
+}
+
+
 ## split_objects
 # Split multiple Seurat objects by their condition (orig.ident in my data) and return a list with split objects.
 split_objects <- function(object, active_assay = "RNA") {
