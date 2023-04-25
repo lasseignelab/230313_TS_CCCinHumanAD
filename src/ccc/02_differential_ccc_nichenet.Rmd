@@ -1,0 +1,35 @@
+---
+title: "02_differential_ccc_nichenet"
+author: "Tabea M. Soelter"
+date: '2023-04-25'
+output: html_document
+---
+**Differential Cell-Cell Communication Analysis using NicheNet**
+
+__Goal__: For every dataset, perform differential NicheNet analyses between AD and CTRL to identify ligands, receptors, and potential downstream target genes between glia (Astrocytes, Oligodendrocytes, Microglia, and OPCs - senders) and Excitatory Neurons (receivers).
+  
+__Reproducibility__: 
+* GitHub: lasseignelab/230313_TS_CCCinHumanAD
+* Docker: tsoelter/rstudio_ccc_ad
+    * Version: 1.0.0 
+* HPC: Yes
+  * Resources: long partition (150hrs), 6 CPUs, 65GB per CPU
+
+__Data__: 
+* Name: vine_processed_seurat.rds, geo_processed_seurat.rds, vinecortex_processed_seurat.rds
+* Location: /data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/
+ 
+__Analysis Plan__: 
+* Load necessary packages 
+* Load data 
+* Identify ligands using liana
+* Load NicheNet's prior knowledge 
+* Filter liana ligands using NicheNet's prior
+* Save filtered ligands
+
+__Analysis__:
+# Load packages
+```{r}
+
+```
+
