@@ -218,33 +218,37 @@ find_markers <- function(object, resolution, identities, value){
 }
 
 ## prep_liana
-# Ensures the "RNA" assay is used (or set if not current default) before plotting each object's UMAP split by condition (AD, CTRL). Plots are saved to their respective "results/final_outputs/" directories.
+# Ensures the "RNA" assay is used before plotting each object's UMAP split by condition (AD, CTRL) and stacked bar plots of cell type proportions across conditions. Plots are saved to their respective "results/final_outputs/" directories.
 prep_liana <- function(object_list) {
   for(name in names(object_list)) {
     object <- get(name)
-    if(object@active.assay == "RNA") {
-      umap <- DimPlot(object,
-                      label = FALSE,
-                      group.by = "orig.ident",
-                      cols = "Paired",
-                      shuffle = TRUE)
-      ggsave(filename = "UMAP_condition.png",
-             path = paste0(here("results", "final_outputs", name, "/")),
-             plot = umap)
-    } else {
-      DefaultAssay(object) <- "RNA"
-      umap <- DimPlot(object,
-                      label = FALSE,
-                      group.by = "orig.ident",
-                      cols = "Paired",
-                      shuffle = TRUE)
-      ggsave(filename = "UMAP_condition.png",
-             path = paste0(here("results", "final_outputs", name, "/")),
-             plot = umap)
-    }
+    DefaultAssay(object) <- "RNA"
+    # UMAP split by condition ----------
+    umap <- DimPlot(object,
+                    label = FALSE,
+                    group.by = "orig.ident",
+                    cols = "Paired",
+                    shuffle = TRUE)
+    ggsave(filename = "UMAP_condition.png",
+           path = paste0(here("results", "final_outputs", name, "/")),
+           plot = umap)
+    # stacked barplot of cell type proportions ----------
+    df <- table(Idents(object), object$orig.ident)
+    df <- as.data.frame(df)
+    df$Var1 <- as.character(df$Var1)
+    barplot <- ggplot(df, aes(x = fct_rev(Var1), y = Freq, fill = Var2)) +
+      theme_bw(base_size = 15) +
+      geom_col(position = "fill", width = 0.5) +
+      xlab("Cell Type") +
+      ylab("Proportion") +
+      scale_fill_manual(values = brewer.pal(12, "Paired")) +
+      theme(legend.title = element_blank()) +
+      coord_flip()
+    ggsave(filename = "celltype_proportions_stackedbarplot.png",
+           path = paste0(here("results", "final_outputs", name, "/")),
+           plot = barplot)
   }
 }
-
 
 ## split_objects
 # Split multiple Seurat objects by their condition (orig.ident in my data) and return a list with split objects.
