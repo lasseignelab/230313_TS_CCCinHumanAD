@@ -72,6 +72,11 @@ split_object_list <- lapply(object_list, split_objects)
 ```
 * The split_object_list should include all objects and show both AD and CTRL for each.
 
+# Save split object list
+```{r}
+saveRDS(split_object_list, file = here("data", "ccc", "split_object_list.rds"))
+```
+
 # Prioritize ligands
 * Sender cell populations: Astrocytes, Oligodendrocytes, Microglia, OPCs
 * Receiver cell population: Excitatory Neurons
