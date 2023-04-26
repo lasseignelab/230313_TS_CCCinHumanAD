@@ -41,6 +41,7 @@ suppressPackageStartupMessages({
   library(Seurat)
   library(tidyverse)
   library(liana)
+  library(RColorBrewer)
   library(here)
   library(lintr)
   library(styler)
@@ -64,7 +65,7 @@ vine_cortex <- readRDS(here("data", "vinecortex_processed_seurat.rds"))
 # create a list of all objects
 object_list <- tibble::lst(vine, geo, vine_cortex)
 
-# UMAPs split by condition saved to results/final_outputs/ dir by dataset
+# UMAPs and cell type proportion stacked bar plots by condition saved to results/final_outputs/ dir by dataset
 prep_liana(object_list = object_list)
 
 # split objects by condition for liana
