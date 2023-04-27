@@ -282,6 +282,219 @@ filter_ligands <- function(df){
   return(ligands)
 }
 
+## prep_nichenet
+# A function which prepares seurat objects for NicheNet analysis by creating cell type aggregate columns and assigning them as active.ident. It also plots and saves UMAPs showing the split by condition and cell type.
+prep_nichenet <- function(object_list) {
+  objects <- tibble::lst()
+  for (name in names(object_list)) {
+    object <- get(name)
+    print(name)
+    # Check number of cells per cell type and condition ----------
+    print("Checking number of cells per cell type and condition")
+    print(table(object@active.ident, object@meta.data$orig.ident))
+    # Change cell type names based on condition origin
+    print("Adding celltype_aggregate column to metadata")
+    object@meta.data$celltype_aggregate <- paste(object@active.ident,
+                                                 object@meta.data$orig.ident,
+                                                 sep = "_")
+    print("Plot cell_type aggregate UMAP and save to intermediate_outputs")
+    umap <- DimPlot(object, group.by = "celltype_aggregate")
+    plot(umap)
+    ggsave(filename = "UMAP_celltype_aggregate.png",
+           path = paste0(here("results", "intermediate_outputs", name, "/ccc/")),
+           plot = umap)
+    # change metadata column and set as identity ----------
+    print("Setting celltype_aggregate column as identity of the object")
+    celltype_id <- "celltype_aggregate"
+    object <- SetIdent(object, value = object[[celltype_id]])
+    objects[name] <- object
+  }
+  return(objects)
+}
+
+## diff_nichenet
+# A function which performs differential gene expression analysis and cross-references the NicheNet lr_network to identify DE ligands and receptors
+# The original code is from the vignette, but has been made more legible and functional
+diff_nichenet <- function(object, niches, expression_pct, lr_network, assay_oi = "RNA") {
+  # Differential analysis in sender cells
+  DE_sender <- calculate_niche_de(seurat_obj = object %>% 
+                                    subset(features = lr_network$ligand %>%
+                                             unique()),
+                                  niches = niches,
+                                  type = "sender",
+                                  assay_oi = assay_oi)
+  # Differential analysis in receiver cells
+  DE_receiver <- calculate_niche_de(seurat_obj = object %>% 
+                                      subset(features = lr_network$receptor %>% 
+                                               unique()),
+                                    niches = niches,
+                                    type = "receiver",
+                                    assay_oi = assay_oi)
+  # Filter log2FC for sender
+  DE_sender <- DE_sender %>% 
+    mutate(avg_log2FC = ifelse(avg_log2FC == Inf,
+                               max(avg_log2FC[is.finite(avg_log2FC)]),
+                               ifelse(avg_log2FC == -Inf,
+                                      min(avg_log2FC[is.finite(avg_log2FC)]),
+                                      avg_log2FC)))
+  # Filter log2FC for receiver
+  DE_receiver <- DE_receiver %>%
+    mutate(avg_log2FC = ifelse(avg_log2FC == Inf,
+                               max(avg_log2FC[is.finite(avg_log2FC)]),
+                               ifelse(avg_log2FC == -Inf,
+                                      min(avg_log2FC[is.finite(avg_log2FC)]),
+                                      avg_log2FC)))
+  # Process sender and receiver niches
+  DE_sender_processed <- process_niche_de(DE_table = DE_sender,
+                                          niches = niches,
+                                          expression_pct = expression_pct,
+                                          type = "sender")
+  DE_receiver_processed <- process_niche_de(DE_table = DE_receiver,
+                                            niches = niches,
+                                            expression_pct = expression_pct,
+                                            type = "receiver")
+  # Combine sender and receiver
+  DE_sender_receiver <- combine_sender_receiver_de(DE_sender_processed,
+                                                   DE_receiver_processed,
+                                                   lr_network,
+                                                   specificity_score = "min_lfc")
+  return(DE_sender_receiver)
+}
+
+## make_mock_spatial
+# A function which makes objects needed for downstream NicheNet analyses in a list called mock_spatial_data_list, which can be unlisted for future use. 
+make_mock_spatial <- function(include_spatial_info_sender,
+                              include_spatial_info_receiver,
+                              niches,
+                              expression_pct,
+                              specificity_score_spatial = "lfc") {
+  mock_spatial_data_list <- list()
+  if(include_spatial_info_sender == FALSE & include_spatial_info_receiver == FALSE) {
+    spatial_info <- tibble(celltype_region_oi = NA,
+                           celltype_other_region = NA) %>%
+      mutate(niche = niches %>%
+               names() %>%
+               head(1),
+             celltype_type = "sender")
+  }
+  # sender spatial info
+  if(include_spatial_info_sender == TRUE) {
+    sender_spatial_DE <- calculate_spatial_DE(seurat_obj = seurat_obj %>% 
+                                                subset(features = lr_network$ligand %>%
+                                                         unique()),
+                                              spatial_info = spatial_info %>%
+                                                filter(celltype_type == "sender"))
+    sender_spatial_DE_processed <- process_spatial_de(DE_table = sender_spatial_DE,
+                                                      type = "sender",
+                                                      lr_network = lr_network,
+                                                      expression_pct = 0.1,
+                                                      specificity_score = specificity_score_spatial)
+    # add a neutral spatial score for sender celltypes in which the spatial is not known / not of importance
+    sender_spatial_DE_others <- get_non_spatial_de(niches = niches,
+                                                   spatial_info = spatial_info,
+                                                   type = "sender",
+                                                   lr_network = lr_network)
+    sender_spatial_DE_processed <- sender_spatial_DE_processed %>%
+      bind_rows(sender_spatial_DE_others)
+    sender_spatial_DE_processed <- sender_spatial_DE_processed %>%
+      mutate(scaled_ligand_score_spatial = scale_quantile_adapted(ligand_score_spatial))
+  } else {
+    # add a neutral spatial score for all sender celltypes (for none of them, spatial is relevant in this case)
+    sender_spatial_DE_processed <- get_non_spatial_de(niches = niches,
+                                                      spatial_info = spatial_info,
+                                                      type = "sender",
+                                                      lr_network = lr_network)
+    sender_spatial_DE_processed <- sender_spatial_DE_processed %>%
+      mutate(scaled_ligand_score_spatial = scale_quantile_adapted(ligand_score_spatial))
+  }
+  # receiver spatial info 
+  if(include_spatial_info_receiver == TRUE) {
+    receiver_spatial_DE <- calculate_spatial_DE(seurat_obj = seurat_obj %>%
+                                                  subset(features = lr_network$receptor %>%
+                                                           unique()),
+                                                spatial_info = spatial_info %>%
+                                                  filter(celltype_type == "receiver"))
+    receiver_spatial_DE_processed <- process_spatial_de(DE_table = receiver_spatial_DE,
+                                                        type = "receiver",
+                                                        lr_network = lr_network,
+                                                        expression_pct = 0.1,
+                                                        specificity_score = specificity_score_spatial)
+    # add a neutral spatial score for receiver celltypes in which the spatial is not known / not of importance
+    receiver_spatial_DE_others <- get_non_spatial_de(niches = niches,
+                                                     spatial_info = spatial_info,
+                                                     type = "receiver",
+                                                     lr_network = lr_network)
+    receiver_spatial_DE_processed <- receiver_spatial_DE_processed %>%
+      bind_rows(receiver_spatial_DE_others)
+    receiver_spatial_DE_processed <- receiver_spatial_DE_processed %>%
+      mutate(scaled_receptor_score_spatial = scale_quantile_adapted(receptor_score_spatial))
+  } else {
+    # add a neutral spatial score for all receiver celltypes (for none of them, spatial is relevant in this case)
+    receiver_spatial_DE_processed <- get_non_spatial_de(niches = niches,
+                                                        spatial_info = spatial_info,
+                                                        type = "receiver",
+                                                        lr_network = lr_network)
+    receiver_spatial_DE_processed <- receiver_spatial_DE_processed %>%
+      mutate(scaled_receptor_score_spatial = scale_quantile_adapted(receptor_score_spatial))
+  }
+  mock_spatial_data_list <- tibble::lst(sender_spatial_DE_processed, receiver_spatial_DE_processed)
+  return(mock_spatial_data_list)
+}
+
+## calculate_ligand_activity
+# A function that creates an object called ligand_activities_targets needed for downstream NicheNet analyses.
+calculate_ligand_activity <- function(object, niches, top_n_targets, lfc_cutoff, assay_oi = "RNA") {
+  DE_receiver_targets <- calculate_niche_de_targets(seurat_obj = object, 
+                                                    niches = niches,
+                                                    lfc_cutoff = lfc_cutoff,
+                                                    expression_pct = 0.1,
+                                                    assay_oi = assay_oi) 
+  DE_receiver_processed_targets <- process_receiver_target_de(DE_receiver_targets = DE_receiver_targets,
+                                                              niches = niches,
+                                                              expression_pct = 0.1,
+                                                              specificity_score = "min_lfc")
+  background <- DE_receiver_processed_targets %>% pull(target) %>% unique()
+  # Determine gene set of niche 1 ----------------------------------------------
+  geneset_niche1 <- DE_receiver_processed_targets %>% 
+    filter(receiver == niches[[1]]$receiver &
+             target_score >= lfc_cutoff &
+             target_significant == 1 &
+             target_present == 1) %>%
+    pull(target) %>%
+    unique()
+  # Determine gene set of niche 2 ----------------------------------------------
+  geneset_niche2 <- DE_receiver_processed_targets %>%
+    filter(receiver == niches[[2]]$receiver &
+             target_score >= lfc_cutoff &
+             target_significant == 1 &
+             target_present == 1) %>%
+    pull(target) %>%
+    unique()
+  # check which genes are excluded from the gene sets --------------------------
+  geneset_niche1 %>% setdiff(rownames(ligand_target_matrix)) 
+  geneset_niche2 %>% setdiff(rownames(ligand_target_matrix)) 
+  length1 <- length(geneset_niche1)
+  print(paste0("geneset_niche1 has ", length1, " genes excluded"))
+  length2 <- length(geneset_niche2)
+  print(paste0("geneset_niche2 has ", length2, " genes excluded"))
+  # Make niche gene set list ---------------------------------------------------
+  niche_geneset_list <- list(
+    "AD_niche" = list(
+      "receiver" = niches[[1]]$receiver,
+      "geneset" = geneset_niche1,
+      "background" = background),
+    "CTRL_niche" = list(
+      "receiver" = niches[[2]]$receiver,
+      "geneset" = geneset_niche2,
+      "background" = background)
+  )
+  # Get ligand-target interactions and activity --------------------------------
+  ligand_activities_targets <- get_ligand_activities_targets(niche_geneset_list = niche_geneset_list,
+                                                             ligand_target_matrix = ligand_target_matrix,
+                                                             top_n_target = top_n_targets)
+  return(ligand_activities_targets)
+}
+
 ## prep_NicheNet
 # A function which prepares the prioritized NicheNet outputs for mapping to STRINGdb PPI and returns a dataframe with a target and a sender column 
 prep_NicheNet <- function(prioritizedNicheNet, cond_niche){
