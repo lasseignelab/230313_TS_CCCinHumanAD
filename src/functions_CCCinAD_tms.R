@@ -219,7 +219,7 @@ find_markers <- function(object, resolution, identities, value){
 
 ## prep_liana
 # Ensures the "RNA" assay is used before plotting each object's UMAP split by condition (AD, CTRL) and stacked bar plots of cell type proportions across conditions. Plots are saved to their respective "results/final_outputs/" directories.
-prep_liana <- function(object_list) {
+prep_liana <- function(object_list, file_path) {
   for(name in names(object_list)) {
     object <- get(name)
     DefaultAssay(object) <- "RNA"
@@ -230,7 +230,7 @@ prep_liana <- function(object_list) {
                     cols = "Paired",
                     shuffle = TRUE)
     ggsave(filename = "UMAP_condition.png",
-           path = paste0(here("results", "final_outputs", name, "/")),
+           path = paste0(here(file_path, name, "/")),
            plot = umap)
     # stacked barplot of cell type proportions ----------
     df <- table(Idents(object), object$orig.ident)
@@ -245,7 +245,7 @@ prep_liana <- function(object_list) {
       theme(legend.title = element_blank()) +
       coord_flip()
     ggsave(filename = "celltype_proportions_stackedbarplot.png",
-           path = paste0(here("results", "final_outputs", name, "/")),
+           path = paste0(here(file_path, name, "/")),
            plot = barplot)
   }
 }
@@ -284,7 +284,7 @@ filter_ligands <- function(df){
 
 ## prep_nichenet
 # A function which prepares seurat objects for NicheNet analysis by creating cell type aggregate columns and assigning them as active.ident. It also plots and saves UMAPs showing the split by condition and cell type.
-prep_nichenet <- function(object_list) {
+prep_nichenet <- function(object_list, file_path) {
   objects <- tibble::lst()
   for (name in names(object_list)) {
     object <- get(name)
@@ -301,7 +301,7 @@ prep_nichenet <- function(object_list) {
     umap <- DimPlot(object, group.by = "celltype_aggregate")
     plot(umap)
     ggsave(filename = "UMAP_celltype_aggregate.png",
-           path = paste0(here("results", "intermediate_outputs", name, "/ccc/")),
+           path = paste0(here(file_path, name, "/ccc/")),
            plot = umap)
     # change metadata column and set as identity ----------
     print("Setting celltype_aggregate column as identity of the object")
@@ -362,7 +362,7 @@ diff_nichenet <- function(object, niches, expression_pct, lr_network, assay_oi =
 }
 
 ## make_mock_spatial
-# A function which makes objects needed for downstream NicheNet analyses in a list called mock_spatial_data_list, which can be unlisted for future use. 
+# A function which makes objects needed for downstream NicheNet analyses as a list called mock_spatial_data_list, which can be unlisted for future use. 
 make_mock_spatial <- function(include_spatial_info_sender,
                               include_spatial_info_receiver,
                               niches,
@@ -474,9 +474,9 @@ calculate_ligand_activity <- function(object, niches, top_n_targets, lfc_cutoff,
   geneset_niche1 %>% setdiff(rownames(ligand_target_matrix)) 
   geneset_niche2 %>% setdiff(rownames(ligand_target_matrix)) 
   length1 <- length(geneset_niche1)
-  print(paste0("geneset_niche1 has ", length1, " genes excluded"))
+  print(paste0("geneset_niche1 has ", length1, " genes"))
   length2 <- length(geneset_niche2)
-  print(paste0("geneset_niche2 has ", length2, " genes excluded"))
+  print(paste0("geneset_niche2 has ", length2, " genes"))
   # Make niche gene set list ---------------------------------------------------
   niche_geneset_list <- list(
     "AD_niche" = list(
@@ -492,7 +492,113 @@ calculate_ligand_activity <- function(object, niches, top_n_targets, lfc_cutoff,
   ligand_activities_targets <- get_ligand_activities_targets(niche_geneset_list = niche_geneset_list,
                                                              ligand_target_matrix = ligand_target_matrix,
                                                              top_n_target = top_n_targets)
-  return(ligand_activities_targets)
+  outs <- tibble::lst(DE_receiver_processed_targets, ligand_activities_targets)
+  return(outs)
+}
+
+## calculate_scaled_gex
+# A function which uses previously generated outputs and a seurat object as input and outputs a list of expression tables of ligands, receptors, and targets, which needs to be unlisted after running this function. 
+calculate_scaled_gex <- function(object,
+                                 lr_network,
+                                 ligand_activities_targets,
+                                 niches = user_niches,
+                                 assay_oi = "RNA",
+                                 expression_pct = 0.1) {
+  # get ligands, receptors, and targets from ligand_activities_targets and lr_networks
+  features_oi <- union(lr_network$ligand, lr_network$receptor) %>%
+    union(ligand_activities_targets$target) %>%
+    setdiff(NA)
+  dotplot <- suppressWarnings(Seurat::DotPlot(object %>%
+                                                subset(idents = niches %>%
+                                                         unlist() %>%
+                                                         unique()),
+                                              features = features_oi,
+                                              assay = assay_oi))
+  # create expression table
+  exprs_tbl <- dotplot$data %>% as_tibble()
+  exprs_tbl <- exprs_tbl %>%
+    rename(celltype = id,
+           gene = features.plot,
+           expression = avg.exp,
+           expression_scaled = avg.exp.scaled,
+           fraction = pct.exp) %>%
+    mutate(fraction = fraction/100) %>%
+    as_tibble() %>%
+    select(celltype, gene, expression, expression_scaled, fraction) %>%
+    distinct() %>%
+    arrange(gene) %>% 
+    mutate(gene = as.character(gene))
+  # create ligand expression df
+  exprs_tbl_ligand <- exprs_tbl %>%
+    filter(gene %in% lr_network$ligand) %>%
+    rename(sender = celltype,
+           ligand = gene,
+           ligand_expression = expression,
+           ligand_expression_scaled = expression_scaled,
+           ligand_fraction = fraction)
+  # create receptor expression df
+  exprs_tbl_receptor <- exprs_tbl %>%
+    filter(gene %in% lr_network$receptor) %>%
+    rename(receiver = celltype,
+           receptor = gene,
+           receptor_expression = expression,
+           receptor_expression_scaled = expression_scaled,
+           receptor_fraction = fraction)
+  # create target expression df
+  exprs_tbl_target <- exprs_tbl %>%
+    filter(gene %in% ligand_activities_targets$target) %>%
+    rename(receiver = celltype,
+           target = gene,
+           target_expression = expression,
+           target_expression_scaled = expression_scaled,
+           target_fraction = fraction)
+  # create final ligand expression df
+  exprs_tbl_ligand <- exprs_tbl_ligand %>%
+    mutate(scaled_ligand_expression_scaled = scale_quantile_adapted(ligand_expression_scaled)) %>%
+    mutate(ligand_fraction_adapted = ligand_fraction) %>%
+    mutate_cond(ligand_fraction >= expression_pct,
+                ligand_fraction_adapted = expression_pct) %>%
+    mutate(scaled_ligand_fraction_adapted = scale_quantile_adapted(ligand_fraction_adapted))
+  # create final receptor expression df
+  exprs_tbl_receptor <- exprs_tbl_receptor %>%
+    mutate(scaled_receptor_expression_scaled = scale_quantile_adapted(receptor_expression_scaled)) %>%
+    mutate(receptor_fraction_adapted = receptor_fraction) %>%
+    mutate_cond(receptor_fraction >= expression_pct,
+                receptor_fraction_adapted = expression_pct) %>%
+    mutate(scaled_receptor_fraction_adapted = scale_quantile_adapted(receptor_fraction_adapted))
+  # return list with all relevant objects
+  exprs_tbl_list <- tibble::lst(exprs_tbl_receptor, exprs_tbl_ligand, exprs_tbl_target)
+  return(exprs_tbl_list)
+}
+
+## score_interactions
+# A function which uses expression tables, DE information between niches, and the lr network to score the l-r interactions based on their expression strength of the receptor
+score_interactions <- function(lr_network, exprs_tbl_ligand, exprs_tbl_receptor, DE_sender_receiver) {
+  # Combine expression tables for ligands, receptors, and DE between sender and receiver niches 
+  exprs_sender_receiver <- lr_network %>% 
+    inner_join(exprs_tbl_ligand, by = c("ligand")) %>%
+    inner_join(exprs_tbl_receptor, by = c("receptor")) %>%
+    inner_join(DE_sender_receiver %>%
+                 distinct(niche,
+                          sender,
+                          receiver)
+    )
+  # score interactions
+  ligand_scaled_receptor_expression_fraction_df <- exprs_sender_receiver %>%
+    group_by(ligand, receiver) %>%
+    mutate(rank_receptor_expression = dense_rank(receptor_expression),
+           rank_receptor_fraction = dense_rank(receptor_fraction)) %>%
+    mutate(ligand_scaled_receptor_expression_fraction = 0.5*((rank_receptor_fraction)) + 
+             ((rank_receptor_expression / max(rank_receptor_expression))) ) %>%
+    distinct(ligand,
+             receptor,
+             receiver,
+             ligand_scaled_receptor_expression_fraction,
+             bonafide) %>%
+    distinct() %>%
+    ungroup()
+  # return object
+  return(ligand_scaled_receptor_expression_fraction_df)
 }
 
 ## prep_NicheNet
@@ -630,7 +736,7 @@ create_igraph_object <- function(ppi, prioritized_targets, disease_gene_list, co
       E(AD_igraph)$weight <- ppi_weights$edge_weight_t
     } else {
       prioritized_targets_control <- subset(prioritized_targets, 
-                                            sub(".*_", "", prioritized_targets$receiver) == "Control", 
+                                            sub(".*_", "", prioritized_targets$receiver) == "CTRL", 
                                             drop = TRUE)
       mapped_genes_control <- map_genes(prioritized_targets_control,
                                         gene_list = disease_gene_list)

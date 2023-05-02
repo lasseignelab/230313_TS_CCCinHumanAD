@@ -94,8 +94,12 @@ organism <- "human"
 * I am also plotting UMAPs of the split and saving them to results/intermediate_outputs/{object_name}/ccc/
 * This is done for each object in the split_object_list
 ```{r warning=FALSE}
-# Making cell-type aggregate object list
-ca_object_list <- prep_nichenet(object_list)
+# Making cell-type aggregate object list and save celltype aggregate UMAPs
+ca_object_list <- prep_nichenet(object_list,
+                                file_path = "results/intermediate_outputs/")
+
+# unlist and add objects to global environment for downstream use
+list2env(ca_object_list, globalenv())
 ```
 
 ## Define niches
@@ -117,12 +121,6 @@ user_niches <- list("AD_niche"   = list("sender"   = c("Astrocytes_AD",
                     )
 ```
 
-```{r}
-# unlist and add objects to global environment
-list2env(ca_object_list, globalenv())
-```
-
-
 # TESTING ALL CODE HERE
 ```{r}
 user_niches <- list("AD_niche"   = list("sender"   = c("Astrocytes_AD"),
@@ -132,6 +130,8 @@ user_niches <- list("AD_niche"   = list("sender"   = c("Astrocytes_AD"),
                                         )
                     )
 
+
+
 DE_sender_receiver <- diff_nichenet(object = vine, niches = user_niches, expression_pct = 0.10, lr_network = lr_network)
 
 mock_spatial_data_list <- make_mock_spatial(include_spatial_info_sender = FALSE,
@@ -139,19 +139,142 @@ mock_spatial_data_list <- make_mock_spatial(include_spatial_info_sender = FALSE,
                                             niches = user_niches)
 list2env(mock_spatial_data_list, globalenv())
 
-ligand_activities_targets <- calculate_ligand_activity(vine,
-                                                       niches = user_niches,
-                                                       top_n_targets = 250,
-                                                       lfc_cutoff = 0.15)
+outs <- calculate_ligand_activity(vine,
+                                  niches = user_niches,
+                                  top_n_targets = 250,
+                                  lfc_cutoff = 0.15)
+
+list2env(outs, globalenv())
+
+exprs_tbl_list <- calculate_scaled_gex(vine,
+                                       lr_network = lr_network,
+                                       ligand_activities_targets = ligand_activities_targets)
+
+list2env(exprs_tbl_list, globalenv())
+
+ligand_scaled_receptor_expression_fraction_df <- score_interactions(lr_network = lr_network,
+                                                                    exprs_tbl_ligand = exprs_tbl_ligand,
+                                                                    exprs_tbl_receptor = exprs_tbl_receptor,
+                                                                    DE_sender_receiver = DE_sender_receiver_LIANA)
+
+# these settings will favor DE l-r pairs compared to activity. Adapting these values can change what is favored. In-depth explanations of each factor can be found in the vignette for differential NicheNet. 
+prioritizing_weights = c("scaled_ligand_score" = 5,
+                         "scaled_ligand_expression_scaled" = 1,
+                         "ligand_fraction" = 1,
+                         "scaled_ligand_score_spatial" = 0, 
+                         "scaled_receptor_score" = 0.5,
+                         "scaled_receptor_expression_scaled" = 0.5,
+                          "receptor_fraction" = 1, 
+                         "ligand_scaled_receptor_expression_fraction" = 1,
+                         "scaled_receptor_score_spatial" = 0,
+                         "scaled_activity" = 0,
+                         "scaled_activity_normalized" = 1,
+                         "bona_fide" = 1)
+
+# combine all outputs into one large list
+output <- tibble::lst(DE_sender_receiver_LIANA,
+                       ligand_scaled_receptor_expression_fraction_df,
+                       sender_spatial_DE_processed,
+                       receiver_spatial_DE_processed,
+                       ligand_activities_targets,
+                       DE_receiver_processed_targets,
+                       exprs_tbl_ligand,
+                       exprs_tbl_receptor,
+                       exprs_tbl_target
+                       )
+
+# Prioritize interactions based on previously assigned weights 
+prioritization_tables <- get_prioritization_tables(output, prioritizing_weights)
+
+
+# save both output and prioritization tables
 
 
 
 
+nichenet_wrapper <- function(object_list, user_niches, lr_network, prioritizing_weights, DE_sender_receiver) {
+  for(name in names(object_list)) {
+    # grab object --------------------
+    seurat_obj <- get(name)
+    print(paste0("Loaded ", name, " seurat object"))
+    # DE analysis between niches --------------------
+    DE_sender_receiver <- diff_nichenet(object = seurat_obj,
+                                        niches = user_niches,
+                                        expression_pct = 0.10,
+                                        lr_network = lr_network)
+    print("Differential gene expression analysis finished")
+    # Filter ligands by LIANA ligands 
+    DE_sender_receiver_LIANA <- subset(DE_sender_receiver, ligand %in% ligands)
+    # Create mock spatial data --------------------
+    mock_spatial_data_list <- make_mock_spatial(include_spatial_info_sender = FALSE,
+                                                include_spatial_info_receiver = FALSE,
+                                                niches = user_niches)
+    print("Mock spatial data created")
+    # unlist mock spatial data list to get objects needed --------------------
+    list2env(mock_spatial_data_list, environment())
+    # calculate ligand activity --------------------
+    ligand_activity_list <- calculate_ligand_activity(seurat_obj,
+                                                      niches = user_niches,
+                                                      top_n_targets = 250,
+                                                      lfc_cutoff = 0.15)
+    print("Calculated ligand activity")
+    # unlist ligand activity list list to get objects needed -------------------
+    list2env(ligand_activity_list, environment())
+    # calculate scaled expression --------------------
+    exprs_tbl_list <- calculate_scaled_gex(seurat_obj,
+                                           lr_network = lr_network,
+                                           ligand_activities_targets = ligand_activities_targets)
+    print("Calculated scaled expression")
+    # unlist expression table list to get objects needed --------------------
+    list2env(exprs_tbl_list, environment())
+    # score interactions --------------------
+    ligand_scaled_receptor_expression_fraction_df <-
+      score_interactions(lr_network = lr_network,
+                         exprs_tbl_ligand = exprs_tbl_ligand,
+                         exprs_tbl_receptor = exprs_tbl_receptor,
+                         DE_sender_receiver = DE_sender_receiver_LIANA)
+    print("Scored interactions")
+    # combine all outputs into one large list --------------------
+    output <- tibble::lst(DE_sender_receiver_LIANA,
+                          ligand_scaled_receptor_expression_fraction_df,
+                          sender_spatial_DE_processed,
+                          receiver_spatial_DE_processed,
+                          ligand_activities_targets,
+                          DE_receiver_processed_targets,
+                          exprs_tbl_target
+                          )
+    print("Created output")
+    # save output
+    saveRDS(output, file = here(paste0("results/intermediate_outputs/",
+                                name,
+                                "/ccc/nichenet_output.rds"
+                                )
+            )
+    )
+    print("Saved output")
+    # Prioritize interactions based on previously assigned weights ------------- 
+    prioritization_tables <- get_prioritization_tables(output, 
+                                                       prioritizing_weights
+                                                       )
+    print("Created prioritized output")
+    # save prioritization tables
+    saveRDS(prioritization_tables, file = here(paste0("results/intermediate_outputs/",
+                                                      name,
+                                                      "/ccc/nichenet_prioritization_tables.rds"
+                                                      )
+                                               )
+            )
+    print("Saved prioritized output")
+  }
+}
 
-################################################################################
-DE_sender_receiver <- diff_nichenet(geo, niches, expression_pct = 0.10)
 
-DE_sender_receiver <- diff_nichenet(vine_cortex, niches, expression_pct = 0.10)
+nichenet_wrapper(ca_object_list,
+                 user_niches = user_niches,
+                 lr_network = lr_network,
+                 prioritizing_weights = prioritizing_weights,
+                 DE_sender_receiver = DE_sender_receiver_LIANA)
+
 
 ```
 
@@ -166,18 +289,6 @@ DE_sender_receiver_LIANA <- subset(DE_sender_receiver, ligand %in% ligands)
 # Adding mock spatial data (differential NicheNet will not run otherwise)
 ```{r}
 
-
-
-
-
-
-
-
-
-
-# this is how this should be defined if you don't have spatial info
-# mock spatial info
-
 ```
 
 # Calculate ligand activities and infer active ligand-target links 
@@ -188,102 +299,21 @@ top_n_targets = 250
 # using minimum lfc ensures that we identify ligand target interactions which have the strongest specificity. A high min lfc means that a ligand is more strongly expressed in the cell type of niche 1 compared to all cell types in niche 2
 
 ligand_activities_targets <- calculate_ligand_activity(vine, niches = user_niches, top_n_targets = 250, lfc_cutoff = 0.15)
-
-
 ```
 
 ## Calculate the scaled expression of ligands, receptors, and targets across cell types of interest
 - log expression values and expression fractions
 ```{r}
-features_oi <- union(lr_network$ligand, lr_network$receptor) %>% union(ligand_activities_targets$target) %>% setdiff(NA)
 
-dotplot <- suppressWarnings(Seurat::DotPlot(seurat_obj %>%
-                                              subset(idents = niches %>%
-                                                       unlist() %>%
-                                                       unique()),
-                                            features = features_oi,
-                                            assay = assay_oi))
 
-exprs_tbl <- dotplot$data %>% as_tibble()
-
-exprs_tbl <- exprs_tbl %>%
-  rename(celltype = id,
-         gene = features.plot,
-         expression = avg.exp,
-         expression_scaled = avg.exp.scaled,
-         fraction = pct.exp) %>%
-  mutate(fraction = fraction/100) %>%
-  as_tibble() %>%
-  select(celltype, gene, expression, expression_scaled, fraction) %>%
-  distinct() %>%
-  arrange(gene) %>% 
-  mutate(gene = as.character(gene))
-
-exprs_tbl_ligand <- exprs_tbl %>%
-  filter(gene %in% lr_network$ligand) %>%
-  rename(sender = celltype,
-         ligand = gene,
-         ligand_expression = expression,
-         ligand_expression_scaled = expression_scaled,
-         ligand_fraction = fraction)
-
-exprs_tbl_receptor <- exprs_tbl %>%
-  filter(gene %in% lr_network$receptor) %>%
-  rename(receiver = celltype,
-         receptor = gene,
-         receptor_expression = expression,
-         receptor_expression_scaled = expression_scaled,
-         receptor_fraction = fraction)
-
-exprs_tbl_target <- exprs_tbl %>%
-  filter(gene %in% ligand_activities_targets$target) %>%
-  rename(receiver = celltype,
-         target = gene,
-         target_expression = expression,
-         target_expression_scaled = expression_scaled,
-         target_fraction = fraction)
-
-exprs_tbl_ligand <- exprs_tbl_ligand %>%
-  mutate(scaled_ligand_expression_scaled = scale_quantile_adapted(ligand_expression_scaled)) %>%
-  mutate(ligand_fraction_adapted = ligand_fraction) %>%
-  mutate_cond(ligand_fraction >= expression_pct,
-              ligand_fraction_adapted = expression_pct) %>%
-  mutate(scaled_ligand_fraction_adapted = scale_quantile_adapted(ligand_fraction_adapted))
-
-exprs_tbl_receptor <- exprs_tbl_receptor %>%
-  mutate(scaled_receptor_expression_scaled = scale_quantile_adapted(receptor_expression_scaled)) %>%
-  mutate(receptor_fraction_adapted = receptor_fraction) %>%
-  mutate_cond(receptor_fraction >= expression_pct,
-              receptor_fraction_adapted = expression_pct) %>%
-  mutate(scaled_receptor_fraction_adapted = scale_quantile_adapted(receptor_fraction_adapted))
 ```
 
 ## Expression fraction and receptor 
 Scoring the l-r interctions based on their expression strength of the receptor. 
 ```{r}
-exprs_sender_receiver <- lr_network %>% 
-  inner_join(exprs_tbl_ligand, by = c("ligand")) %>%
-  inner_join(exprs_tbl_receptor, by = c("receptor")) %>%
-  inner_join(DE_sender_receiver_LIANA %>%
-               distinct(niche,
-                        sender,
-                        receiver)
-             )
+# don't forget that we use this: DE_sender_receiver <- DE_sender_receiver_LIANA
 
-ligand_scaled_receptor_expression_fraction_df <- exprs_sender_receiver %>%
-  group_by(ligand, receiver) %>%
-  mutate(rank_receptor_expression = dense_rank(receptor_expression),
-         rank_receptor_fraction = dense_rank(receptor_fraction)) %>%
-  mutate(ligand_scaled_receptor_expression_fraction = 
-           0.5*((rank_receptor_fraction)) + 
-           ((rank_receptor_expression / max(rank_receptor_expression))) ) %>%
-  distinct(ligand,
-           receptor,
-           receiver,
-           ligand_scaled_receptor_expression_fraction,
-           bonafide) %>%
-  distinct() %>%
-  ungroup()
+
 ```
 
 ## Prioritization of ligand-receptor and ligand-target links
@@ -301,72 +331,25 @@ prioritizing_weights = c("scaled_ligand_score" = 5,
                          "scaled_activity" = 0,
                          "scaled_activity_normalized" = 1,
                          "bona_fide" = 1)
-output <- list(DE_sender_receiver = DE_sender_receiver_LIANA, ligand_scaled_receptor_expression_fraction_df = ligand_scaled_receptor_expression_fraction_df, sender_spatial_DE_processed = sender_spatial_DE_processed, receiver_spatial_DE_processed = receiver_spatial_DE_processed, ligand_activities_targets = ligand_activities_targets, DE_receiver_processed_targets = DE_receiver_processed_targets, exprs_tbl_ligand = exprs_tbl_ligand, exprs_tbl_receptor = exprs_tbl_receptor, exprs_tbl_target = exprs_tbl_target)
+
+# combine all outputs into one large list
+output <- tibble::lst(DE_sender_receiver_LIANA,
+                       ligand_scaled_receptor_expression_fraction_df,
+                       sender_spatial_DE_processed,
+                       receiver_spatial_DE_processed,
+                       ligand_activities_targets,
+                       DE_receiver_processed_targets,
+                       exprs_tbl_ligand,
+                       exprs_tbl_receptor,
+                       exprs_tbl_target
+                       )
+
+# Prioritize interactions based on previously assigned weights 
 prioritization_tables <- get_prioritization_tables(output, prioritizing_weights)
-prioritization_tables$prioritization_tbl_ligand_receptor %>% filter(receiver == niches[[1]]$receiver) %>% head(10)
-prioritization_tables$prioritization_tbl_ligand_target %>% filter(receiver == niches[[1]]$receiver) %>% head(10)
-prioritization_tables$prioritization_tbl_ligand_receptor %>% filter(receiver == niches[[2]]$receiver) %>% head(10)
-prioritization_tables$prioritization_tbl_ligand_target %>% filter(receiver == niches[[2]]$receiver) %>% head(10)
+
+
+# save both output and prioritization tables
 ```
-
-# Start here for plotting purposes
-Save prioritization_tables object for future plots. 
-```{r}
-saveRDS(prioritization_tables, "/data/user/tsoelter/projects/tms_ccc/data/VINE_prioritiztion_tables.rds")
-saveRDS(output, "/data/user/tsoelter/projects/tms_ccc/data/VINE_LIANA_NicheNet_output.rds")
-```
-
-# Visualization
-prep
-```{r}
-top_ligand_niche_df <- prioritization_tables$prioritization_tbl_ligand_receptor %>% select(niche, sender, receiver, ligand, receptor, prioritization_score) %>% group_by(ligand) %>% top_n(1, prioritization_score) %>% ungroup() %>% select(ligand, receptor, niche) %>% rename(top_niche = niche)
-
-top_ligand_receptor_niche_df <- prioritization_tables$prioritization_tbl_ligand_receptor %>% select(niche, sender, receiver, ligand, receptor, prioritization_score) %>% group_by(ligand, receptor) %>% top_n(1, prioritization_score) %>% ungroup() %>% select(ligand, receptor, niche) %>% rename(top_niche = niche)
-
-ligand_prioritized_tbl_oi <- prioritization_tables$prioritization_tbl_ligand_receptor %>% select(niche, sender, receiver, ligand, prioritization_score) %>% group_by(ligand, niche) %>% top_n(1, prioritization_score) %>% ungroup() %>% distinct() %>% inner_join(top_ligand_niche_df) %>% filter(niche == top_niche) %>% group_by(niche) %>% top_n(50, prioritization_score) %>% ungroup() # get the top50 ligands per niche
-```
-
-plot
-```{r}
-receiver_oi <- "Neurons_AD"
-
-filtered_ligands <- ligand_prioritized_tbl_oi %>% filter(receiver == receiver_oi) %>% top_n(20, prioritization_score) %>% pull(ligand) %>% unique()
-
-prioritized_tbl_oi <- prioritization_tables$prioritization_tbl_ligand_receptor %>% filter(ligand %in% filtered_ligands) %>% select(niche, sender, receiver, ligand,  receptor, ligand_receptor, prioritization_score) %>% distinct() %>% inner_join(top_ligand_receptor_niche_df) %>% group_by(ligand) %>% filter(receiver == receiver_oi) %>% top_n(2, prioritization_score) %>% ungroup() 
-
-exprs_activity_target_plot <- make_ligand_activity_target_exprs_plot(receiver_oi, prioritized_tbl_oi,  prioritization_tables$prioritization_tbl_ligand_receptor,  prioritization_tables$prioritization_tbl_ligand_target, output$exprs_tbl_ligand,  output$exprs_tbl_target, lfc_cutoff, ligand_target_matrix, plot_legend = FALSE, heights = NULL, widths = NULL)
-png("/data/user/tsoelter/projects/tms_ccc/outputs/VINE_exprs_activity_target_heatmap.png", width = 1000, height = 800)
-exprs_activity_target_plot$combined_plot
-dev.off()
-
-png("/data/user/tsoelter/projects/tms_ccc/outputs/VINE_exprs_activity_target_heatmap_legends.png", width = 1000, height = 800)
-exprs_activity_target_plot$legends
-dev.off()
-
-lfc_plot = make_ligand_receptor_lfc_plot(receiver_oi, prioritized_tbl_oi, prioritization_tables$prioritization_tbl_ligand_receptor, plot_legend = FALSE, heights = NULL, widths = NULL)
-
-png("/data/user/tsoelter/projects/tms_ccc/outputs/VINE_lfc_plot.png", width = 1000, height = 800)
-lfc_plot
-dev.off()
-```
-# Circos plot
-```{r}
-filtered_ligands = ligand_prioritized_tbl_oi %>% filter(receiver == receiver_oi) %>% top_n(15, prioritization_score) %>% pull(ligand) %>% unique()
-prioritized_tbl_oi = prioritization_tables$prioritization_tbl_ligand_receptor %>% filter(ligand %in% filtered_ligands) %>% select(niche, sender, receiver, ligand,  receptor, ligand_receptor, prioritization_score) %>% distinct() %>% inner_join(top_ligand_receptor_niche_df) %>% group_by(ligand) %>% filter(receiver == receiver_oi) %>% top_n(2, prioritization_score) %>% ungroup() 
-colors_sender = brewer.pal(n = prioritized_tbl_oi$sender %>% unique() %>% sort() %>% length(), name = 'Accent') %>% magrittr::set_names(prioritized_tbl_oi$sender %>% unique() %>% sort())
-colors_receiver = c("azure3")  %>% magrittr::set_names(prioritized_tbl_oi$receiver %>% unique() %>% sort())
-circos_output = make_circos_lr(prioritized_tbl_oi, colors_sender, colors_receiver, border = FALSE)
-```
-# Circos plot of ligand-target (above is ligand-receptor)
-```{r}
-prioritized_tbl_oi <- prioritization_tables$prioritization_tbl_ligand_receptor %>% filter(ligand %in% filtered_ligands) %>% select(niche, sender, receiver, ligand, receptor, ligand_receptor, prioritization_score) %>% distinct() %>% inner_join(top_ligand_receptor_niche_df) %>% group_by(ligand) %>% filter(receiver == receiver_oi) %>% top_n(2, prioritization_score) %>% ungroup()
-target_tbl <- prioritized_tbl_oi %>% inner_join(prioritization_tables$prioritization_tbl_ligand_target) %>% arrange(desc(ligand_target_weight)) %>% top_frac(.2, ligand_target_weight) %>% select(-receptor) %>% rename(receptor=target) %>% select(prioritized_tbl_oi %>% names()) %>% select(-ligand_receptor)
-target_tbl$ligand_receptor <- paste0(target_tbl$ligand, '--',target_tbl$receptor)
-colors_sender <- brewer.pal(n = target_tbl$sender %>% unique() %>% sort() %>% length(), name = 'Accent') %>% magrittr::set_names(prioritized_tbl_oi$sender %>% unique() %>% sort())
-colors_receiver <- c("azure3")  %>% magrittr::set_names(prioritized_tbl_oi$receiver %>% unique() %>% sort())
-circos_output <- make_circos_lr(target_tbl, colors_sender, colors_receiver, border = FALSE)
-```
-
 
 
 
@@ -375,6 +358,67 @@ circos_output <- make_circos_lr(target_tbl, colors_sender, colors_receiver, bord
 ```{r}
 sessionInfo() # see output below
 ```
+R version 4.1.3 (2022-03-10)
+Platform: x86_64-pc-linux-gnu (64-bit)
+Running under: Ubuntu 20.04.6 LTS
+
+Matrix products: default
+BLAS/LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.8.so
+
+locale:
+[1] C
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+ [1] SeuratObject_4.1.3 Seurat_4.3.0.9002  lintr_3.0.2        styler_1.9.1       here_1.0.1        
+ [6] RColorBrewer_1.1-3 cowplot_1.1.1      ggrepel_0.9.3      nichenetr_1.1.1    lubridate_1.9.2   
+[11] forcats_1.0.0      stringr_1.5.0      dplyr_1.1.2        purrr_1.0.1        readr_2.1.4       
+[16] tidyr_1.3.0        tibble_3.2.1       ggplot2_3.4.2      tidyverse_2.0.0   
+
+loaded via a namespace (and not attached):
+  [1] utf8_1.2.3             spatstat.explore_3.1-0 reticulate_1.28        R.utils_2.12.2        
+  [5] tidyselect_1.2.0       htmlwidgets_1.6.2      grid_4.1.3             Rtsne_0.16            
+  [9] pROC_1.18.0            munsell_0.5.0          ragg_1.2.5             codetools_0.2-18      
+ [13] ica_1.0-3              future_1.32.0          miniUI_0.1.1.1         withr_2.5.0           
+ [17] spatstat.random_3.1-4  colorspace_2.1-0       progressr_0.13.0       knitr_1.42            
+ [21] rstudioapi_0.14        stats4_4.1.3           ROCR_1.0-11            tensor_1.5            
+ [25] listenv_0.9.0          labeling_0.4.2         polyclip_1.10-4        farver_2.1.1          
+ [29] rprojroot_2.0.3        parallelly_1.35.0      vctrs_0.6.2            generics_0.1.3        
+ [33] ipred_0.9-14           xfun_0.39              timechange_0.2.0       randomForest_4.7-1.1  
+ [37] R6_2.5.1               doParallel_1.0.17      clue_0.3-64            rex_1.2.1             
+ [41] bitops_1.0-7           spatstat.utils_3.0-2   promises_1.2.0.1       scales_1.2.1          
+ [45] nnet_7.3-17            gtable_0.3.3           globals_0.16.2         processx_3.8.1        
+ [49] goftest_1.2-3          timeDate_4022.108      rlang_1.1.0            cyclocomp_1.1.0       
+ [53] systemfonts_1.0.4      GlobalOptions_0.1.2    splines_4.1.3          lazyeval_0.2.2        
+ [57] ModelMetrics_1.2.2.2   spatstat.geom_3.1-0    checkmate_2.1.0        yaml_2.3.7            
+ [61] reshape2_1.4.4         abind_1.4-5            backports_1.4.1        httpuv_1.6.9          
+ [65] Hmisc_5.0-1            caret_6.0-94           DiagrammeR_1.0.9       tools_4.1.3           
+ [69] lava_1.7.2.1           ellipsis_0.3.2         proxy_0.4-27           BiocGenerics_0.40.0   
+ [73] ggridges_0.5.4         Rcpp_1.0.10            plyr_1.8.8             base64enc_0.1-3       
+ [77] visNetwork_2.1.2       ps_1.7.5               rpart_4.1.16           deldir_1.0-6          
+ [81] pbapply_1.7-0          GetoptLong_1.0.5       S4Vectors_0.32.4       zoo_1.8-12            
+ [85] cluster_2.1.2          magrittr_2.0.3         data.table_1.14.8      scattermore_0.8       
+ [89] circlize_0.4.15        lmtest_0.9-40          RANN_2.6.1             fitdistrplus_1.1-11   
+ [93] R.cache_0.16.0         matrixStats_0.63.0     hms_1.1.3              patchwork_1.1.2       
+ [97] mime_0.12              evaluate_0.20          xtable_1.8-4           IRanges_2.28.0        
+[101] gridExtra_2.3          shape_1.4.6            compiler_4.1.3         KernSmooth_2.23-20    
+[105] crayon_1.5.2           R.oo_1.25.0            htmltools_0.5.5        later_1.3.0           
+[109] tzdb_0.3.0             Formula_1.2-5          ComplexHeatmap_2.10.0  MASS_7.3-55           
+[113] Matrix_1.5-4           cli_3.6.1              R.methodsS3_1.8.2      parallel_4.1.3        
+[117] gower_1.0.1            igraph_1.4.2           pkgconfig_2.0.3        foreign_0.8-82        
+[121] sp_1.6-0               plotly_4.10.1          spatstat.sparse_3.0-1  recipes_1.0.6         
+[125] xml2_1.3.3             foreach_1.5.2          hardhat_1.3.0          prodlim_2023.03.31    
+[129] callr_3.7.3            digest_0.6.31          sctransform_0.3.5.9002 RcppAnnoy_0.0.20      
+[133] spatstat.data_3.0-1    rmarkdown_2.21         leiden_0.4.3           htmlTable_2.4.1       
+[137] uwot_0.1.14            shiny_1.7.4            rjson_0.2.21           lifecycle_1.0.3       
+[141] nlme_3.1-155           jsonlite_1.8.4         desc_1.4.2             viridisLite_0.4.1     
+[145] limma_3.50.3           fansi_1.0.4            pillar_1.9.0           lattice_0.20-45       
+[149] fastmap_1.1.1          httr_1.4.5             survival_3.3-1         remotes_2.4.2         
+[153] glue_1.6.2             fdrtool_1.2.17         png_0.1-8              iterators_1.0.14      
+[157] class_7.3-20           stringi_1.7.12         textshaping_0.3.6      caTools_1.18.2        
+[161] irlba_2.3.5.1          e1071_1.7-13           future.apply_1.10.0
 
 # Time tracking
 ```{r}

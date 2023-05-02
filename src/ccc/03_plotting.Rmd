@@ -1,0 +1,66 @@
+---
+title: "03_plotting"
+author: "Tabea M. Soelter"
+date: '2023-04-28'
+output: html_document
+---
+
+# Start here for plotting purposes
+Save prioritization_tables object for future plots. 
+```{r}
+saveRDS(prioritization_tables, "/data/user/tsoelter/projects/tms_ccc/data/VINE_prioritiztion_tables.rds")
+saveRDS(output, "/data/user/tsoelter/projects/tms_ccc/data/VINE_LIANA_NicheNet_output.rds")
+```
+
+# Visualization
+prep
+```{r}
+top_ligand_niche_df <- prioritization_tables$prioritization_tbl_ligand_receptor %>% select(niche, sender, receiver, ligand, receptor, prioritization_score) %>% group_by(ligand) %>% top_n(1, prioritization_score) %>% ungroup() %>% select(ligand, receptor, niche) %>% rename(top_niche = niche)
+
+top_ligand_receptor_niche_df <- prioritization_tables$prioritization_tbl_ligand_receptor %>% select(niche, sender, receiver, ligand, receptor, prioritization_score) %>% group_by(ligand, receptor) %>% top_n(1, prioritization_score) %>% ungroup() %>% select(ligand, receptor, niche) %>% rename(top_niche = niche)
+
+ligand_prioritized_tbl_oi <- prioritization_tables$prioritization_tbl_ligand_receptor %>% select(niche, sender, receiver, ligand, prioritization_score) %>% group_by(ligand, niche) %>% top_n(1, prioritization_score) %>% ungroup() %>% distinct() %>% inner_join(top_ligand_niche_df) %>% filter(niche == top_niche) %>% group_by(niche) %>% top_n(50, prioritization_score) %>% ungroup() # get the top50 ligands per niche
+```
+
+plot
+```{r}
+receiver_oi <- "Neurons_AD"
+
+filtered_ligands <- ligand_prioritized_tbl_oi %>% filter(receiver == receiver_oi) %>% top_n(20, prioritization_score) %>% pull(ligand) %>% unique()
+
+prioritized_tbl_oi <- prioritization_tables$prioritization_tbl_ligand_receptor %>% filter(ligand %in% filtered_ligands) %>% select(niche, sender, receiver, ligand,  receptor, ligand_receptor, prioritization_score) %>% distinct() %>% inner_join(top_ligand_receptor_niche_df) %>% group_by(ligand) %>% filter(receiver == receiver_oi) %>% top_n(2, prioritization_score) %>% ungroup() 
+
+exprs_activity_target_plot <- make_ligand_activity_target_exprs_plot(receiver_oi, prioritized_tbl_oi,  prioritization_tables$prioritization_tbl_ligand_receptor,  prioritization_tables$prioritization_tbl_ligand_target, output$exprs_tbl_ligand,  output$exprs_tbl_target, lfc_cutoff, ligand_target_matrix, plot_legend = FALSE, heights = NULL, widths = NULL)
+png("/data/user/tsoelter/projects/tms_ccc/outputs/VINE_exprs_activity_target_heatmap.png", width = 1000, height = 800)
+exprs_activity_target_plot$combined_plot
+dev.off()
+
+png("/data/user/tsoelter/projects/tms_ccc/outputs/VINE_exprs_activity_target_heatmap_legends.png", width = 1000, height = 800)
+exprs_activity_target_plot$legends
+dev.off()
+
+lfc_plot = make_ligand_receptor_lfc_plot(receiver_oi, prioritized_tbl_oi, prioritization_tables$prioritization_tbl_ligand_receptor, plot_legend = FALSE, heights = NULL, widths = NULL)
+
+png("/data/user/tsoelter/projects/tms_ccc/outputs/VINE_lfc_plot.png", width = 1000, height = 800)
+lfc_plot
+dev.off()
+```
+# Circos plot
+```{r}
+filtered_ligands = ligand_prioritized_tbl_oi %>% filter(receiver == receiver_oi) %>% top_n(15, prioritization_score) %>% pull(ligand) %>% unique()
+prioritized_tbl_oi = prioritization_tables$prioritization_tbl_ligand_receptor %>% filter(ligand %in% filtered_ligands) %>% select(niche, sender, receiver, ligand,  receptor, ligand_receptor, prioritization_score) %>% distinct() %>% inner_join(top_ligand_receptor_niche_df) %>% group_by(ligand) %>% filter(receiver == receiver_oi) %>% top_n(2, prioritization_score) %>% ungroup() 
+colors_sender = brewer.pal(n = prioritized_tbl_oi$sender %>% unique() %>% sort() %>% length(), name = 'Accent') %>% magrittr::set_names(prioritized_tbl_oi$sender %>% unique() %>% sort())
+colors_receiver = c("azure3")  %>% magrittr::set_names(prioritized_tbl_oi$receiver %>% unique() %>% sort())
+circos_output = make_circos_lr(prioritized_tbl_oi, colors_sender, colors_receiver, border = FALSE)
+```
+# Circos plot of ligand-target (above is ligand-receptor)
+```{r}
+prioritized_tbl_oi <- prioritization_tables$prioritization_tbl_ligand_receptor %>% filter(ligand %in% filtered_ligands) %>% select(niche, sender, receiver, ligand, receptor, ligand_receptor, prioritization_score) %>% distinct() %>% inner_join(top_ligand_receptor_niche_df) %>% group_by(ligand) %>% filter(receiver == receiver_oi) %>% top_n(2, prioritization_score) %>% ungroup()
+target_tbl <- prioritized_tbl_oi %>% inner_join(prioritization_tables$prioritization_tbl_ligand_target) %>% arrange(desc(ligand_target_weight)) %>% top_frac(.2, ligand_target_weight) %>% select(-receptor) %>% rename(receptor=target) %>% select(prioritized_tbl_oi %>% names()) %>% select(-ligand_receptor)
+target_tbl$ligand_receptor <- paste0(target_tbl$ligand, '--',target_tbl$receptor)
+colors_sender <- brewer.pal(n = target_tbl$sender %>% unique() %>% sort() %>% length(), name = 'Accent') %>% magrittr::set_names(prioritized_tbl_oi$sender %>% unique() %>% sort())
+colors_receiver <- c("azure3")  %>% magrittr::set_names(prioritized_tbl_oi$receiver %>% unique() %>% sort())
+circos_output <- make_circos_lr(target_tbl, colors_sender, colors_receiver, border = FALSE)
+```
+
+

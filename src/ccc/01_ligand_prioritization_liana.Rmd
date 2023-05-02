@@ -65,8 +65,8 @@ vine_cortex <- readRDS(here("data", "vinecortex_processed_seurat.rds"))
 # create a list of all objects
 object_list <- tibble::lst(vine, geo, vine_cortex)
 
-# UMAPs and cell type proportion stacked bar plots by condition saved to results/final_outputs/ dir by dataset
-prep_liana(object_list = object_list)
+# UMAPs and cell type proportion stacked bar plots by condition saved to dataset specific final_outputs/ directories 
+prep_liana(object_list = object_list, file_path = "results/final_outputs/")
 
 # split objects by condition for liana
 split_object_list <- lapply(object_list, split_objects)
