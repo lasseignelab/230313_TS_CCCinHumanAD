@@ -1,5 +1,6 @@
 {
     "editor_theme": "Cobalt",
     "jobs_tab_visibility": "shown",
-    "document_author": "Tabea M. Soelter"
+    "document_author": "Tabea M. Soelter",
+    "default_encoding": "UTF-8"
 }
