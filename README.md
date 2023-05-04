@@ -1,6 +1,6 @@
 README
 ================
-2023-04-19
+2023-05-04
 
 **EDIT THIS DOCUMENT AND KNIT, DO NOT EDIT README.MD DIRECTLY**
 
@@ -20,6 +20,22 @@ the University of Alabama at Birmingham](https://www.lasseigne.org/)
 
     ## src
     ## +-- README
+    ## +-- ccc
+    ## |   +-- 01_ligand_prioritization_liana.Rmd
+    ## |   +-- 02_differential_ccc_nichenet.Rmd
+    ## |   +-- 03_plotting.Rmd
+    ## |   \-- omnipathr-log
+    ## |       +-- omnipathr-20230420-1848.log
+    ## |       +-- omnipathr-20230420-1850.log
+    ## |       +-- omnipathr-20230420-1851.log
+    ## |       +-- omnipathr-20230420-1855.log
+    ## |       +-- omnipathr-20230420-1910.log
+    ## |       +-- omnipathr-20230420-1930.log
+    ## |       +-- omnipathr-20230420-1938.log
+    ## |       +-- omnipathr-20230421-1417.log
+    ## |       +-- omnipathr-20230421-2010.log
+    ## |       +-- omnipathr-20230425-1538.log
+    ## |       \-- omnipathr-20230502-1536.log
     ## +-- cellranger
     ## |   +-- geo
     ## |   |   +-- SAMN19128593_S19_CTRL.sh
@@ -63,10 +79,11 @@ the University of Alabama at Birmingham](https://www.lasseigne.org/)
     ## |       +-- CellRanger_VINE_cortex.sh
     ## |       \-- sample_sheet.csv
     ## +-- functions_CCCinAD_tms.R
-    ## \-- seurat_preprocessing
-    ##     +-- 01_vine_seurat_preprocessing.Rmd
-    ##     +-- 02_geo_seurat_preprocessing.Rmd
-    ##     \-- 03_vinecortex_seurat_preprocessing.Rmd
+    ## +-- seurat_preprocessing
+    ## |   +-- 01_vine_seurat_preprocessing.Rmd
+    ## |   +-- 02_geo_seurat_preprocessing.Rmd
+    ## |   \-- 03_vinecortex_seurat_preprocessing.Rmd
+    ## \-- shortest_path
 
 ## Authors
 
