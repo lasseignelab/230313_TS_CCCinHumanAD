@@ -5,6 +5,29 @@ date: '2023-04-28'
 output: html_document
 ---
 
+# prioritize here
+```{r}
+# these settings will favor DE l-r pairs compared to activity. Adapting these values can change what is favored. In-depth explanations of each factor can be found in the vignette for differential NicheNet. 
+prioritizing_weights = c("scaled_ligand_score" = 5,
+                         "scaled_ligand_expression_scaled" = 1,
+                         "ligand_fraction" = 1,
+                         "scaled_ligand_score_spatial" = 0, 
+                         "scaled_receptor_score" = 0.5,
+                         "scaled_receptor_expression_scaled" = 0.5,
+                         "receptor_fraction" = 1, 
+                         "ligand_scaled_receptor_expression_fraction" = 1,
+                         "scaled_receptor_score_spatial" = 0,
+                         "scaled_activity" = 0,
+                         "scaled_activity_normalized" = 1,
+                         "bona_fide" = 1)
+
+# Prioritize interactions based on previously assigned weights 
+prioritization_tables <- get_prioritization_tables(output, prioritizing_weights)
+```
+
+
+
+
 # Start here for plotting purposes
 Save prioritization_tables object for future plots. 
 ```{r}
