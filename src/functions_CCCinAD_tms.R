@@ -601,6 +601,71 @@ score_interactions <- function(lr_network, exprs_tbl_ligand, exprs_tbl_receptor,
   return(ligand_scaled_receptor_expression_fraction_df)
 }
 
+## nichenet_wrapper
+# A wrapper function that includes all functions to run differential nichenet and generate the output matrix which includes all ligands, receptors, and target genes between sender and receiver cell types.
+# The function has the following capabilities:
+#   * cross-reference LIANA ligands to NicheNet ligands
+#   * adding mock spatial data
+#   * calculate ligand activities and infer active ligand-target links
+#   * calculate the scaled expression of ligands, receptors, and targets across cell types of interest
+#   * scoring the l-r interctions based on their expression strength of the receptor
+nichenet_wrapper <- function(seurat_obj, user_niches, lr_network, ligands, file_path) {
+  # DE analysis between niches --------------------
+  DE_sender_receiver <- diff_nichenet(object = seurat_obj,
+                                      niches = user_niches,
+                                      expression_pct = 0.10,
+                                      lr_network = lr_network)
+  print("Differential gene expression analysis finished")
+  # Filter ligands by LIANA ligands 
+  DE_sender_receiver_LIANA <- subset(DE_sender_receiver, ligand %in% ligands)
+  # Create mock spatial data --------------------
+  mock_spatial_data_list <- make_mock_spatial(include_spatial_info_sender = FALSE,
+                                              include_spatial_info_receiver = FALSE,
+                                              niches = user_niches)
+  print("Mock spatial data created")
+  # unlist mock spatial data list to get objects needed --------------------
+  list2env(mock_spatial_data_list, environment())
+  # calculate ligand activity --------------------
+  ligand_activity_list <- calculate_ligand_activity(seurat_obj,
+                                                    niches = user_niches,
+                                                    top_n_targets = 250,
+                                                    lfc_cutoff = 0.15)
+  print("Calculated ligand activity")
+  # unlist ligand activity list list to get objects needed -------------------
+  list2env(ligand_activity_list, environment())
+  # calculate scaled expression --------------------
+  exprs_tbl_list <- calculate_scaled_gex(seurat_obj,
+                                         lr_network = lr_network,
+                                         ligand_activities_targets = ligand_activities_targets)
+  print("Calculated scaled expression")
+  # unlist expression table list to get objects needed --------------------
+  list2env(exprs_tbl_list, environment())
+  # score interactions --------------------
+  ligand_scaled_receptor_expression_fraction_df <-
+    score_interactions(lr_network = lr_network,
+                       exprs_tbl_ligand = exprs_tbl_ligand,
+                       exprs_tbl_receptor = exprs_tbl_receptor,
+                       DE_sender_receiver = DE_sender_receiver_LIANA)
+  print("Scored interactions")
+  # combine all outputs into one large list --------------------
+  output <- tibble::lst(DE_sender_receiver_LIANA,
+                        ligand_scaled_receptor_expression_fraction_df,
+                        sender_spatial_DE_processed,
+                        receiver_spatial_DE_processed,
+                        ligand_activities_targets,
+                        DE_receiver_processed_targets,
+                        exprs_tbl_target
+  )
+  print("Created output")
+  # save output
+  saveRDS(output, file = here(paste0(file_path,
+                                     "ccc/nichenet_output.rds"
+  )
+  )
+  )
+  print("Saved output")
+}
+
 ## prep_NicheNet
 # A function which prepares the prioritized NicheNet outputs for mapping to STRINGdb PPI and returns a dataframe with a target and a sender column 
 prep_NicheNet <- function(prioritizedNicheNet, cond_niche){
