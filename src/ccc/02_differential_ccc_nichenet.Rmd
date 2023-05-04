@@ -11,21 +11,30 @@ __Goal__: For every dataset, perform differential NicheNet analyses between AD a
 __Reproducibility__: 
 * GitHub: lasseignelab/230313_TS_CCCinHumanAD
 * Docker: tsoelter/rstudio_ccc_ad
-    * Version: 1.0.0 
+    * Version: 1.0.1 
 * HPC: Yes
   * Resources: long partition (150hrs), 6 CPUs, 65GB per CPU
 
-#__Data__: EDIT THIS
+__Data__: 
+*Seurat objects*
 * Name: vine_processed_seurat.rds, geo_processed_seurat.rds, vinecortex_processed_seurat.rds
-* Location: /data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/
+* Location: data/
+*LIANA ligands*
+* Name: liana_ligands.rds
+* Location: results/intermediate_outputs/geo/ccc/, results/intermediate_outputs/vine/ccc/, results/intermediate_outputs/vine_cortex/ccc/
  
-#__Analysis Plan__: EDIT THIS 
+__Analysis Plan__: 
 * Load necessary packages 
-* Load data 
-* Identify ligands using liana
-* Load NicheNet's prior knowledge 
-* Filter liana ligands using NicheNet's prior
-* Save filtered ligands
+* Load data
+  * Seurat objects
+  * LIANA ligands
+* Load and filter NicheNet prior
+* Prepare for NicheNet
+  * Split objects by condition
+  * Create celltype_aggregate column
+* Define niches of interest
+* Differential NicheNet
+  * Save output using wrapper
 
 __Analysis__:
 # Load packages
@@ -38,15 +47,15 @@ set.seed(42)
 
 # load packages
 suppressPackageStartupMessages({
-library(tidyverse)
-library(nichenetr)
-library(Seurat)
-library(ggrepel)
-library(cowplot)
-library(RColorBrewer)
-library(here)
-library(styler)
-library(lintr)
+  library(tidyverse)
+  library(nichenetr)
+  library(Seurat)
+  library(ggrepel)
+  library(cowplot)
+  library(RColorBrewer)
+  library(here)
+  library(styler)
+  library(lintr)
 })
 
 # load functions
@@ -66,45 +75,48 @@ vine_cortex <- readRDS(here("data", "vinecortex_processed_seurat.rds"))
 object_list <- tibble::lst(vine, geo, vine_cortex)
 
 # load liana ligands
-vine_ligands <- readRDS(here("results",
-                             "intermediate_outputs",
-                             "vine",
-                             "ccc",
-                             "liana_ligands.rds"
-                             )
-                        )
+vine_ligands <- readRDS(here(
+  "results",
+  "intermediate_outputs",
+  "vine",
+  "ccc",
+  "liana_ligands.rds"
+))
 
-geo_ligands <- readRDS(here("results",
-                            "intermediate_outputs",
-                            "geo",
-                            "ccc",
-                            "liana_ligands.rds"
-                            )
-                       )
+geo_ligands <- readRDS(here(
+  "results",
+  "intermediate_outputs",
+  "geo",
+  "ccc",
+  "liana_ligands.rds"
+))
 
-vine_cortex_ligands <- readRDS(here("results",
-                                    "intermediate_outputs",
-                                    "vine_cortex",
-                                    "ccc",
-                                    "liana_ligands.rds"
-                                    )
-                               )
+vine_cortex_ligands <- readRDS(here(
+  "results",
+  "intermediate_outputs",
+  "vine_cortex",
+  "ccc",
+  "liana_ligands.rds"
+))
 ```
 
 # Load NicheNet prior
 ```{r}
 # load the ligand target matrix
-ligand_target_matrix <- readRDS(here("data",
-                                     "ccc",
-                                     "nichenet_prior",
-                                     "ligand_target_matrix.rds"))
+ligand_target_matrix <- readRDS(here(
+  "data",
+  "ccc",
+  "nichenet_prior",
+  "ligand_target_matrix.rds"
+))
 
 # load and filter the ligand receptor network as recommended by developers
 lr_network <- readRDS(here(
   "data",
   "ccc",
   "nichenet_prior",
-  "lr_network.rds")) %>%
+  "lr_network.rds"
+)) %>%
   mutate(bonafide = !database %in% c("ppi_prediction", "ppi_prediction_go")) %>%
   dplyr::rename(ligand = from, receptor = to) %>%
   distinct(ligand, receptor, bonafide)
@@ -113,7 +125,7 @@ lr_network <- readRDS(here(
 organism <- "human"
 ```
 
-# Differential NicheNet prep
+# Split objects by condition
 * Each individual object and cluster within needs to be split by condition in order to apply NicheNet across conditions.
 * I have added a metadata column with that information and made it the identity of the object.
 * I am also plotting UMAPs of the split and saving them to results/intermediate_outputs/{object_name}/ccc/
@@ -121,250 +133,70 @@ organism <- "human"
 ```{r warning=FALSE}
 # Making cell-type aggregate object list and save celltype aggregate UMAPs
 ca_object_list <- prep_nichenet(object_list,
-                                file_path = "results/intermediate_outputs/")
+  file_path = "results/intermediate_outputs/"
+)
 
 # unlist and add objects to global environment for downstream use
 list2env(ca_object_list, globalenv())
 ```
 
-## Define niches
+# Define niches
 * Since I am interested in differences across conditions, my niches are AD and CTRL. 
 * Within each niche, the sender and receiver cell types are also specified. 
 ```{r}
 ## Set niches
-user_niches <- list("AD_niche"   = list("sender"   = c("Astrocytes_AD",
-                                                       "Oligodendrocytes_AD",
-                                                       "OPCs_AD",
-                                                       "Microglia_AD"),
-                                        "receiver" = c("Excitatory Neurons_AD")),
-                    "CTRL_niche" = list("sender"   = c("Astrocytes_CTRL",
-                                                       "Oligodendrocytes_CTRL",
-                                                       "OPCs_CTRL",
-                                                       "Microglia_CTRL"),
-                                        "receiver" = c("Excitatory Neurons_CTRL")
-                                        )
-                    )
+user_niches <- list(
+  "AD_niche" = list(
+    "sender" = c(
+      "Astrocytes_AD",
+      "Oligodendrocytes_AD",
+      "OPCs_AD",
+      "Microglia_AD"
+    ),
+    "receiver" = c("Excitatory Neurons_AD")
+  ),
+  "CTRL_niche" = list(
+    "sender" = c(
+      "Astrocytes_CTRL",
+      "Oligodendrocytes_CTRL",
+      "OPCs_CTRL",
+      "Microglia_CTRL"
+    ),
+    "receiver" = c("Excitatory Neurons_CTRL")
+  )
+)
 ```
 
-# TESTING ALL CODE HERE
+# Differential NicheNet
+* Ligand-receptor and target identification
+* The resulting object ("output") gets saved to results/intermediate_outputs/vine/ccc/
+* Output include all identified ligands, receptors, and target genes across conditions and between sender and receiver cell types.
+* I also use ligands identified by liana in 01_ligand_prioritization_liana.Rmd to filter NicheNet inputs to only include ligands identified by 2 methods.
 ```{r}
-user_niches <- list("AD_niche"   = list("sender"   = c("Astrocytes_AD"),
-                                        "receiver" = c("Excitatory Neurons_AD")),
-                    "CTRL_niche" = list("sender"   = c("Astrocytes_CTRL"),
-                                        "receiver" = c("Excitatory Neurons_CTRL")
-                                        )
-                    )
-
-
-
-DE_sender_receiver <- diff_nichenet(object = vine, niches = user_niches, expression_pct = 0.10, lr_network = lr_network)
-
-mock_spatial_data_list <- make_mock_spatial(include_spatial_info_sender = FALSE,
-                                            include_spatial_info_receiver = FALSE,
-                                            niches = user_niches)
-list2env(mock_spatial_data_list, globalenv())
-
-outs <- calculate_ligand_activity(vine,
-                                  niches = user_niches,
-                                  top_n_targets = 250,
-                                  lfc_cutoff = 0.15)
-
-list2env(outs, globalenv())
-
-exprs_tbl_list <- calculate_scaled_gex(vine,
-                                       lr_network = lr_network,
-                                       ligand_activities_targets = ligand_activities_targets)
-
-list2env(exprs_tbl_list, globalenv())
-
-ligand_scaled_receptor_expression_fraction_df <- score_interactions(lr_network = lr_network,
-                                                                    exprs_tbl_ligand = exprs_tbl_ligand,
-                                                                    exprs_tbl_receptor = exprs_tbl_receptor,
-                                                                    DE_sender_receiver = DE_sender_receiver_LIANA)
-
-
-
-# combine all outputs into one large list
-output <- tibble::lst(DE_sender_receiver_LIANA,
-                       ligand_scaled_receptor_expression_fraction_df,
-                       sender_spatial_DE_processed,
-                       receiver_spatial_DE_processed,
-                       ligand_activities_targets,
-                       DE_receiver_processed_targets,
-                       exprs_tbl_ligand,
-                       exprs_tbl_receptor,
-                       exprs_tbl_target
-                       )
-
-
-
-
-# save both output
-
-
-
-
-
-
-
-
-
-
-
-
-
-nichenet_wrapper <- function(seurat_obj, user_niches, lr_network, ligands, file_path) {
-    # DE analysis between niches --------------------
-    DE_sender_receiver <- diff_nichenet(object = seurat_obj,
-                                        niches = user_niches,
-                                        expression_pct = 0.10,
-                                        lr_network = lr_network)
-    print("Differential gene expression analysis finished")
-    # Filter ligands by LIANA ligands 
-    DE_sender_receiver_LIANA <- subset(DE_sender_receiver, ligand %in% ligands)
-    # Create mock spatial data --------------------
-    mock_spatial_data_list <- make_mock_spatial(include_spatial_info_sender = FALSE,
-                                                include_spatial_info_receiver = FALSE,
-                                                niches = user_niches)
-    print("Mock spatial data created")
-    # unlist mock spatial data list to get objects needed --------------------
-    list2env(mock_spatial_data_list, environment())
-    # calculate ligand activity --------------------
-    ligand_activity_list <- calculate_ligand_activity(seurat_obj,
-                                                      niches = user_niches,
-                                                      top_n_targets = 250,
-                                                      lfc_cutoff = 0.15)
-    print("Calculated ligand activity")
-    # unlist ligand activity list list to get objects needed -------------------
-    list2env(ligand_activity_list, environment())
-    # calculate scaled expression --------------------
-    exprs_tbl_list <- calculate_scaled_gex(seurat_obj,
-                                           lr_network = lr_network,
-                                           ligand_activities_targets = ligand_activities_targets)
-    print("Calculated scaled expression")
-    # unlist expression table list to get objects needed --------------------
-    list2env(exprs_tbl_list, environment())
-    # score interactions --------------------
-    ligand_scaled_receptor_expression_fraction_df <-
-      score_interactions(lr_network = lr_network,
-                         exprs_tbl_ligand = exprs_tbl_ligand,
-                         exprs_tbl_receptor = exprs_tbl_receptor,
-                         DE_sender_receiver = DE_sender_receiver_LIANA)
-    print("Scored interactions")
-    # combine all outputs into one large list --------------------
-    output <- tibble::lst(DE_sender_receiver_LIANA,
-                          ligand_scaled_receptor_expression_fraction_df,
-                          sender_spatial_DE_processed,
-                          receiver_spatial_DE_processed,
-                          ligand_activities_targets,
-                          DE_receiver_processed_targets,
-                          exprs_tbl_target
-                          )
-    print("Created output")
-    # save output
-    saveRDS(output, file = here(paste0(file_path,
-                                "ccc/nichenet_output.rds"
-                                )
-            )
-    )
-    print("Saved output")
-  }
-
-
+# vine
 nichenet_wrapper(vine,
-                 user_niches = user_niches,
-                 lr_network = lr_network,
-                 ligands = vine_ligands,
-                 file_path = "results/intermediate_outputs/vine/")
+  user_niches = user_niches,
+  lr_network = lr_network,
+  ligands = vine_ligands,
+  file_path = "results/intermediate_outputs/vine/"
+)
 
+# geo
 nichenet_wrapper(geo,
-                 user_niches = user_niches,
-                 lr_network = lr_network,
-                 ligands = geo_ligands,
-                 file_path = "results/intermediate_outputs/geo/")
+  user_niches = user_niches,
+  lr_network = lr_network,
+  ligands = geo_ligands,
+  file_path = "results/intermediate_outputs/geo/"
+)
 
+# vine_cortex
 nichenet_wrapper(vine_cortex,
-                 user_niches = user_niches,
-                 lr_network = lr_network,
-                 ligands = vine_cortex_ligands,
-                 file_path = "results/intermediate_outputs/vine_cortex/")
+  user_niches = user_niches,
+  lr_network = lr_network,
+  ligands = vine_cortex_ligands,
+  file_path = "results/intermediate_outputs/vine_cortex/"
+)
 ```
-
-
-
-I am cross-referencing ligands prioritized using LIANA and those from NicheNet. 
-```{r}
-DE_sender_receiver_LIANA <- subset(DE_sender_receiver, ligand %in% ligands)
-# I removed all data points if the ligand column did not match the prioritized ligands from LIANA. I went from 51 072 to 1 902 interactions.  
-```
-
-# Adding mock spatial data (differential NicheNet will not run otherwise)
-```{r}
-
-```
-
-# Calculate ligand activities and infer active ligand-target links 
-```{r}
-# recommended 10x min_lfc cutoff
-lfc_cutoff <- 0.15
-top_n_targets = 250
-# using minimum lfc ensures that we identify ligand target interactions which have the strongest specificity. A high min lfc means that a ligand is more strongly expressed in the cell type of niche 1 compared to all cell types in niche 2
-
-ligand_activities_targets <- calculate_ligand_activity(vine, niches = user_niches, top_n_targets = 250, lfc_cutoff = 0.15)
-```
-
-## Calculate the scaled expression of ligands, receptors, and targets across cell types of interest
-- log expression values and expression fractions
-```{r}
-
-
-```
-
-## Expression fraction and receptor 
-Scoring the l-r interctions based on their expression strength of the receptor. 
-```{r}
-# don't forget that we use this: DE_sender_receiver <- DE_sender_receiver_LIANA
-
-
-```
-
-## Prioritization of ligand-receptor and ligand-target links
-```{r}
-# these settings will favor DE l-r pairs compared to activity. Adapting these values can change what is favored. In-depth explanations of each factor can be found in the vignette for differential NicheNet. 
-prioritizing_weights = c("scaled_ligand_score" = 5,
-                         "scaled_ligand_expression_scaled" = 1,
-                         "ligand_fraction" = 1,
-                         "scaled_ligand_score_spatial" = 0, 
-                         "scaled_receptor_score" = 0.5,
-                         "scaled_receptor_expression_scaled" = 0.5,
-                          "receptor_fraction" = 1, 
-                         "ligand_scaled_receptor_expression_fraction" = 1,
-                         "scaled_receptor_score_spatial" = 0,
-                         "scaled_activity" = 0,
-                         "scaled_activity_normalized" = 1,
-                         "bona_fide" = 1)
-
-# combine all outputs into one large list
-output <- tibble::lst(DE_sender_receiver_LIANA,
-                       ligand_scaled_receptor_expression_fraction_df,
-                       sender_spatial_DE_processed,
-                       receiver_spatial_DE_processed,
-                       ligand_activities_targets,
-                       DE_receiver_processed_targets,
-                       exprs_tbl_ligand,
-                       exprs_tbl_receptor,
-                       exprs_tbl_target
-                       )
-
-# Prioritize interactions based on previously assigned weights 
-prioritization_tables <- get_prioritization_tables(output, prioritizing_weights)
-
-
-# save both output and prioritization tables
-```
-
-
-
 
 # Session info
 ```{r}
@@ -384,53 +216,73 @@ attached base packages:
 [1] stats     graphics  grDevices utils     datasets  methods   base     
 
 other attached packages:
- [1] SeuratObject_4.1.3 Seurat_4.3.0.9002  lintr_3.0.2        styler_1.9.1       here_1.0.1        
- [6] RColorBrewer_1.1-3 cowplot_1.1.1      ggrepel_0.9.3      nichenetr_1.1.1    lubridate_1.9.2   
-[11] forcats_1.0.0      stringr_1.5.0      dplyr_1.1.2        purrr_1.0.1        readr_2.1.4       
-[16] tidyr_1.3.0        tibble_3.2.1       ggplot2_3.4.2      tidyverse_2.0.0   
+ [1] RColorBrewer_1.1-3 cowplot_1.1.1      ggrepel_0.9.3      nichenetr_1.1.1   
+ [5] lintr_3.0.2        styler_1.9.1       here_1.0.1         scCustomize_1.1.1 
+ [9] clustree_0.5.0     ggraph_2.1.0       harmony_0.1.0      Rcpp_1.0.10       
+[13] lubridate_1.9.2    forcats_1.0.0      stringr_1.5.0      dplyr_1.1.2       
+[17] purrr_1.0.1        readr_2.1.4        tidyr_1.3.0        tibble_3.2.1      
+[21] ggplot2_3.4.2      tidyverse_2.0.0    SeuratObject_4.1.3 Seurat_4.3.0.9002 
 
 loaded via a namespace (and not attached):
-  [1] utf8_1.2.3             spatstat.explore_3.1-0 reticulate_1.28        R.utils_2.12.2        
-  [5] tidyselect_1.2.0       htmlwidgets_1.6.2      grid_4.1.3             Rtsne_0.16            
-  [9] pROC_1.18.0            munsell_0.5.0          ragg_1.2.5             codetools_0.2-18      
- [13] ica_1.0-3              future_1.32.0          miniUI_0.1.1.1         withr_2.5.0           
- [17] spatstat.random_3.1-4  colorspace_2.1-0       progressr_0.13.0       knitr_1.42            
- [21] rstudioapi_0.14        stats4_4.1.3           ROCR_1.0-11            tensor_1.5            
- [25] listenv_0.9.0          labeling_0.4.2         polyclip_1.10-4        farver_2.1.1          
- [29] rprojroot_2.0.3        parallelly_1.35.0      vctrs_0.6.2            generics_0.1.3        
- [33] ipred_0.9-14           xfun_0.39              timechange_0.2.0       randomForest_4.7-1.1  
- [37] R6_2.5.1               doParallel_1.0.17      clue_0.3-64            rex_1.2.1             
- [41] bitops_1.0-7           spatstat.utils_3.0-2   promises_1.2.0.1       scales_1.2.1          
- [45] nnet_7.3-17            gtable_0.3.3           globals_0.16.2         processx_3.8.1        
- [49] goftest_1.2-3          timeDate_4022.108      rlang_1.1.0            cyclocomp_1.1.0       
- [53] systemfonts_1.0.4      GlobalOptions_0.1.2    splines_4.1.3          lazyeval_0.2.2        
- [57] ModelMetrics_1.2.2.2   spatstat.geom_3.1-0    checkmate_2.1.0        yaml_2.3.7            
- [61] reshape2_1.4.4         abind_1.4-5            backports_1.4.1        httpuv_1.6.9          
- [65] Hmisc_5.0-1            caret_6.0-94           DiagrammeR_1.0.9       tools_4.1.3           
- [69] lava_1.7.2.1           ellipsis_0.3.2         proxy_0.4-27           BiocGenerics_0.40.0   
- [73] ggridges_0.5.4         Rcpp_1.0.10            plyr_1.8.8             base64enc_0.1-3       
- [77] visNetwork_2.1.2       ps_1.7.5               rpart_4.1.16           deldir_1.0-6          
- [81] pbapply_1.7-0          GetoptLong_1.0.5       S4Vectors_0.32.4       zoo_1.8-12            
- [85] cluster_2.1.2          magrittr_2.0.3         data.table_1.14.8      scattermore_0.8       
- [89] circlize_0.4.15        lmtest_0.9-40          RANN_2.6.1             fitdistrplus_1.1-11   
- [93] R.cache_0.16.0         matrixStats_0.63.0     hms_1.1.3              patchwork_1.1.2       
- [97] mime_0.12              evaluate_0.20          xtable_1.8-4           IRanges_2.28.0        
-[101] gridExtra_2.3          shape_1.4.6            compiler_4.1.3         KernSmooth_2.23-20    
-[105] crayon_1.5.2           R.oo_1.25.0            htmltools_0.5.5        later_1.3.0           
-[109] tzdb_0.3.0             Formula_1.2-5          ComplexHeatmap_2.10.0  MASS_7.3-55           
-[113] Matrix_1.5-4           cli_3.6.1              R.methodsS3_1.8.2      parallel_4.1.3        
-[117] gower_1.0.1            igraph_1.4.2           pkgconfig_2.0.3        foreign_0.8-82        
-[121] sp_1.6-0               plotly_4.10.1          spatstat.sparse_3.0-1  recipes_1.0.6         
-[125] xml2_1.3.3             foreach_1.5.2          hardhat_1.3.0          prodlim_2023.03.31    
-[129] callr_3.7.3            digest_0.6.31          sctransform_0.3.5.9002 RcppAnnoy_0.0.20      
-[133] spatstat.data_3.0-1    rmarkdown_2.21         leiden_0.4.3           htmlTable_2.4.1       
-[137] uwot_0.1.14            shiny_1.7.4            rjson_0.2.21           lifecycle_1.0.3       
-[141] nlme_3.1-155           jsonlite_1.8.4         desc_1.4.2             viridisLite_0.4.1     
-[145] limma_3.50.3           fansi_1.0.4            pillar_1.9.0           lattice_0.20-45       
-[149] fastmap_1.1.1          httr_1.4.5             survival_3.3-1         remotes_2.4.2         
-[153] glue_1.6.2             fdrtool_1.2.17         png_0.1-8              iterators_1.0.14      
-[157] class_7.3-20           stringi_1.7.12         textshaping_0.3.6      caTools_1.18.2        
-[161] irlba_2.3.5.1          e1071_1.7-13           future.apply_1.10.0
+  [1] utf8_1.2.3             spatstat.explore_3.1-0 reticulate_1.28       
+  [4] R.utils_2.12.2         tidyselect_1.2.0       htmlwidgets_1.6.2     
+  [7] grid_4.1.3             Rtsne_0.16             pROC_1.18.0           
+ [10] munsell_0.5.0          ragg_1.2.5             codetools_0.2-18      
+ [13] ica_1.0-3              future_1.32.0          miniUI_0.1.1.1        
+ [16] withr_2.5.0            spatstat.random_3.1-4  colorspace_2.1-0      
+ [19] progressr_0.13.0       knitr_1.42             rstudioapi_0.14       
+ [22] stats4_4.1.3           ROCR_1.0-11            tensor_1.5            
+ [25] listenv_0.9.0          labeling_0.4.2         polyclip_1.10-4       
+ [28] farver_2.1.1           rprojroot_2.0.3        parallelly_1.35.0     
+ [31] vctrs_0.6.2            generics_0.1.3         ipred_0.9-14          
+ [34] xfun_0.39              timechange_0.2.0       randomForest_4.7-1.1  
+ [37] doParallel_1.0.17      R6_2.5.1               clue_0.3-64           
+ [40] ggbeeswarm_0.7.1       graphlayouts_0.8.4     rex_1.2.1             
+ [43] bitops_1.0-7           spatstat.utils_3.0-2   promises_1.2.0.1      
+ [46] scales_1.2.1           nnet_7.3-17            beeswarm_0.4.0        
+ [49] gtable_0.3.3           globals_0.16.2         processx_3.8.1        
+ [52] goftest_1.2-3          tidygraph_1.2.3        timeDate_4022.108     
+ [55] rlang_1.1.0            cyclocomp_1.1.0        systemfonts_1.0.4     
+ [58] GlobalOptions_0.1.2    splines_4.1.3          lazyeval_0.2.2        
+ [61] ModelMetrics_1.2.2.2   checkmate_2.1.0        spatstat.geom_3.1-0   
+ [64] yaml_2.3.7             reshape2_1.4.4         abind_1.4-5           
+ [67] backports_1.4.1        httpuv_1.6.9           Hmisc_5.0-1           
+ [70] DiagrammeR_1.0.9       caret_6.0-94           lava_1.7.2.1          
+ [73] tools_4.1.3            ellipsis_0.3.2         BiocGenerics_0.40.0   
+ [76] proxy_0.4-27           ggridges_0.5.4         plyr_1.8.8            
+ [79] base64enc_0.1-3        visNetwork_2.1.2       ps_1.7.5              
+ [82] rpart_4.1.16           deldir_1.0-6           GetoptLong_1.0.5      
+ [85] pbapply_1.7-0          viridis_0.6.2          S4Vectors_0.32.4      
+ [88] zoo_1.8-12             cluster_2.1.2          magrittr_2.0.3        
+ [91] data.table_1.14.8      scattermore_0.8        circlize_0.4.15       
+ [94] lmtest_0.9-40          RANN_2.6.1             fitdistrplus_1.1-11   
+ [97] R.cache_0.16.0         matrixStats_0.63.0     hms_1.1.3             
+[100] patchwork_1.1.2        mime_0.12              evaluate_0.20         
+[103] xtable_1.8-4           IRanges_2.28.0         gridExtra_2.3         
+[106] shape_1.4.6            compiler_4.1.3         KernSmooth_2.23-20    
+[109] crayon_1.5.2           R.oo_1.25.0            htmltools_0.5.5       
+[112] later_1.3.0            tzdb_0.3.0             Formula_1.2-5         
+[115] ggprism_1.0.4          tweenr_2.0.2           ComplexHeatmap_2.10.0 
+[118] MASS_7.3-55            Matrix_1.5-4           cli_3.6.1             
+[121] R.methodsS3_1.8.2      parallel_4.1.3         gower_1.0.1           
+[124] igraph_1.4.2           pkgconfig_2.0.3        foreign_0.8-82        
+[127] sp_1.6-0               plotly_4.10.1          spatstat.sparse_3.0-1 
+[130] recipes_1.0.6          xml2_1.3.3             paletteer_1.5.0       
+[133] foreach_1.5.2          vipor_0.4.5            hardhat_1.3.0         
+[136] prodlim_2023.03.31     snakecase_0.11.0       callr_3.7.3           
+[139] digest_0.6.31          sctransform_0.3.5.9002 RcppAnnoy_0.0.20      
+[142] janitor_2.2.0          spatstat.data_3.0-1    rmarkdown_2.21        
+[145] leiden_0.4.3           htmlTable_2.4.1        uwot_0.1.14           
+[148] shiny_1.7.4            rjson_0.2.21           lifecycle_1.0.3       
+[151] nlme_3.1-155           jsonlite_1.8.4         limma_3.50.3          
+[154] desc_1.4.2             viridisLite_0.4.1      fansi_1.0.4           
+[157] pillar_1.9.0           lattice_0.20-45        ggrastr_1.0.1         
+[160] fastmap_1.1.1          httr_1.4.5             survival_3.3-1        
+[163] glue_1.6.2             remotes_2.4.2          fdrtool_1.2.17        
+[166] png_0.1-8              iterators_1.0.14       ggforce_0.4.1         
+[169] class_7.3-20           stringi_1.7.12         rematch2_2.1.2        
+[172] textshaping_0.3.6      caTools_1.18.2         e1071_1.7-13          
+[175] irlba_2.3.5.1          future.apply_1.10.0
 
 # Time tracking
 ```{r}
@@ -439,8 +291,8 @@ fptm <- proc.time() - ptm
 # convert to minutes
 (fptm[3] / 60)
 
-# Time elapsed:  minutes
-# Hands-on time however is between  minutes!
+# Time elapsed: 55 minutes
+# Hands-on time however is between 10-15 minutes!
 ```
 
 # Reproducibility
