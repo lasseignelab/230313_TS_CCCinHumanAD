@@ -64,6 +64,31 @@ vine_cortex <- readRDS(here("data", "vinecortex_processed_seurat.rds"))
 
 # create a list of all objects
 object_list <- tibble::lst(vine, geo, vine_cortex)
+
+# load liana ligands
+vine_ligands <- readRDS(here("results",
+                             "intermediate_outputs",
+                             "vine",
+                             "ccc",
+                             "liana_ligands.rds"
+                             )
+                        )
+
+geo_ligands <- readRDS(here("results",
+                            "intermediate_outputs",
+                            "geo",
+                            "ccc",
+                            "liana_ligands.rds"
+                            )
+                       )
+
+vine_cortex_ligands <- readRDS(here("results",
+                                    "intermediate_outputs",
+                                    "vine_cortex",
+                                    "ccc",
+                                    "liana_ligands.rds"
+                                    )
+                               )
 ```
 
 # Load NicheNet prior
@@ -157,19 +182,7 @@ ligand_scaled_receptor_expression_fraction_df <- score_interactions(lr_network =
                                                                     exprs_tbl_receptor = exprs_tbl_receptor,
                                                                     DE_sender_receiver = DE_sender_receiver_LIANA)
 
-# these settings will favor DE l-r pairs compared to activity. Adapting these values can change what is favored. In-depth explanations of each factor can be found in the vignette for differential NicheNet. 
-prioritizing_weights = c("scaled_ligand_score" = 5,
-                         "scaled_ligand_expression_scaled" = 1,
-                         "ligand_fraction" = 1,
-                         "scaled_ligand_score_spatial" = 0, 
-                         "scaled_receptor_score" = 0.5,
-                         "scaled_receptor_expression_scaled" = 0.5,
-                          "receptor_fraction" = 1, 
-                         "ligand_scaled_receptor_expression_fraction" = 1,
-                         "scaled_receptor_score_spatial" = 0,
-                         "scaled_activity" = 0,
-                         "scaled_activity_normalized" = 1,
-                         "bona_fide" = 1)
+
 
 # combine all outputs into one large list
 output <- tibble::lst(DE_sender_receiver_LIANA,
@@ -183,20 +196,24 @@ output <- tibble::lst(DE_sender_receiver_LIANA,
                        exprs_tbl_target
                        )
 
-# Prioritize interactions based on previously assigned weights 
-prioritization_tables <- get_prioritization_tables(output, prioritizing_weights)
-
-
-# save both output and prioritization tables
 
 
 
+# save both output
 
-nichenet_wrapper <- function(object_list, user_niches, lr_network, prioritizing_weights, DE_sender_receiver) {
-  for(name in names(object_list)) {
-    # grab object --------------------
-    seurat_obj <- get(name)
-    print(paste0("Loaded ", name, " seurat object"))
+
+
+
+
+
+
+
+
+
+
+
+
+nichenet_wrapper <- function(seurat_obj, user_niches, lr_network, ligands, file_path) {
     # DE analysis between niches --------------------
     DE_sender_receiver <- diff_nichenet(object = seurat_obj,
                                         niches = user_niches,
@@ -245,37 +262,32 @@ nichenet_wrapper <- function(object_list, user_niches, lr_network, prioritizing_
                           )
     print("Created output")
     # save output
-    saveRDS(output, file = here(paste0("results/intermediate_outputs/",
-                                name,
-                                "/ccc/nichenet_output.rds"
+    saveRDS(output, file = here(paste0(file_path,
+                                "ccc/nichenet_output.rds"
                                 )
             )
     )
     print("Saved output")
-    # Prioritize interactions based on previously assigned weights ------------- 
-    prioritization_tables <- get_prioritization_tables(output, 
-                                                       prioritizing_weights
-                                                       )
-    print("Created prioritized output")
-    # save prioritization tables
-    saveRDS(prioritization_tables, file = here(paste0("results/intermediate_outputs/",
-                                                      name,
-                                                      "/ccc/nichenet_prioritization_tables.rds"
-                                                      )
-                                               )
-            )
-    print("Saved prioritized output")
   }
-}
 
 
-nichenet_wrapper(ca_object_list,
+nichenet_wrapper(vine,
                  user_niches = user_niches,
                  lr_network = lr_network,
-                 prioritizing_weights = prioritizing_weights,
-                 DE_sender_receiver = DE_sender_receiver_LIANA)
+                 ligands = vine_ligands,
+                 file_path = "results/intermediate_outputs/vine/")
 
+nichenet_wrapper(geo,
+                 user_niches = user_niches,
+                 lr_network = lr_network,
+                 ligands = geo_ligands,
+                 file_path = "results/intermediate_outputs/geo/")
 
+nichenet_wrapper(vine_cortex,
+                 user_niches = user_niches,
+                 lr_network = lr_network,
+                 ligands = vine_cortex_ligands,
+                 file_path = "results/intermediate_outputs/vine_cortex/")
 ```
 
 
