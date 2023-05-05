@@ -648,14 +648,15 @@ nichenet_wrapper <- function(seurat_obj, user_niches, lr_network, ligands, file_
                        DE_sender_receiver = DE_sender_receiver_LIANA)
   print("Scored interactions")
   # combine all outputs into one large list --------------------
-  output <- tibble::lst(DE_sender_receiver_LIANA,
-                        ligand_scaled_receptor_expression_fraction_df,
-                        sender_spatial_DE_processed,
-                        receiver_spatial_DE_processed,
-                        ligand_activities_targets,
-                        DE_receiver_processed_targets,
-                        exprs_tbl_target
-  )
+  output <- list(DE_sender_receiver = DE_sender_receiver_LIANA,
+                 ligand_scaled_receptor_expression_fraction_df = ligand_scaled_receptor_expression_fraction_df,
+                 sender_spatial_DE_processed = sender_spatial_DE_processed,
+                 receiver_spatial_DE_processed = receiver_spatial_DE_processed,
+                 ligand_activities_targets = ligand_activities_targets,
+                 DE_receiver_processed_targets = DE_receiver_processed_targets,
+                 exprs_tbl_ligand = exprs_tbl_ligand,
+                 exprs_tbl_receptor = exprs_tbl_receptor,
+                 exprs_tbl_target = exprs_tbl_target)
   print("Created output")
   # save output
   saveRDS(output, file = here(paste0(file_path,
