@@ -667,6 +667,120 @@ nichenet_wrapper <- function(seurat_obj, user_niches, lr_network, ligands, file_
   print("Saved output")
 }
 
+## prioritize_interactions
+# A function which inputs a list of NicheNet outputs and prioritizes interactions. The resulting prioritization tables output is saved to respective directory and returned as a list for downstream analyses.
+prioritize_interactions <- function(output_list, file_path, weights = prioritizing_weights) {
+  prioritization_tables_ls <- tibble::lst()
+  for(name in names(output_list)) {
+    output <- get(name)
+    name <- sub("output", "prioritization_tbl", name)
+    path <- sub("_prioritization_tbl", "/ccc/", name)
+    prioritization_tables <- get_prioritization_tables(output, weights)
+    saveRDS(prioritization_tables, file = here(file_path, path, "prioritization_tables.rds"))
+    suppressWarnings(prioritization_tables_ls[name] <- prioritization_tables)
+  }
+  return(prioritization_tables_ls)
+}
+
+## make_nichenet_plot
+# A function which prioritizes lignds based on prioritization score for plotting and generate the exprs_activity_target_plot basic for NicheNet.
+make_nichenet_plot <- function(prioritization_tables, receiver_oi, lfc_cutoff) {
+  top_ligand_niche_df <- prioritization_tables$prioritization_tbl_ligand_receptor %>%
+    select(niche,
+           sender,
+           receiver,
+           ligand,
+           receptor,
+           prioritization_score
+    ) %>%
+    group_by(ligand) %>%
+    top_n(1, prioritization_score) %>%
+    ungroup() %>%
+    select(ligand,
+           receptor,
+           niche
+    ) %>%
+    rename(top_niche = niche)
+  top_ligand_receptor_niche_df <- prioritization_tables$prioritization_tbl_ligand_receptor %>%
+    select(niche,
+           sender,
+           receiver,
+           ligand,
+           receptor,
+           prioritization_score
+    ) %>%
+    group_by(ligand,
+             receptor) %>%
+    top_n(1, prioritization_score) %>%
+    ungroup() %>%
+    select(ligand,
+           receptor,
+           niche
+    ) %>%
+    rename(top_niche = niche)
+  ligand_prioritized_tbl_oi <- prioritization_tables$prioritization_tbl_ligand_receptor %>%
+    select(niche,
+           sender,
+           receiver,
+           ligand,
+           prioritization_score
+    ) %>%
+    group_by(ligand,
+             niche
+    ) %>%
+    top_n(1, prioritization_score) %>%
+    ungroup() %>%
+    distinct() %>%
+    inner_join(top_ligand_niche_df) %>%
+    filter(niche == top_niche) %>%
+    group_by(niche) %>%
+    top_n(50, prioritization_score) %>% # get the top50 ligands per niche
+    ungroup() 
+  
+  filtered_ligands <- ligand_prioritized_tbl_oi %>%
+    filter(receiver == receiver_oi) %>%
+    top_n(20, prioritization_score) %>%
+    pull(ligand) %>%
+    unique()
+  
+  prioritized_tbl_oi <- prioritization_tables$prioritization_tbl_ligand_receptor %>%
+    filter(ligand %in% filtered_ligands) %>%
+    select(niche,
+           sender,
+           receiver,
+           ligand,
+           receptor,
+           ligand_receptor,
+           prioritization_score
+    ) %>% distinct() %>%
+    inner_join(top_ligand_receptor_niche_df) %>%
+    group_by(ligand) %>%
+    filter(receiver == receiver_oi) %>%
+    top_n(2, prioritization_score) %>%
+    ungroup() 
+  
+  exprs_activity_target_plot <-
+    make_ligand_activity_target_exprs_plot(receiver_oi,
+                                           prioritized_tbl_oi,
+                                           prioritization_tables$prioritization_tbl_ligand_receptor,
+                                           prioritization_tables$prioritization_tbl_ligand_target,
+                                           output$exprs_tbl_ligand,
+                                           output$exprs_tbl_target,
+                                           lfc_cutoff,
+                                           ligand_target_matrix,
+                                           plot_legend = FALSE,
+                                           heights = NULL,
+                                           widths = NULL)
+  lfc_plot <- make_ligand_receptor_lfc_plot(receiver_oi,
+                                            prioritized_tbl_oi,
+                                            prioritization_tables$prioritization_tbl_ligand_receptor,
+                                            plot_legend = FALSE,
+                                            heights = NULL,
+                                            widths = NULL)
+  nichenet_plot <- tibble::lst(exprs_activity_target_plot, lfc_plot)
+  return(nichenet_plot)
+}
+
 ## prep_NicheNet
 # A function which prepares the prioritized NicheNet outputs for mapping to STRINGdb PPI and returns a dataframe with a target and a sender column 
 prep_NicheNet <- function(prioritizedNicheNet, cond_niche){
