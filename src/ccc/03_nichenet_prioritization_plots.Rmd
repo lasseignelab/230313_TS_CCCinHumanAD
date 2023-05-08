@@ -1,0 +1,247 @@
+---
+title: "03_nichenet_prioritization_plots"
+author: "Tabea M. Soelter"
+date: '2023-04-28'
+output: html_document
+---
+**Plotting Differential Cell-Cell Communication Results**
+
+__Goal__: Prioritize ligands, receptors, and target genes, then plot them for each dataset.
+  
+__Reproducibility__: 
+* GitHub: lasseignelab/230313_TS_CCCinHumanAD
+* Docker: tsoelter/rstudio_ccc_ad
+    * Version: 1.0.1 
+* HPC: Yes
+  * Resources: long partition (150hrs), 6 CPUs, 65GB per CPU
+
+__Data__: 
+*NicheNet outputs*
+* Name: nichenet_output.rds
+* Location: results/intermediate_outputs/geo/ccc/, results/intermediate_outputs/vine/ccc/, results/intermediate_outputs/vine_cortex/ccc/
+ 
+__Analysis Plan__: 
+* Load necessary packages 
+* Load data
+  * NicheNet outputs
+* Prioritize outputs
+  * Using prioritization weights
+* Generate plots
+* Save plots
+
+__Analysis__:
+# Load packages
+```{r}
+# Time tracking
+ptm <- proc.time()
+
+# set seed
+set.seed(42)
+
+# load packages
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(nichenetr)
+  library(Seurat)
+  library(here)
+  library(styler)
+  library(lintr)
+})
+
+# load functions
+source(here("src", "functions_CCCinAD_tms.R"))
+```
+
+# Load data
+* Loading NicheNet outputs for all datasets
+```{r}
+vine_cortex_output <- readRDS(here(
+  "results",
+  "intermediate_outputs",
+  "vine_cortex",
+  "ccc",
+  "nichenet_output.rds"
+  ))
+
+vine_output <- readRDS(here(
+  "results",
+  "intermediate_outputs",
+  "vine",
+  "ccc",
+  "nichenet_output.rds"
+  ))
+
+geo_output <- readRDS(here(
+  "results",
+  "intermediate_outputs",
+  "geo",
+  "ccc",
+  "nichenet_output.rds"
+  ))
+
+# create a list of output objects
+output_list <- tibble::lst(vine_output, geo_output, vine_cortex_output)
+```
+
+# Load NicheNet prior
+```{r}
+# load the ligand target matrix
+ligand_target_matrix <- readRDS(here(
+  "data",
+  "ccc",
+  "nichenet_prior",
+  "ligand_target_matrix.rds"
+))
+
+# load and filter the ligand receptor network as recommended by developers
+lr_network <- readRDS(here(
+  "data",
+  "ccc",
+  "nichenet_prior",
+  "lr_network.rds"
+)) %>%
+  mutate(bonafide = !database %in% c("ppi_prediction", "ppi_prediction_go")) %>%
+  dplyr::rename(ligand = from, receptor = to) %>%
+  distinct(ligand, receptor, bonafide)
+
+# set organism
+organism <- "human"
+```
+
+# L-R prioritization
+* Adapting these values can change what is favored. 
+* These cut-offs will favor differentially expressed l-r pairs compared to activity.
+* In-depth explanations of each factor can be found in the vignette for differential NicheNet. 
+```{r}
+prioritizing_weights <- c(
+  "scaled_ligand_score" = 5,
+  "scaled_ligand_expression_scaled" = 1,
+  "ligand_fraction" = 1,
+  "scaled_ligand_score_spatial" = 0,
+  "scaled_receptor_score" = 0.5,
+  "scaled_receptor_expression_scaled" = 0.5,
+  "receptor_fraction" = 1,
+  "ligand_scaled_receptor_expression_fraction" = 1,
+  "scaled_receptor_score_spatial" = 0,
+  "scaled_activity" = 0,
+  "scaled_activity_normalized" = 1,
+  "bona_fide" = 1
+)
+
+# Prioritize interactions based on weights and save outputs to respective dirs
+prioritization_tables_ls <- prioritize_interactions(output_list,
+  file_path = here(
+    "results",
+    "intermediate_outputs/"
+  )
+)
+
+# unlist and add objects to global environment
+list2env(prioritization_tables_ls, globalenv())
+```
+
+# Visualization
+* Plotting the standard NicheNet plot which includes ligand expression and activity (scaled and normalized), as well as regulatory potential of predicted target genes
+* After plotting, outputs will be saved to results/intermediate_outputs/{dataset}/ccc/
+
+__vine__
+```{r}
+vine_plots <- make_nichenet_plot(vine_prioritization_tbl,
+  receiver_oi = "Excitatory Neurons_AD",
+  lfc_cutoff = 0.15
+)
+
+# save plots to vine intermediate_outputs results directory
+pdf(here(
+  "results",
+  "intermediate_outputs",
+  "vine",
+  "ccc",
+  "nichenet_plots.pdf"
+))
+
+vine_plots$exprs_activity_target_plot$combined_plot
+vine_plots$exprs_activity_target_plot$legends
+vine_plots$lfc_plot
+
+dev.off()
+```
+
+__geo__
+```{r}
+geo_plots <- make_nichenet_plot(geo_prioritization_tbl,
+  receiver_oi = "Excitatory Neurons_AD",
+  lfc_cutoff = 0.15
+)
+
+# save plots to geo results directory
+pdf(here(
+  "results",
+  "intermediate_outputs",
+  "geo",
+  "ccc",
+  "nichenet_plots.pdf"
+))
+
+geo_plots$exprs_activity_target_plot$combined_plot
+geo_plots$exprs_activity_target_plot$legends
+geo_plots$lfc_plot
+
+dev.off()
+```
+
+__vine_cortex__
+```{r}
+vine_cortex_plots <- make_nichenet_plot(vine_cortex_prioritization_tbl,
+  receiver_oi = "Excitatory Neurons_AD",
+  lfc_cutoff = 0.15
+)
+
+# save plots to vine_cortex intermediate results directory
+pdf(here(
+  "results",
+  "intermediate_outputs",
+  "vine_cortex",
+  "ccc",
+  "nichenet_plots.pdf"
+))
+
+vine_cortex_plots$exprs_activity_target_plot$combined_plot
+vine_cortex_plots$exprs_activity_target_plot$legends
+vine_cortex_plots$lfc_plot
+
+dev.off()
+```
+
+# Session info
+```{r}
+sessionInfo() # see output below
+```
+
+# Time tracking
+```{r}
+fptm <- proc.time() - ptm
+
+# convert to minutes
+(fptm[3] / 60)
+
+# Time elapsed:  minutes
+# Hands-on time however is between  minutes!
+```
+
+# Reproducibility
+```{r}
+# styler
+style_file(here(
+  "src",
+  "ccc",
+  "02_differential_ccc_nichenet.Rmd"
+))
+
+# lintr
+lint(filename = here(
+  "src",
+  "ccc",
+  "02_differential_ccc_nichenet.Rmd"
+))
+```
