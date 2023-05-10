@@ -671,20 +671,21 @@ nichenet_wrapper <- function(seurat_obj, user_niches, lr_network, ligands, file_
 # A function which inputs a list of NicheNet outputs and prioritizes interactions. The resulting prioritization tables output is saved to respective directory and returned as a list for downstream analyses.
 prioritize_interactions <- function(output_list, file_path, weights = prioritizing_weights) {
   prioritization_tables_ls <- tibble::lst()
-  for(name in names(output_list)) {
-    output <- get(name)
-    name <- sub("output", "prioritization_tbl", name)
+  for(i in names(output_list)) {
+    output <- get(i)
+    name <- sub("output", "prioritization_tbl", i)
     path <- sub("_prioritization_tbl", "/ccc/", name)
     prioritization_tables <- get_prioritization_tables(output, weights)
     saveRDS(prioritization_tables, file = here(file_path, path, "prioritization_tables.rds"))
-    suppressWarnings(prioritization_tables_ls[name] <- prioritization_tables)
+    prioritization_tables_ls[name] <- list(prioritization_tables)
   }
   return(prioritization_tables_ls)
 }
 
+
 ## make_nichenet_plot
-# A function which prioritizes lignds based on prioritization score for plotting and generate the exprs_activity_target_plot basic for NicheNet.
-make_nichenet_plot <- function(prioritization_tables, receiver_oi, lfc_cutoff) {
+# A function which prioritizes ligands based on prioritization score for plotting and generate the exprs_activity_target_plot basic for NicheNet.
+make_nichenet_plot <- function(prioritization_tables, output, receiver_oi, lfc_cutoff) {
   top_ligand_niche_df <- prioritization_tables$prioritization_tbl_ligand_receptor %>%
     select(niche,
            sender,
