@@ -1,0 +1,198 @@
+---
+title: "04_nichenet_control"
+author: "Tabea M. Soelter"
+date: '2023-05-11'
+output: html_document
+---
+**Title**
+
+#__Goal__: EDIT THIS
+
+__Reproducibility__: 
+* GitHub: lasseignelab/230313_TS_CCCinHumanAD
+* Docker: tsoelter/rstudio_ccc_ad
+    * Version: 1.0.1 
+* HPC: Yes
+  * Resources: long partition (150hrs), 6 CPUs, 65GB per CPU
+
+#__Data__: EDIT THIS
+**
+* Name: 
+* Location: 
+ 
+#__Analysis Plan__: EDIT THIS
+* Load necessary packages 
+* Load data
+  * NicheNet outputs
+* Prioritize outputs
+  * Using prioritization weights
+* Generate plots
+* Save plots
+
+__Analysis__:
+# Load packages
+```{r}
+# Time tracking
+ptm <- proc.time()
+
+# set seed
+set.seed(42)
+
+# load packages
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(nichenetr)
+  library(Seurat)
+  library(here)
+  library(styler)
+  library(lintr)
+})
+
+# load functions
+source(here("src", "functions_CCCinAD_tms.R"))
+```
+
+# Load data
+```{r}
+vinecortex_object <- readRDS(here("data", "vinecortex_processed_seurat.rds"))
+
+geo_object <- readRDS(here("data", "geo_processed_seurat.rds"))
+```
+
+# Load NicheNet prior
+```{r}
+# load the ligand target matrix
+ligand_target_matrix <- readRDS(here(
+  "data",
+  "ccc",
+  "nichenet_prior",
+  "ligand_target_matrix.rds"
+))
+
+# load and filter the ligand receptor network as recommended by developers
+lr_network <- readRDS(here(
+  "data",
+  "ccc",
+  "nichenet_prior",
+  "lr_network.rds"
+)) %>%
+  mutate(bonafide = !database %in% c("ppi_prediction", "ppi_prediction_go")) %>%
+  dplyr::rename(ligand = from, receptor = to) %>%
+  distinct(ligand, receptor, bonafide)
+
+# set organism
+organism <- "human"
+```
+
+# Split data by condition
+* We want only CTRL data
+```{r}
+# VINE cortex
+vinecortex_split <- SplitObject(vinecortex_object, split.by = "orig.ident")
+vinecortex_control <- vinecortex_split$CTRL
+
+vinecortex_control@active.ident %>% table()
+
+# GEO
+geo_split <- SplitObject(geo_object, split.by = "orig.ident")
+geo_control <- geo_split$CTRL
+
+geo_control@active.ident %>% table()
+```
+
+# Define sender and receiver niches
+## Set receiver cell type
+```{r}
+receiver <- "Excitatory Neurons"
+
+expressed_genes_receiver_geo <- get_expressed_genes(receiver, geo_object, pct = 0.10)
+expressed_genes_receiver_vinec <- get_expressed_genes(receiver, vinecortex_object, pct = 0.10)
+
+background_expressed_genes_geo <- expressed_genes_receiver_geo %>% .[. %in% rownames(ligand_target_matrix)]
+background_expressed_genes_vinec <- expressed_genes_receiver_vinec %>% .[. %in% rownames(ligand_target_matrix)]
+```
+
+## Set sender cell types
+```{r}
+sender_celltypes <- c("Astrocytes", "Oligodendrocytes", "OPCs", "Microglia")
+
+list_expressed_genes_sender_geo <- sender_celltypes %>% unique() %>% lapply(get_expressed_genes, geo_object, 0.10)
+list_expressed_genes_sender_vinec <- sender_celltypes %>% unique() %>% lapply(get_expressed_genes, vinecortex_object, 0.10)
+
+expressed_genes_sender_geo <- list_expressed_genes_sender_geo %>% unlist() %>% unique()
+expressed_genes_sender_vinec <- list_expressed_genes_sender_vinec %>% unlist() %>% unique()
+```
+
+# Define gene set of interest
+```{r}
+# set conditions
+condition_oi <- "CTRL"
+condition_reference <- "AD" 
+
+# geo
+geo_obj_receiver <- subset(geo_object, idents = receiver)
+geo_obj_receiver <- SetIdent(geo_obj_receiver, value = geo_obj_receiver[["orig.ident"]])
+  
+DE_table_receiver_geo <- FindMarkers(object = geo_obj_receiver, ident.1 = condition_oi, ident.2 = condition_reference, min.pct = 0.10) %>% rownames_to_column("gene")
+
+geneset_oi_geo <- DE_table_receiver_geo %>% filter(p_val_adj <= 0.05 & abs(avg_log2FC) >= 0.25) %>% pull(gene)
+geneset_oi_geo <- geneset_oi_geo %>% .[. %in% rownames(ligand_target_matrix)]
+
+# vine cortex
+vinec_obj_receiver <- subset(vinecortex_object, idents = receiver)
+vinec_obj_receiver <- SetIdent(vinec_obj_receiver, value = vinec_obj_receiver[["orig.ident"]])
+  
+DE_table_receiver_vinec <- FindMarkers(object = vinec_obj_receiver, ident.1 = condition_oi, ident.2 = condition_reference, min.pct = 0.10) %>% rownames_to_column("gene")
+
+geneset_oi_vinec <- DE_table_receiver_vinec %>% filter(p_val_adj <= 0.05 & abs(avg_log2FC) >= 0.25) %>% pull(gene)
+geneset_oi_vinec <- geneset_oi_vinec %>% .[. %in% rownames(ligand_target_matrix)]
+```
+
+# Define gene set of potential ligands
+```{r}
+ligands <- lr_network %>% pull(ligand) %>% unique()
+receptors <- lr_network %>% pull(receptor) %>% unique()
+
+# geo
+expressed_ligands_geo <- intersect(ligands, expressed_genes_sender_geo)
+expressed_receptors_geo <- intersect(receptors, expressed_genes_receiver_geo)
+
+potential_ligands_geo <- lr_network %>% filter(ligand %in% expressed_ligands_geo & receptor %in% expressed_receptors_geo) %>% pull(ligand) %>% unique()
+
+# vine cortex
+expressed_ligands_vinec <- intersect(ligands, expressed_genes_sender_vinec)
+expressed_receptors_vinec <- intersect(receptors, expressed_genes_receiver_vinec)
+
+potential_ligands_vinec <- lr_network %>% filter(ligand %in% expressed_ligands_vinec & receptor %in% expressed_receptors_vinec) %>% pull(ligand) %>% unique()
+```
+
+# Ligand activity analysis
+```{r}
+# geo
+ligand_activities_geo <- predict_ligand_activities(geneset = geneset_oi_geo, background_expressed_genes = background_expressed_genes_geo, ligand_target_matrix = ligand_target_matrix, potential_ligands = potential_ligands_geo)
+
+ligand_activities_geo <- ligand_activities_geo %>% arrange(-pearson) %>% mutate(rank = rank(desc(pearson)))
+ligand_activities_geo
+
+best_upstream_ligands_geo <- ligand_activities_geo %>% top_n(20, pearson) %>% arrange(-pearson) %>% pull(test_ligand) %>% unique()
+
+# vine cortex
+ligand_activities_vinec <- predict_ligand_activities(geneset = geneset_oi_vinec, background_expressed_genes = background_expressed_genes_vinec, ligand_target_matrix = ligand_target_matrix, potential_ligands = potential_ligands_vinec)
+
+ligand_activities_vinec <- ligand_activities_vinec %>% arrange(-pearson) %>% mutate(rank = rank(desc(pearson)))
+ligand_activities_vinec
+
+best_upstream_ligands_vinec <- ligand_activities_vinec %>% top_n(20, pearson) %>% arrange(-pearson) %>% pull(test_ligand) %>% unique()
+
+
+# plot ligands for both datasets
+DotPlot(geo_object, features = best_upstream_ligands_geo) + RotatedAxis()
+
+DotPlot(vinecortex_object, features = best_upstream_ligands_vinec) + RotatedAxis()
+```
+
+
+
+
+
+
