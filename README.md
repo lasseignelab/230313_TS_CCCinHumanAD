@@ -1,6 +1,6 @@
 README
 ================
-2023-05-04
+2023-05-15
 
 **EDIT THIS DOCUMENT AND KNIT, DO NOT EDIT README.MD DIRECTLY**
 
@@ -23,7 +23,8 @@ the University of Alabama at Birmingham](https://www.lasseigne.org/)
     ## +-- ccc
     ## |   +-- 01_ligand_prioritization_liana.Rmd
     ## |   +-- 02_differential_ccc_nichenet.Rmd
-    ## |   +-- 03_plotting.Rmd
+    ## |   +-- 03_nichenet_prioritization_plots.Rmd
+    ## |   +-- 04_nichenet_control.Rmd
     ## |   \-- omnipathr-log
     ## |       +-- omnipathr-20230420-1848.log
     ## |       +-- omnipathr-20230420-1850.log
