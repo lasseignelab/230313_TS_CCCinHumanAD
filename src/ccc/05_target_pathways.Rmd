@@ -4,4 +4,246 @@ author: "Tabea M. Soelter"
 date: '2023-05-16'
 output: html_document
 ---
-**Title**
+**Pathway analysis of predicted target genes from LIANA and differential NicheNet**
+__Goal__: Perform pathway analysis on target genes identified through NicheNet. These genes are potential targets of prioritized ligand-receptor pairs identified through applying the LIANA and differential NicheNet pipeline.
+  
+__Reproducibility__: 
+* GitHub: lasseignelab/230313_TS_CCCinHumanAD
+* Docker: tsoelter/rstudio_ccc_ad
+    * Version: 1.0.1
+* HPC: Yes
+  * Resources: long partition (150hrs), 6 CPUs, 65GB per CPU
+
+#__Data__: EDIT THIS
+* Name: LIANA_NicheNet_ouput.rds
+* Location: /data/user/tsoelter/projects/tms_ccc/data/
+* Type: tibble
+* Processed: Yes, output from LIANA-NicheNet pipeline
+ 
+#__Analysis Plan__: EDIT THIS
+* Load necessary packages 
+* Load data 
+* Prepare input for pathway analysis
+  * Pulling out predicted target genes in AD and control neurons
+* Determine pathways associated with predicted target genes
+  * package: gprofiler2
+
+__Analysis__:
+# Load packages
+```{r}
+# Time tracking
+ptm <- proc.time()
+
+# Setting seed
+set.seed(42)
+
+# Load packages
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(Seurat)
+  library(gprofiler2)
+  library(lattice)
+  library(here)
+  library(styler)
+  library(lintr)
+})
+
+source(here("src", "functions_CCCinAD_tms.R"))
+```
+
+# Load data
+* Differential NicheNet outputs
+* Seurat objects
+```{r}
+geo_output <- readRDS(here(
+  "results",
+  "intermediate_outputs",
+  "geo",
+  "ccc",
+  "nichenet_output.rds"))
+
+prioritization_tables <- readRDS(here(
+  "results",
+  "intermediate_outputs",
+  "geo",
+  "ccc",
+  "prioritization_tables.rds")) 
+
+vine_output <- readRDS(here(
+  "results",
+  "intermediate_outputs",
+  "vine",
+  "ccc",
+  "nichenet_output.rds"))
+```
+
+# testing code with 1 dataset
+```{r}
+output <- geo_output
+
+prioritization_df <- prioritization_tables$prioritization_tbl_ligand_target
+
+ex_neuro_targets <- prioritization_df %>%
+  select(receiver, target) %>%
+  filter(receiver %in%
+           c("Excitatory Neurons_AD", "Excitatory Neurons_CTRL")) %>%
+  group_by(receiver) %>%
+  distinct() %>%
+  drop_na()
+```
+
+
+# Prepare Liana-NicheNet Output for Pathway Analysis of Predicted Target Genes
+```{r}
+# subset ligand-target interactions
+ligand_target <- output$ligand_activities_targets
+
+# New df that only includes target genes and receiving cell type - saved in ./data/neuro_target_genes.csv
+neuro_target_genes <- ligand_target %>% select(receiver, target) %>% filter(receiver %in% c("Excitatory Neurons_AD", "Excitatory Neurons_CTRL")) %>% group_by(receiver) %>% distinct() %>% drop_na()
+```
+
+# Function to Perform Pathway Analysis using gprofiler2
+```{r}
+fea <- function(genes){
+  # create gprofiler2 query ----------
+  fea_result <- gost(query = genes, organism = "hsapiens", ordered_query = FALSE, multi_query = FALSE, significant = 
+                     TRUE, exclude_iea = FALSE, measure_underrepresentation = FALSE, evcodes = TRUE, user_threshold = 
+                     0.05, correction_method = "bonferroni", domain_scope = "annotated", numeric_ns =
+                     "", sources = NULL, as_short_link = FALSE) 
+  # remove arbitrary pathways ----------
+  fea_result <- fea_result$result %>% filter(term_size < 1000 | term_size > 10)
+  # keep only top 50 pathways for plotting purposes ---------
+  fea_result_filt <- fea_result %>% top_n(n = 50)
+  return(fea_result_filt)
+}
+```
+
+# Function to Create DotPlot for gprofiler2 Results
+I chose to plot intersection_size, term_name, recall, and p_value. 
+- intersection_size: number of genes in the input query that are annotated to the corresponding term
+- recall: proportion of functionally annotated genes that the query recovers
+- term_name: Pathway/functional enrichment
+- p_value: p_value after multiple hypothesis correction
+        - I chose conferroni correction, but can choose others
+
+```{r}
+bubbleplot <- function(fea_result){
+  plot <- ggplot(fea_result, aes(x = intersection_size, y = reorder(term_name, -p_value), size = recall, fill =
+                 p_value)) +
+                 geom_point(alpha = 0.7, shape = 21) +
+                 scale_size(range = c(2, 10), name = "# Genes Matched to Term") + 
+                 scale_fill_distiller(palette = "Purples") + 
+                 labs(x = "Intersection Size", y = "Functional Enrichment Terms")
+  return(plot)
+}
+```
+
+# Plotting Dotplots for Predicted Target Genes in Both AD and Control
+```{r}
+receiver <- c("Excitatory Neurons_AD", "Excitatory Neurons_CTRL")
+for (i in receiver) {
+  # filter genes by receiving cell type ----------
+  genes <- as.list(ex_neuro_targets %>% filter(receiver == i))
+  # submit genes to pathway analysis function ----------
+  fea_result_filt <- fea(genes = genes)
+  # plot dotplot and add title based on input variable ----------
+  plot <- bubbleplot(fea_result = fea_result_filt) + 
+    ggtitle(paste0("Top 50 Pathways Associated with Predicted Target Genes in ", i)) +
+    theme(plot.title = element_text(hjust = 0.5, size = 12))
+  print(plot)
+}
+```
+# Up- and Down-regulated plots
+THIS MIGHT NOT WORK BECAUSE IT GIVES ME THE EXACT SAME GENES.
+- plot just AD if plotting up and down? bc it is relative to other condition (CTRL)
+```{r}
+target_expression <- output$exprs_tbl_target
+
+neuro_targets_direction <- target_expression %>% select(receiver, target, target_expression_scaled) %>% filter(receiver %in% c("Excitatory Neurons_AD", "Excitatory Neurons_CTRL")) %>% mutate(direction = ifelse(target_expression_scaled > 0, "up", "down"))
+
+
+combined_fea <- function(genes){
+  upgenes <- genes %>% filter(direction == "up")
+  up_fea_filt <- fea(genes = upgenes)
+  downgenes <- genes %>% filter(direction == "down")
+  down_fea_filt <- fea(genes = down_fea_filt)
+  combined_fea <- rbind(up_fea_filt, down_fea_filt)
+  fea_result <- list(downregulated = down_fea_filt, upregulated = up_fea_filt, topcompared = combined_fea)
+return(fea_result)
+}
+
+
+
+combined_fea <- function(genes, receiver){
+  if (receiver == "Excitatory Neurons_AD"){
+  genes_AD <- genes %>% filter(receiver == "Excitatory Neurons_AD")
+  upgenes <- as.list(genes_AD %>% filter(direction == "up"))
+  up_fea_filt <- fea(genes = upgenes) %>% mutate(direction = "upregulated")
+  downgenes <- as.list(genes_AD %>% filter(direction == "down"))
+  down_fea_filt <- fea(genes = downgenes) %>% mutate(direction = "downregulated")
+  combined_fea <- rbind(up_fea_filt, down_fea_filt)
+  fea_result <- list(downregulated = down_fea_filt, upregulated = up_fea_filt, combined = combined_fea)
+  } else {
+genes_control <- genes %>% filter(receiver == "Excitatory Neurons_CTRL")
+  upgenes <- as.list(genes_control %>% filter(direction == "up"))
+  up_fea_filt <- fea(genes = upgenes) %>% mutate(direction = "upregulated")
+  downgenes <- as.list(genes_control %>% filter(direction == "down"))
+  down_fea_filt <- fea(genes = downgenes) %>% mutate(direction = "downregulated")
+  combined_fea <- rbind(up_fea_filt, down_fea_filt)
+  fea_result <- list(downregulated = down_fea_filt, upregulated = up_fea_filt, combined = combined_fea)
+  }
+  return(fea_result)
+}
+
+
+fea_res <- combined_fea(neuro_targets_direction, receiver = "Excitatory Neurons_CTRL")
+
+fea_res_AD <- combined_fea(neuro_targets_direction, receiver = "Excitatory Neurons_AD")
+
+ggplot(fea_res$combined, aes(x = direction, y = reorder(term_name, -p_value), size = intersection_size, fill =
+                 p_value)) +
+                 geom_point(alpha = 0.7, shape = 21) +
+                 scale_size(range = c(2, 10), name = "Intersection Size") + 
+                 scale_fill_distiller(palette = "Purples") + 
+                 labs(x = "Direction", y = "Functional Enrichment Terms")
+
+
+ggplot(fea_res_AD$combined, aes(x = direction, y = reorder(term_name, -p_value), size = intersection_size, fill =
+                 p_value)) +
+                 geom_point(alpha = 0.7, shape = 21) +
+                 scale_size(range = c(2, 10), name = "Intersection Size") + 
+                 scale_fill_distiller(palette = "Purples") + 
+                 labs(x = "Direction", y = "Functional Enrichment Terms")
+```
+
+# Session Info
+```{r}
+sessionInfo()
+```
+
+# Time tracking
+```{r}
+fptm <- proc.time() - ptm
+
+# convert to minutes
+(fptm[3] / 60)
+
+# Time elapsed: ## minutes
+```
+
+# Reproducibility
+```{r}
+# styler
+style_file(here(
+  "src",
+  "ccc",
+  "05_target_pathways.Rmd"
+))
+
+# lintr
+lint(filename = here(
+  "src",
+  "ccc",
+  "05_target_pathways.Rmd"
+))
+```
