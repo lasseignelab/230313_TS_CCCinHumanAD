@@ -1,0 +1,191 @@
+---
+title: "01_ppi_input_generation"
+author: "Tabea M. Soelter"
+date: '2023-05-15'
+output: html_document
+---
+**Download of protein-protein interactions from STRINGdb**
+__Goal__: Building PPI network from interactions downloaded from STRINGdb.
+
+__Reproducibility__:
+* GitHub: lasseignelab/230313_TS_CCCinHumanAD
+* Docker: tsoelter/rstudio_ccc_ad
+    * Version: 1.0.1
+* HPC: Yes
+  * Resources: long partition (150hrs), 6 CPUs, 65GB per CPU
+  
+#__Data__: EDIT THIS
+* Name:
+* Location:
+
+#__Analysis Plan__: EDIT THIS
+* Load necessary packages 
+* Load data 
+* Download STRINGdb interactions
+* Process STRINGdb interactions
+* Create igraph objects
+* Save igraph objects
+
+__Analysis__:
+# Load packages
+```{r}
+# Time tracking
+ptm <- proc.time()
+
+# Setting seed
+set.seed(42)
+
+# Load packages
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(STRINGdb)
+  library(igraph)
+  library(here)
+  library(styler)
+  library(lintr)
+})
+
+source(here("src", "functions_CCCinAD_tms.R"))
+```
+
+# Load data
+* Seurat objects
+* Differential NicheNet output (prioritized)
+* AD-risk gene list
+```{r}
+# Seurat objects
+geo_object <- readRDS(here("data/geo_processed_seurat.rds"))
+
+vine_object <- readRDS(here("data/vine_processed_seurat.rds"))
+
+vine_cortex_object <- readRDS(here("data/vinecortex_processed_seurat.rds"))
+
+object_list <- tibble::lst(geo_object, vine_object, vine_cortex_object)
+
+# NicheNet outputs
+geo_output <- readRDS(here("results",
+                           "intermediate_outputs",
+                           "geo",
+                           "ccc",
+                           "prioritization_tables.rds"))
+
+vine_output <- readRDS(here("results",
+                            "intermediate_outputs",
+                            "vine",
+                            "ccc",
+                            "prioritization_tables.rds"))
+
+vine_cortex_output <- readRDS(here("results",
+                            "intermediate_outputs",
+                            "vine_cortex",
+                            "ccc",
+                            "prioritization_tables.rds"))
+
+# AD-risk gene list
+ad_gene_list <- read.csv(here(
+   "data",
+   "ccc",
+   "ad_gene_list.csv"),
+   header = FALSE)
+```
+
+# Download STRINGdb interactions
+* I am including interactions with any confidence score
+* The human species code is 9606
+* Version 11.5 as of 221103
+```{r}
+ppi <- STRINGdb$new(version = "11.5", 
+                    species = as.numeric(9606), 
+                    score_threshold = 0)
+```
+
+# Filter NicheNet output
+```{r}
+geo_prioritized_targets <- geo_output$prioritization_tbl_ligand_target
+
+vine_prioritized_targets <- vine_output$prioritization_tbl_ligand_target
+```
+
+
+# Map genes to PPI
+* Filter prioritized NicheNet output
+* Adjust AD risk gene list name to match NicheNet output
+* Combine prepared NicheNet output with AD risk gene list
+* Map genes to STRINGdb PPI
+```{r}
+# test
+object_list <- create_igraph_object(ppi = ppi,
+                                    disease_gene_list = ad_gene_list,
+                                    condition = c("AD", "CTRL"),
+                                    receiver = "Excitatory Neurons",
+                                    seurat_object = object)
+
+
+all_genes <- object@assays[["RNA"]]@counts@Dimnames[[1]] %>% 
+    as.data.frame() %>% 
+    rename("target" = ".")
+```
+
+# Calculate edge weights
+* While STRINGdb provides us with scores which indicate the confidence in the interaction based on prior knowledge, we are interested in interactions directly tied to the gene expression (GEx) of our data.
+* In order to account for GEx, we calculate edge weights based on the sum of the gene expression of 2 connected nodes (by an edge) and scale the value by the STRINGdb score to continue accounting for the confidence of the interactions. 
+* An annotated Seurat Object is used to obtain GEx values.
+```{r}
+
+```
+
+# Calculate shortest path
+* I am using Dijkstra's shortest path algorithm to calculate the shortest paths between al possible nodes. 
+* As Dijkstra's calculates the shortest path, we previously inverted the weights we calculated, so the edges with the highest GEx will become the lowest values and therefore be favored during the shortest path calculation.
+```{r}
+
+```
+
+# Visualization
+```{r}
+
+```
+
+### this is the array prep script:
+here we create txt file with the paths to the objects needed 
+we create prior needed inputs 
+
+create mapped genes
+```{r}
+
+
+
+
+
+
+
+# get all genes expressed in the data
+all_genes <- seurat_object@assays[["RNA"]]@counts@Dimnames[[1]] %>% 
+    as.data.frame() %>% 
+    rename("target" = ".")
+
+mapped_genes_AD <- map_genes(all_genes,
+                                   gene_list = disease_gene_list)
+
+
+for(name in names(object_list)) {
+  object <- get(name)
+  name <- sub("_object.*", "", name)
+  all_genes <- object@assays[["RNA"]]@counts@Dimnames[[1]] %>% 
+    as.data.frame() %>% 
+    rename("target" = ".")
+  mapped_genes <- map_genes(all_genes,
+                            gene_list = ad_gene_list)
+  print("mapped genes")
+  saveRDS(mapped_genes, file = here(paste0("results/intermediate_outputs/inputs/",
+                                           name,
+                                           "_mapped_genes.rds")))
+  ppi_tmp <- ppi$get_interactions(mapped_genes$STRING_id)
+  print("retrieved interactions")
+  saveRDS(ppi_tmp, file = here(paste0("results/intermediate_outputs/inputs/",
+                                           name,
+                                           "_ppi_tmp.rds")))
+  
+}
+```
+
