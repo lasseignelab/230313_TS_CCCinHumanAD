@@ -1,0 +1,6 @@
+/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/shortest_path/geo_AD_igraph.rds
+/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/shortest_path/geo_CTRL_igraph.rds
+/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/shortest_path/vine_AD_igraph.rds
+/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/shortest_path/vine_CTRL_igraph.rds
+/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/shortest_path/vine_cortex_AD_igraph.rds
+/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/shortest_path/vine_cortex_CTRL_igraph.rds

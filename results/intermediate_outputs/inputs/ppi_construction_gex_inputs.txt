@@ -1,0 +1,3 @@
+/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/geo_processed_seurat.rds
+/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/vine_processed_seurat.rds
+/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/vinecortex_processed_seurat.rds
