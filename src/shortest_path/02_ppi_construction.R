@@ -53,14 +53,14 @@ ad_gene_list <- read.csv("/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/da
 print("loaded AD-risk gene list")
 
 ## Create igraph objects
-#* Wrapper function to:
-#   * Create igraph object by condition of a Seurat object
-#* Calculate edge weights
-#   * While STRINGdb provides us with scores which indicate the confidence in the interaction based on prior knowledge, we are interested in interactions directly tied to the gene expression (GEx) of our data.
-#   * In order to account for GEx, we calculate edge weights based on the sum of the gene expression of 2 connected nodes (by an edge) and scale the value by the STRINGdb score to continue accounting for the prior knowledge. 
-#     * An annotated Seurat Object is used to obtain GEx values.
-#   * Values are inversed to allow for shortest path calculation prioritizing genes with highest GEx
-#* Outputs a list of the condition specific igraph objects
+# Wrapper function to:
+#   - Create igraph object by condition of a Seurat object
+# Calculate edge weights
+#   - While STRINGdb provides us with scores which indicate the confidence in the interaction based on prior knowledge, we are interested in interactions directly tied to the gene expression (GEx) of our data.
+#   - In order to account for GEx, we calculate edge weights based on the sum of the gene expression of 2 connected nodes (by an edge) and scale the value by the STRINGdb score to continue accounting for the prior knowledge. 
+#     - An annotated Seurat Object is used to obtain GEx values.
+#   - Values are inversed to allow for shortest path calculation prioritizing genes with highest GEx
+# Outputs a list of the condition specific igraph objects
 object_list <- create_igraph_object(condition = c("AD", "CTRL"),
                                     receiver = "Excitatory Neurons",
                                     seurat_object = object,
