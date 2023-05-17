@@ -822,9 +822,9 @@ prep_NicheNet <- function(prioritizedNicheNet, cond_niche){
 
 ## map_genes
 # A function which joins a disease gene list with a prioritized gene df in order to map the genes to the STRINGdb PPI
-map_genes <- function(prioritized_targets, gene_list){
+map_genes <- function(targets, gene_list){
   colnames(gene_list) <- "target"
-  genes <- prioritized_targets %>% 
+  genes <- targets %>% 
     select(target) %>% 
     full_join(gene_list) %>% 
     unique() %>% 
@@ -845,9 +845,7 @@ normalize <- function(x, na.rm = TRUE) {
 ## compile_gex
 # A function to read in a Seurat object, filter it by receiver cell type and condition, as well as pull GEx values. GEx values are then summed and normalized.
 compile_gex <- function(object, receiver, condition, genes_ppi){
-  seurat_obj <- readRDS(here("data", 
-                             object))
-  target_all <- subset(seurat_obj, 
+  target_all <- subset(object, 
                        idents = receiver)
   target_cond <- subset(target_all, 
                         subset = orig.ident == condition)
@@ -880,22 +878,15 @@ inverse_weights <- function(df){
 ## create_igraph_object
 # A function which serves as a wrapper function to filter target genes, map them to STRING identifiers, add gex values, and calculate edge weights before returning a list of the different igraph objects returned.
 # This function will do everything necessary to create an igraph object for target genes from 1 seurat object across conditions.
-create_igraph_object <- function(ppi, prioritized_targets, disease_gene_list, condition, receiver, seurat_object) {
+create_igraph_object <- function(condition, receiver, seurat_object, mapped_genes, ppi_tmp) {
+  # create df of ppi -----
+  ppi_df <- data.frame(from = mapped_genes[match(ppi_tmp$from, mapped_genes$STRING_id), 1],
+                       to = mapped_genes[match(ppi_tmp$to, mapped_genes$STRING_id), 1],
+                       score = ppi_tmp$combined_score) %>% unique()
+  # compile genes from ppi -----
+  genes_ppi <- ppi_df %>% select(from, to) %>% unlist() %>% unique()
   for (cond in condition) {
     if(cond == "AD") {
-      prioritized_targets_AD <- subset(prioritized_targets, 
-                                       sub(".*_", "", prioritized_targets$receiver) == "AD", 
-                                       drop = TRUE)
-      mapped_genes_AD <- map_genes(prioritized_targets_AD,
-                                   gene_list = disease_gene_list)
-      # get interactions for genes of interest -----
-      ppi_tmp <- ppi$get_interactions(mapped_genes_AD$STRING_id)
-      # create df of ppi -----
-      ppi_df <- data.frame(from = mapped_genes_AD[match(ppi_tmp$from, mapped_genes_AD$STRING_id), 1],
-                           to = mapped_genes_AD[match(ppi_tmp$to, mapped_genes_AD$STRING_id), 1],
-                           score = ppi_tmp$combined_score) %>% unique()
-      # compile genes from ppi -----
-      genes_ppi <- ppi_df %>% select(from, to) %>% unlist() %>% unique()
       # pull GEx, filter and normalize it -----
       counts_norm <- compile_gex(object = seurat_object, 
                                  receiver = receiver, 
@@ -904,6 +895,7 @@ create_igraph_object <- function(ppi, prioritized_targets, disease_gene_list, co
       # Scale StringDB scores -----
       ppi_df$score_scaled <- ppi_df$score/1000
       # Calculate edge weights for interactions -----
+      print("calculating AD edge weights")
       edge_weight <- apply(ppi_df, 1, calculate_weights, counts = counts_norm)
       # Add new column with edge weights after removing NAs, as well as a new column with the transformed weights through inversion (the largest value will become the smallest and vice versa, as Dijkstra's will calculate the shortest path) -----
       ppi_weights <- cbind(ppi_df, edge_weight) %>% 
@@ -916,21 +908,12 @@ create_igraph_object <- function(ppi, prioritized_targets, disease_gene_list, co
       # Set edge attributes as the calculated edge weight -----
       E(AD_igraph)$weight <- ppi_weights$edge_weight_t
     } else {
-      prioritized_targets_control <- subset(prioritized_targets, 
-                                            sub(".*_", "", prioritized_targets$receiver) == "CTRL", 
-                                            drop = TRUE)
-      mapped_genes_control <- map_genes(prioritized_targets_control,
-                                        gene_list = disease_gene_list)
-      ppi_tmp <- ppi$get_interactions(mapped_genes_control$STRING_id)
-      ppi_df <- data.frame(from = mapped_genes_control[match(ppi_tmp$from, mapped_genes_control$STRING_id), 1],
-                           to = mapped_genes_control[match(ppi_tmp$to, mapped_genes_control$STRING_id), 1],
-                           score = ppi_tmp$combined_score) %>% unique()
-      genes_ppi <- ppi_df %>% select(from, to) %>% unlist() %>% unique()
       counts_norm <- compile_gex(object = seurat_object, 
                                  receiver = receiver, 
                                  condition = cond, 
                                  genes_ppi = genes_ppi)
       ppi_df$score_scaled <- ppi_df$score/1000
+      print("calculating CTRL edge weights")
       edge_weight <- apply(ppi_df, 1, calculate_weights, counts = counts_norm)
       ppi_weights <- cbind(ppi_df, edge_weight) %>%
         filter(!is.na(edge_weight))
