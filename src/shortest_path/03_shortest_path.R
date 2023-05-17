@@ -19,6 +19,7 @@ print("enabled args usage")
 
 ## get dataset name
 name <- sub("_igraph.rds.*", "", basename(args[1]))
+print(name)
 
 ## load in data
 igraph <- readRDS(args[1])
