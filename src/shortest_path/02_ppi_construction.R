@@ -2,7 +2,10 @@
 ### Author: Tabea M. Soelter
 ### Date: 2023-05-16
 
-## Goal: Creating igraph objects of AD and CTRL PPI networks for individual datasets. 
+## Goal: Create igraph objects of AD and CTRL PPI networks for multiple datasets
+
+## time tracking
+ptm <- proc.time()
 
 ## set seed
 set.seed(42)
@@ -27,7 +30,7 @@ print("enabled args usage")
 name <- sub("_processed_seurat.rds.*", "", basename(args[1]))
 
 ## rename vine cortex for saving purposes
-if(name == "vinecortex") {
+if (name == "vinecortex") {
   name <- "vine_cortex"
   print(name)
 } else {
@@ -57,7 +60,7 @@ print("loaded AD-risk gene list")
 #   - Create igraph object by condition of a Seurat object
 # Calculate edge weights
 #   - While STRINGdb provides us with scores which indicate the confidence in the interaction based on prior knowledge, we are interested in interactions directly tied to the gene expression (GEx) of our data.
-#   - In order to account for GEx, we calculate edge weights based on the sum of the gene expression of 2 connected nodes (by an edge) and scale the value by the STRINGdb score to continue accounting for the prior knowledge. 
+#   - In order to account for GEx, we calculate edge weights based on the sum of the gene expression of 2 connected nodes (by an edge) and scale the value by the STRINGdb score to continue accounting for the prior knowledge.
 #     - An annotated Seurat Object is used to obtain GEx values.
 #   - Values are inversed to allow for shortest path calculation prioritizing genes with highest GEx
 # Outputs a list of the condition specific igraph objects
@@ -77,3 +80,15 @@ print("split objects")
 print("saving objects")
 saveRDS(AD_igraph, file = paste0("/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/shortest_path/", name, "_AD_igraph.rds"))
 saveRDS(CTRL_igraph, file = paste0("/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/shortest_path/", name, "_CTRL_igraph.rds"))
+
+# session info
+sessionInfo()
+
+# time tracking
+fptm <- proc.time() - ptm
+fptm <- (fptm[3] / 60) / 60
+print(paste0("Run time: ", fptm, " hours"))
+
+# reproducibility:
+# This script was styled and linted.
+# Code excluded here, as script is submitted as an array.

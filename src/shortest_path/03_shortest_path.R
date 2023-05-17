@@ -2,7 +2,10 @@
 ### Author: Tabea M. Soelter
 ### Date: 2023-05-16
 
-## Goal: Calculating the shortest path between all nodes in the PPI using Dijkstra's. 
+## Goal: Calculating the shortest path between all nodes in the PPI using Dijkstra's.
+
+## time tracking
+ptm <- proc.time()
 
 ## set seed
 set.seed(42)
@@ -26,7 +29,7 @@ igraph <- readRDS(args[1])
 print("loaded igraph object")
 
 ## calculate shortest path
-# I am using Dijkstra's shortest path algorithm to calculate the shortest paths between all possible nodes. 
+# I am using Dijkstra's shortest path algorithm to calculate the shortest paths between all possible nodes.
 # As Dijkstra's calculates the shortest path, we previously inverted the weights we calculated, so the edges with the highest GEx will become the lowest values and therefore be favored during the shortest path calculation.
 distance_matrix <- distances(igraph,
                              algorithm = "dijkstra",
@@ -37,3 +40,15 @@ print("calculated distances")
 ## save distance matrix
 print("saving distance matrix")
 saveRDS(distance_matrix, file = paste0("/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/shortest_path/", name, "_distance_matrix.rds"))
+
+# session info
+sessionInfo()
+
+# time tracking
+fptm <- proc.time() - ptm
+fptm <- (fptm[3] / 60) / 60
+print(paste0("Run time: ", fptm, " hours"))
+
+# reproducibility:
+# This script was styled and linted.
+# Code excluded here, as script is submitted as an array.
