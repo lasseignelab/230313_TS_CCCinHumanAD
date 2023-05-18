@@ -1,6 +1,6 @@
 README
 ================
-2023-05-15
+2023-05-18
 
 **EDIT THIS DOCUMENT AND KNIT, DO NOT EDIT README.MD DIRECTLY**
 
@@ -25,18 +25,7 @@ the University of Alabama at Birmingham](https://www.lasseigne.org/)
     ## |   +-- 02_differential_ccc_nichenet.Rmd
     ## |   +-- 03_nichenet_prioritization_plots.Rmd
     ## |   +-- 04_nichenet_control.Rmd
-    ## |   \-- omnipathr-log
-    ## |       +-- omnipathr-20230420-1848.log
-    ## |       +-- omnipathr-20230420-1850.log
-    ## |       +-- omnipathr-20230420-1851.log
-    ## |       +-- omnipathr-20230420-1855.log
-    ## |       +-- omnipathr-20230420-1910.log
-    ## |       +-- omnipathr-20230420-1930.log
-    ## |       +-- omnipathr-20230420-1938.log
-    ## |       +-- omnipathr-20230421-1417.log
-    ## |       +-- omnipathr-20230421-2010.log
-    ## |       +-- omnipathr-20230425-1538.log
-    ## |       \-- omnipathr-20230502-1536.log
+    ## |   \-- 05_target_pathways.Rmd
     ## +-- cellranger
     ## |   +-- geo
     ## |   |   +-- SAMN19128593_S19_CTRL.sh
@@ -85,6 +74,11 @@ the University of Alabama at Birmingham](https://www.lasseigne.org/)
     ## |   +-- 02_geo_seurat_preprocessing.Rmd
     ## |   \-- 03_vinecortex_seurat_preprocessing.Rmd
     ## \-- shortest_path
+    ##     +-- 01_ppi_input_generation.Rmd
+    ##     +-- 02_ppi_construction.R
+    ##     +-- 02_ppi_construction.sh
+    ##     +-- 03_shortest_path.R
+    ##     \-- 03_shortest_path.sh
 
 ## Authors
 
