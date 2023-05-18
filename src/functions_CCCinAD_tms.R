@@ -782,6 +782,32 @@ make_nichenet_plot <- function(prioritization_tables, output, receiver_oi, lfc_c
   return(nichenet_plot)
 }
 
+## fea
+# A function to perform pathway nnalysis using gprofiler2 and filters for the top 50 pathways for plotting purposes.
+fea <- function(genes){
+  set.seed(42)
+  # create gprofiler2 query ----------
+  fea_result <- gost(query = genes,
+                     organism = "hsapiens",
+                     ordered_query = FALSE,
+                     multi_query = FALSE,
+                     significant = TRUE,
+                     exclude_iea = FALSE,
+                     measure_underrepresentation = FALSE,
+                     evcodes = TRUE,
+                     user_threshold = 0.05,
+                     correction_method = "bonferroni",
+                     domain_scope = "annotated",
+                     numeric_ns = "",
+                     sources = NULL,
+                     as_short_link = FALSE) 
+  # remove arbitrary pathways ----------
+  fea_result <- fea_result$result %>% filter(term_size < 1000 | term_size > 10)
+  # keep only top 50 pathways for plotting purposes ---------
+  fea_result_filt <- fea_result %>% top_n(n = 50)
+  return(fea_result_filt)
+}
+
 ## map_genes
 # A function which joins a disease gene list with a prioritized gene df in order to map the genes to the STRINGdb PPI
 map_genes <- function(targets, gene_list){
