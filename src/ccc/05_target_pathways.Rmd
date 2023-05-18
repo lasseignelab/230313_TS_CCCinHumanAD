@@ -106,10 +106,20 @@ neuro_target_genes <- ligand_target %>% select(receiver, target) %>% filter(rece
 ```{r}
 fea <- function(genes){
   # create gprofiler2 query ----------
-  fea_result <- gost(query = genes, organism = "hsapiens", ordered_query = FALSE, multi_query = FALSE, significant = 
-                     TRUE, exclude_iea = FALSE, measure_underrepresentation = FALSE, evcodes = TRUE, user_threshold = 
-                     0.05, correction_method = "bonferroni", domain_scope = "annotated", numeric_ns =
-                     "", sources = NULL, as_short_link = FALSE) 
+  fea_result <- gost(query = genes,
+                     organism = "hsapiens",
+                     ordered_query = FALSE,
+                     multi_query = FALSE,
+                     significant = TRUE,
+                     exclude_iea = FALSE,
+                     measure_underrepresentation = FALSE,
+                     evcodes = TRUE,
+                     user_threshold = 0.05,
+                     correction_method = "bonferroni",
+                     domain_scope = "annotated",
+                     numeric_ns = "",
+                     sources = NULL,
+                     as_short_link = FALSE) 
   # remove arbitrary pathways ----------
   fea_result <- fea_result$result %>% filter(term_size < 1000 | term_size > 10)
   # keep only top 50 pathways for plotting purposes ---------
@@ -215,6 +225,13 @@ ggplot(fea_res_AD$combined, aes(x = direction, y = reorder(term_name, -p_value),
                  scale_fill_distiller(palette = "Purples") + 
                  labs(x = "Direction", y = "Functional Enrichment Terms")
 ```
+
+# trying out up/down plot with prioritized targets
+```{r}
+
+```
+
+
 
 # Session Info
 ```{r}
