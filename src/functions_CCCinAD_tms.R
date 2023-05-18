@@ -805,14 +805,14 @@ fea <- function(genes){
   # remove arbitrary pathways ----------
   fea_result <- fea_result$result %>% filter(term_size < 1000 | term_size > 10)
   # keep only top 50 pathways for plotting purposes ---------
-  fea_result_filt <- fea_result %>% top_n(n = 50)
+  fea_result_filt <- fea_result %>% top_n(n = 15)
   return(fea_result_filt)
 }
 
 ## bubbleplot
 # A function to create a DotPlot for gprofiler2 results
 # Adapted from Lizzy Wilk
-bubbleplot <- function(fea_result){
+bubbleplot <- function(fea_result, region, file_path){
   plot <- ggplot(fea_result,
                  aes(x = direction,
                      y = reorder(term_name, -p_value),
@@ -823,8 +823,14 @@ bubbleplot <- function(fea_result){
     scale_fill_distiller(palette = "Purples") + 
     labs(x = "Direction", y = "Functional Enrichment Terms") +
     theme_minimal() + 
-    ggtitle("Top Enriched Terms for Predicted Target\nGenes in Prefrontal Cortex") +
+    ggtitle(paste0("Top Enriched Terms for Predicted Target\nGenes in ", region)) +
     theme(axis.text = element_text(face = "bold"))
+  ggsave(filename = "bubbleplot_pathways.png",
+         path = paste0(here(file_path)),
+         plot = plot,
+         width = 10,
+         height = 9,
+         bg = "white")
   return(plot)
 }
 
