@@ -784,6 +784,7 @@ make_nichenet_plot <- function(prioritization_tables, output, receiver_oi, lfc_c
 
 ## fea
 # A function to perform pathway nnalysis using gprofiler2 and filters for the top 50 pathways for plotting purposes.
+# Adapted from Lizzy Wilk
 fea <- function(genes){
   set.seed(42)
   # create gprofiler2 query ----------
@@ -806,6 +807,54 @@ fea <- function(genes){
   # keep only top 50 pathways for plotting purposes ---------
   fea_result_filt <- fea_result %>% top_n(n = 50)
   return(fea_result_filt)
+}
+
+## bubbleplot
+# A function to create a DotPlot for gprofiler2 results
+# Adapted from Lizzy Wilk
+bubbleplot <- function(fea_result){
+  plot <- ggplot(fea_result,
+                 aes(x = direction,
+                     y = reorder(term_name, -p_value),
+                     size = intersection_size,
+                     fill = p_value)) +
+    geom_point(alpha = 0.7, shape = 21) +
+    scale_size(range = c(2, 10), name = "Intersection Size") + 
+    scale_fill_distiller(palette = "Purples") + 
+    labs(x = "Direction", y = "Functional Enrichment Terms") +
+    theme_minimal() + 
+    ggtitle("Top Enriched Terms for Predicted Target\nGenes in Prefrontal Cortex") +
+    theme(axis.text = element_text(face = "bold"))
+  return(plot)
+}
+
+## combined_fea
+# A function to get pathways for up- and down-regulated information of genes submitted 
+combined_fea <- function(genes, receiver){
+  genes_AD <- genes %>% filter(receiver == receiver)
+  upgenes <- as.list(genes_AD %>% filter(direction == "up"))
+  up_fea_filt <- fea(genes = upgenes) %>% mutate(direction = "upregulated")
+  downgenes <- as.list(genes_AD %>% filter(direction == "down"))
+  down_fea_filt <- fea(genes = downgenes) %>% mutate(direction = "downregulated")
+  combined_fea <- rbind(up_fea_filt, down_fea_filt)
+  fea_result <- list(downregulated = down_fea_filt, upregulated = up_fea_filt, combined = combined_fea)
+  return(fea_result)
+}
+
+## pathway_analysis
+# A wrapper function to prepare inputs for pathway analysis, perform pathway analysis using gprofiler2 on up/down regulated target genes from nichenet
+pathway_analysis <- function(nichenet_output, receiver) {
+  # subset output for df with target expression info -----
+  target_expression <- nichenet_output$exprs_tbl_target
+  # filter expression df for necessary columns and cell type as well as add up/down gex info -----
+  neuro_targets_direction <- target_expression %>%
+    select(receiver, target, target_expression_scaled) %>%
+    filter(receiver == "Excitatory Neurons_AD") %>%
+    mutate(direction = ifelse(target_expression_scaled > 0, "up", "down")) %>%
+    unique()
+  # pathway analysis of up/down genes
+  fea_res <- combined_fea(neuro_targets_direction, receiver = receiver)
+  return(fea_res)
 }
 
 ## map_genes
