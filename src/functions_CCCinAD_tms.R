@@ -782,44 +782,6 @@ make_nichenet_plot <- function(prioritization_tables, output, receiver_oi, lfc_c
   return(nichenet_plot)
 }
 
-## prep_NicheNet
-# A function which prepares the prioritized NicheNet outputs for mapping to STRINGdb PPI and returns a dataframe with a target and a sender column 
-prep_NicheNet <- function(prioritizedNicheNet, cond_niche){
-  top_ligand_niche_df <- prioritizedNicheNet$prioritization_tbl_ligand_receptor %>% 
-    select(niche, sender, receiver, ligand, receptor, prioritization_score) %>% 
-    group_by(ligand) %>% 
-    top_n(1, prioritization_score) %>% 
-    ungroup() %>% 
-    select(ligand, receptor, niche) %>% 
-    rename(top_niche = niche)
-  ligand_prioritized_tbl_oi <- prioritizedNicheNet$prioritization_tbl_ligand_receptor %>% 
-    select(niche, sender, receiver, ligand, prioritization_score) %>% 
-    group_by(ligand, niche) %>% 
-    top_n(1, prioritization_score) %>% 
-    ungroup() %>% 
-    distinct() %>% 
-    inner_join(top_ligand_niche_df) %>% 
-    filter(niche == top_niche) %>% 
-    group_by(niche) %>% 
-    top_n(50, prioritization_score) %>% 
-    ungroup() 
-  targets <- ligand_prioritized_tbl_oi %>% 
-    inner_join(prioritizedNicheNet$prioritization_tbl_ligand_target,
-               by = c("niche",
-                      "receiver",
-                      "sender",
-                      "ligand",
-                      "receptor",
-                      "prioritization_score"),
-               multiple = "all") %>% 
-    filter(niche == cond_niche) %>%
-    select(sender, target, receiver) %>% 
-    group_by (sender, target, receiver) %>% 
-    distinct(target) %>% 
-    ungroup()
-  return(targets)
-}
-
 ## map_genes
 # A function which joins a disease gene list with a prioritized gene df in order to map the genes to the STRINGdb PPI
 map_genes <- function(targets, gene_list){
