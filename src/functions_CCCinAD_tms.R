@@ -609,7 +609,7 @@ score_interactions <- function(lr_network, exprs_tbl_ligand, exprs_tbl_receptor,
 #   * calculate ligand activities and infer active ligand-target links
 #   * calculate the scaled expression of ligands, receptors, and targets across cell types of interest
 #   * scoring the l-r interctions based on their expression strength of the receptor
-nichenet_wrapper <- function(seurat_obj, user_niches, lr_network, ligands, file_path) {
+nichenet_wrapper <- function(seurat_obj, user_niches, lr_network, ligands, file_path, file_name) {
   # DE analysis between niches --------------------
   DE_sender_receiver <- diff_nichenet(object = seurat_obj,
                                       niches = user_niches,
@@ -659,9 +659,7 @@ nichenet_wrapper <- function(seurat_obj, user_niches, lr_network, ligands, file_
                  exprs_tbl_target = exprs_tbl_target)
   print("Created output")
   # save output
-  saveRDS(output, file = here(paste0(file_path,
-                                     "ccc/nichenet_output.rds"
-  )
+  saveRDS(output, file = here(paste0(file_path, file_name)
   )
   )
   print("Saved output")
