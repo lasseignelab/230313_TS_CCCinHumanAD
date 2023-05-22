@@ -40,8 +40,8 @@ set.seed(42)
 # Load packages
 suppressPackageStartupMessages({
   library(tidyverse)
-  library(Seurat)
   library(gprofiler2)
+  library(ggplot2)
   library(lattice)
   library(here)
   library(styler)
@@ -53,190 +53,138 @@ source(here("src", "functions_CCCinAD_tms.R"))
 
 # Load data
 * Differential NicheNet outputs
-* Seurat objects
 ```{r}
 geo_output <- readRDS(here(
   "results",
   "intermediate_outputs",
   "geo",
   "ccc",
-  "nichenet_output.rds"))
-
-prioritization_tables <- readRDS(here(
-  "results",
-  "intermediate_outputs",
-  "geo",
-  "ccc",
-  "prioritization_tables.rds")) 
+  "nichenet_output.rds"
+))
 
 vine_output <- readRDS(here(
   "results",
   "intermediate_outputs",
   "vine",
   "ccc",
-  "nichenet_output.rds"))
+  "nichenet_output.rds"
+))
+
+vine_cortex_output <- readRDS(here(
+  "results",
+  "intermediate_outputs",
+  "vine_cortex",
+  "ccc",
+  "nichenet_output.rds"
+))
 ```
 
-# testing code with 1 dataset
+# Pathway analysis
+* Filter NicheNet output
+  * Receiver cell type
+* Assign direction of gene expression
+  * "up" = expression values > 0 
+  * "down" = expression values < 0 
+* Pathway analysis using gprofiler2
+* Plotting top enriched pathways of up/down regulated target genes
+* Do for all datasets (geo, vine, vine cortex)
+_geo_
 ```{r}
-output <- geo_output
+# Determine enriched pathways
+fea_res_geo <- pathway_analysis(geo_output,
+  receiver = "Excitatory Neurons_AD"
+)
 
-prioritization_df <- prioritization_tables$prioritization_tbl_ligand_target
-
-ex_neuro_targets <- prioritization_df %>%
-  select(receiver, target) %>%
-  filter(receiver %in%
-           c("Excitatory Neurons_AD", "Excitatory Neurons_CTRL")) %>%
-  group_by(receiver) %>%
-  distinct() %>%
-  drop_na()
+# Plot top enriched terms
+bubbleplot(fea_res_geo$combined,
+  region = "Prefrontal Cortex",
+  file_path = "results/intermediate_outputs/geo/ccc/"
+)
 ```
 
-
-# Prepare Liana-NicheNet Output for Pathway Analysis of Predicted Target Genes
+_vine_
 ```{r}
-# subset ligand-target interactions
-ligand_target <- output$ligand_activities_targets
+# Determine enriched pathways
+fea_res_vine <- pathway_analysis(vine_output,
+  receiver = "Excitatory Neurons_AD"
+)
 
-# New df that only includes target genes and receiving cell type - saved in ./data/neuro_target_genes.csv
-neuro_target_genes <- ligand_target %>% select(receiver, target) %>% filter(receiver %in% c("Excitatory Neurons_AD", "Excitatory Neurons_CTRL")) %>% group_by(receiver) %>% distinct() %>% drop_na()
+# Plot top enriched terms
+bubbleplot(fea_res_vine$combined,
+  region = "Hippocampus",
+  file_path = "results/intermediate_outputs/vine/ccc/"
+)
 ```
 
-# Function to Perform Pathway Analysis using gprofiler2
+_vine cortex_
 ```{r}
-fea <- function(genes){
-  # create gprofiler2 query ----------
-  fea_result <- gost(query = genes,
-                     organism = "hsapiens",
-                     ordered_query = FALSE,
-                     multi_query = FALSE,
-                     significant = TRUE,
-                     exclude_iea = FALSE,
-                     measure_underrepresentation = FALSE,
-                     evcodes = TRUE,
-                     user_threshold = 0.05,
-                     correction_method = "bonferroni",
-                     domain_scope = "annotated",
-                     numeric_ns = "",
-                     sources = NULL,
-                     as_short_link = FALSE) 
-  # remove arbitrary pathways ----------
-  fea_result <- fea_result$result %>% filter(term_size < 1000 | term_size > 10)
-  # keep only top 50 pathways for plotting purposes ---------
-  fea_result_filt <- fea_result %>% top_n(n = 50)
-  return(fea_result_filt)
-}
+# Determine enriched pathways
+fea_res_vine_cortex <- pathway_analysis(vine_cortex_output,
+  receiver = "Excitatory Neurons_AD"
+)
+# Plot top enriched terms
+bubbleplot(fea_res_vine_cortex$combined,
+  region = "Superior Frontal Cortex",
+  file_path = "results/intermediate_outputs/vine_cortex/ccc/"
+)
 ```
-
-# Function to Create DotPlot for gprofiler2 Results
-I chose to plot intersection_size, term_name, recall, and p_value. 
-- intersection_size: number of genes in the input query that are annotated to the corresponding term
-- recall: proportion of functionally annotated genes that the query recovers
-- term_name: Pathway/functional enrichment
-- p_value: p_value after multiple hypothesis correction
-        - I chose conferroni correction, but can choose others
-
-```{r}
-bubbleplot <- function(fea_result){
-  plot <- ggplot(fea_result, aes(x = intersection_size, y = reorder(term_name, -p_value), size = recall, fill =
-                 p_value)) +
-                 geom_point(alpha = 0.7, shape = 21) +
-                 scale_size(range = c(2, 10), name = "# Genes Matched to Term") + 
-                 scale_fill_distiller(palette = "Purples") + 
-                 labs(x = "Intersection Size", y = "Functional Enrichment Terms")
-  return(plot)
-}
-```
-
-# Plotting Dotplots for Predicted Target Genes in Both AD and Control
-```{r}
-receiver <- c("Excitatory Neurons_AD", "Excitatory Neurons_CTRL")
-for (i in receiver) {
-  # filter genes by receiving cell type ----------
-  genes <- as.list(ex_neuro_targets %>% filter(receiver == i))
-  # submit genes to pathway analysis function ----------
-  fea_result_filt <- fea(genes = genes)
-  # plot dotplot and add title based on input variable ----------
-  plot <- bubbleplot(fea_result = fea_result_filt) + 
-    ggtitle(paste0("Top 50 Pathways Associated with Predicted Target Genes in ", i)) +
-    theme(plot.title = element_text(hjust = 0.5, size = 12))
-  print(plot)
-}
-```
-# Up- and Down-regulated plots
-THIS MIGHT NOT WORK BECAUSE IT GIVES ME THE EXACT SAME GENES.
-- plot just AD if plotting up and down? bc it is relative to other condition (CTRL)
-```{r}
-target_expression <- output$exprs_tbl_target
-
-neuro_targets_direction <- target_expression %>% select(receiver, target, target_expression_scaled) %>% filter(receiver %in% c("Excitatory Neurons_AD", "Excitatory Neurons_CTRL")) %>% mutate(direction = ifelse(target_expression_scaled > 0, "up", "down"))
-
-
-combined_fea <- function(genes){
-  upgenes <- genes %>% filter(direction == "up")
-  up_fea_filt <- fea(genes = upgenes)
-  downgenes <- genes %>% filter(direction == "down")
-  down_fea_filt <- fea(genes = down_fea_filt)
-  combined_fea <- rbind(up_fea_filt, down_fea_filt)
-  fea_result <- list(downregulated = down_fea_filt, upregulated = up_fea_filt, topcompared = combined_fea)
-return(fea_result)
-}
-
-
-
-combined_fea <- function(genes, receiver){
-  if (receiver == "Excitatory Neurons_AD"){
-  genes_AD <- genes %>% filter(receiver == "Excitatory Neurons_AD")
-  upgenes <- as.list(genes_AD %>% filter(direction == "up"))
-  up_fea_filt <- fea(genes = upgenes) %>% mutate(direction = "upregulated")
-  downgenes <- as.list(genes_AD %>% filter(direction == "down"))
-  down_fea_filt <- fea(genes = downgenes) %>% mutate(direction = "downregulated")
-  combined_fea <- rbind(up_fea_filt, down_fea_filt)
-  fea_result <- list(downregulated = down_fea_filt, upregulated = up_fea_filt, combined = combined_fea)
-  } else {
-genes_control <- genes %>% filter(receiver == "Excitatory Neurons_CTRL")
-  upgenes <- as.list(genes_control %>% filter(direction == "up"))
-  up_fea_filt <- fea(genes = upgenes) %>% mutate(direction = "upregulated")
-  downgenes <- as.list(genes_control %>% filter(direction == "down"))
-  down_fea_filt <- fea(genes = downgenes) %>% mutate(direction = "downregulated")
-  combined_fea <- rbind(up_fea_filt, down_fea_filt)
-  fea_result <- list(downregulated = down_fea_filt, upregulated = up_fea_filt, combined = combined_fea)
-  }
-  return(fea_result)
-}
-
-
-fea_res <- combined_fea(neuro_targets_direction, receiver = "Excitatory Neurons_CTRL")
-
-fea_res_AD <- combined_fea(neuro_targets_direction, receiver = "Excitatory Neurons_AD")
-
-ggplot(fea_res$combined, aes(x = direction, y = reorder(term_name, -p_value), size = intersection_size, fill =
-                 p_value)) +
-                 geom_point(alpha = 0.7, shape = 21) +
-                 scale_size(range = c(2, 10), name = "Intersection Size") + 
-                 scale_fill_distiller(palette = "Purples") + 
-                 labs(x = "Direction", y = "Functional Enrichment Terms")
-
-
-ggplot(fea_res_AD$combined, aes(x = direction, y = reorder(term_name, -p_value), size = intersection_size, fill =
-                 p_value)) +
-                 geom_point(alpha = 0.7, shape = 21) +
-                 scale_size(range = c(2, 10), name = "Intersection Size") + 
-                 scale_fill_distiller(palette = "Purples") + 
-                 labs(x = "Direction", y = "Functional Enrichment Terms")
-```
-
-# trying out up/down plot with prioritized targets
-```{r}
-
-```
-
-
 
 # Session Info
 ```{r}
-sessionInfo()
+sessionInfo() # see output below
 ```
+R version 4.1.3 (2022-03-10)
+Platform: x86_64-pc-linux-gnu (64-bit)
+Running under: Ubuntu 20.04.6 LTS
+
+Matrix products: default
+BLAS/LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.8.so
+
+locale:
+[1] C
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+ [1] lintr_3.0.2        styler_1.9.1       here_1.0.1         lattice_0.20-45    gprofiler2_0.2.1  
+ [6] SeuratObject_4.1.3 Seurat_4.3.0.9002  lubridate_1.9.2    forcats_1.0.0      stringr_1.5.0     
+[11] dplyr_1.1.2        purrr_1.0.1        readr_2.1.4        tidyr_1.3.0        tibble_3.2.1      
+[16] ggplot2_3.4.2      tidyverse_2.0.0   
+
+loaded via a namespace (and not attached):
+  [1] systemfonts_1.0.4      plyr_1.8.8             igraph_1.4.2           lazyeval_0.2.2        
+  [5] sp_1.6-0               splines_4.1.3          listenv_0.9.0          scattermore_0.8       
+  [9] digest_0.6.31          htmltools_0.5.5        fansi_1.0.4            magrittr_2.0.3        
+ [13] tensor_1.5             cluster_2.1.2          ROCR_1.0-11            tzdb_0.3.0            
+ [17] remotes_2.4.2          globals_0.16.2         matrixStats_0.63.0     R.utils_2.12.2        
+ [21] timechange_0.2.0       spatstat.sparse_3.0-1  colorspace_2.1-0       ggrepel_0.9.3         
+ [25] textshaping_0.3.6      xfun_0.39              callr_3.7.3            crayon_1.5.2          
+ [29] RCurl_1.98-1.12        jsonlite_1.8.4         progressr_0.13.0       spatstat.data_3.0-1   
+ [33] survival_3.3-1         zoo_1.8-12             glue_1.6.2             polyclip_1.10-4       
+ [37] gtable_0.3.3           leiden_0.4.3           R.cache_0.16.0         future.apply_1.10.0   
+ [41] abind_1.4-5            scales_1.2.1           spatstat.random_3.1-4  miniUI_0.1.1.1        
+ [45] Rcpp_1.0.10            viridisLite_0.4.1      xtable_1.8-4           reticulate_1.28       
+ [49] htmlwidgets_1.6.2      rex_1.2.1              httr_1.4.5             RColorBrewer_1.1-3    
+ [53] ellipsis_0.3.2         ica_1.0-3              pkgconfig_2.0.3        R.methodsS3_1.8.2     
+ [57] farver_2.1.1           uwot_0.1.14            deldir_1.0-6           utf8_1.2.3            
+ [61] tidyselect_1.2.0       labeling_0.4.2         rlang_1.1.0            reshape2_1.4.4        
+ [65] later_1.3.0            munsell_0.5.0          tools_4.1.3            cli_3.6.1             
+ [69] generics_0.1.3         ggridges_0.5.4         evaluate_0.20          fastmap_1.1.1         
+ [73] ragg_1.2.5             yaml_2.3.7             goftest_1.2-3          fs_1.6.2              
+ [77] processx_3.8.1         knitr_1.42             fitdistrplus_1.1-11    RANN_2.6.1            
+ [81] pbapply_1.7-0          future_1.32.0          nlme_3.1-155           mime_0.12             
+ [85] R.oo_1.25.0            xml2_1.3.3             compiler_4.1.3         rstudioapi_0.14       
+ [89] plotly_4.10.1          png_0.1-8              spatstat.utils_3.0-2   stringi_1.7.12        
+ [93] cyclocomp_1.1.0        ps_1.7.5               desc_1.4.2             Matrix_1.5-4          
+ [97] vctrs_0.6.2            pillar_1.9.0           lifecycle_1.0.3        spatstat.geom_3.1-0   
+[101] lmtest_0.9-40          RcppAnnoy_0.0.20       data.table_1.14.8      cowplot_1.1.1         
+[105] bitops_1.0-7           irlba_2.3.5.1          httpuv_1.6.9           patchwork_1.1.2       
+[109] R6_2.5.1               promises_1.2.0.1       KernSmooth_2.23-20     gridExtra_2.3         
+[113] parallelly_1.35.0      codetools_0.2-18       MASS_7.3-55            pkgload_1.3.2         
+[117] rprojroot_2.0.3        withr_2.5.0            sctransform_0.3.5.9002 parallel_4.1.3        
+[121] hms_1.1.3              grid_4.1.3             rmarkdown_2.21         Rtsne_0.16            
+[125] spatstat.explore_3.1-0 shiny_1.7.4
 
 # Time tracking
 ```{r}
@@ -245,7 +193,7 @@ fptm <- proc.time() - ptm
 # convert to minutes
 (fptm[3] / 60)
 
-# Time elapsed: ## minutes
+# Time elapsed: 5 minutes
 ```
 
 # Reproducibility
