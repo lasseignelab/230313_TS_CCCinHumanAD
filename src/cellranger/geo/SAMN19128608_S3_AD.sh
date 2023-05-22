@@ -20,7 +20,7 @@ cd /data/project/lasseigne_lab/TabeaSoelter/tms_ccc/GSE174367/CellRanger/outputs
 
 module load CellRanger/6.1.1
 
-cellranger count --id=SAMN19128608_S3_ADL \
+cellranger count --id=SAMN19128608_S3_AD \
                  --transcriptome=/data/user/tsoelter/apps/refdata-gex-GRCh38-2020-A \
                  --include-introns \
                  --fastqs=/data/project/lasseigne_lab/TabeaSoelter/tms_ccc/GSE174367/rawData/ \
