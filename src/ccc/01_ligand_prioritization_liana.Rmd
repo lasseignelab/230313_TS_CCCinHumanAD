@@ -65,7 +65,7 @@ vine_cortex <- readRDS(here("data", "vinecortex_processed_seurat.rds"))
 # create a list of all objects
 object_list <- tibble::lst(vine, geo, vine_cortex)
 
-# UMAPs and cell type proportion stacked bar plots by condition saved to dataset specific final_outputs/ directories 
+# UMAPs and cell type proportion stacked bar plots by condition saved to dataset specific final_outputs/ directories
 prep_liana(object_list = object_list, file_path = "results/final_outputs/")
 
 # split objects by condition for liana
@@ -91,7 +91,10 @@ liana_ligands <- lapply(split_object_list,
     "Microglia",
     "OPCs"
   ),
-  receiver = "Excitatory Neurons"
+  receiver = c(
+    "Excitatory Neurons",
+    "Inhibitory Neurons"
+  )
 )
 
 # save list of ligands
@@ -106,17 +109,20 @@ saveRDS(liana_ligands, file = here(
 * The GRN and PPI matrices provided by the Saeys lab were downloaded here: https://zenodo.org/record/3260758#.ZEgJROxuf0o
 ```{r}
 # load the ligand target matrix
-ligand_target_matrix <- readRDS(here("data",
-                                     "ccc",
-                                     "nichenet_prior",
-                                     "ligand_target_matrix.rds"))
+ligand_target_matrix <- readRDS(here(
+  "data",
+  "ccc",
+  "nichenet_prior",
+  "ligand_target_matrix.rds"
+))
 
 # load and filter the ligand receptor network as recommended by developers
 lr_network <- readRDS(here(
   "data",
   "ccc",
   "nichenet_prior",
-  "lr_network.rds")) %>%
+  "lr_network.rds"
+)) %>%
   mutate(bonafide = !database %in% c("ppi_prediction", "ppi_prediction_go")) %>%
   dplyr::rename(ligand = from, receptor = to) %>%
   distinct(ligand, receptor, bonafide)
@@ -135,7 +141,7 @@ liana_ligands_filt <- lapply(
   filter_ligands
 )
 
-# number of unique ligands: 58 52 133 142 49 51
+# number of unique ligands: 52 46 129 136 47 49
 
 # unlist and add objects to global environment
 list2env(liana_ligands_filt, globalenv())
@@ -147,7 +153,7 @@ list2env(liana_ligands_filt, globalenv())
 __vine__
 ```{r}
 vine_ligands <- unique(unlist(vine))
-length(vine_ligands) # 59
+length(vine_ligands) # 57
 
 # save ligands
 saveRDS(vine_ligands, file = here(
@@ -162,7 +168,7 @@ saveRDS(vine_ligands, file = here(
 __geo__
 ```{r}
 geo_ligands <- unique(unlist(geo))
-length(geo_ligands) # 142
+length(geo_ligands) # 141
 
 # save ligands
 saveRDS(geo_ligands, file = here(
@@ -267,7 +273,7 @@ fptm <- proc.time() - ptm
 # convert to minutes
 (fptm[3] / 60)
 
-# Time elapsed: 45 minutes
+# Time elapsed: 65 minutes
 # Hands-on time however is between 5-15 minutes!
 ```
 
