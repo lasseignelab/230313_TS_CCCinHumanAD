@@ -6,7 +6,7 @@ output: html_document
 ---
 **Differential Cell-Cell Communication Analysis using NicheNet**
 
-__Goal__: For every dataset, perform differential NicheNet analyses between AD and CTRL to identify ligands, receptors, and potential downstream target genes between glia (Astrocytes, Oligodendrocytes, Microglia, and OPCs - senders) and Excitatory Neurons (receivers).
+__Goal__: For every dataset, perform differential NicheNet analyses between AD and CTRL to identify ligands, receptors, and potential downstream target genes between glia (Astrocytes, Oligodendrocytes, Microglia, and OPCs - senders) and Excitatory/Inhibitory Neurons (receivers).
   
 __Reproducibility__: 
 * GitHub: lasseignelab/230313_TS_CCCinHumanAD
@@ -348,12 +348,12 @@ fptm <- proc.time() - ptm
 # convert to minutes
 (fptm[3] / 60)
 
-# Time elapsed: 55 minutes
+# Time elapsed: 81 minutes
 # Hands-on time however is between 10-15 minutes!
 ```
 
 # Reproducibility
-```{r eval=FALSE, include=FALSE}
+```{r}
 # styler
 style_file(here(
   "src",
