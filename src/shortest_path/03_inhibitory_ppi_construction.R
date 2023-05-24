@@ -1,6 +1,6 @@
-#### PPI network generation and edge weight calculation for Dijkstra's.
+#### PPI network generation and edge weight calculation for Dijkstra's in Inhibitory Neurons.
 ### Author: Tabea M. Soelter
-### Date: 2023-05-16
+### Date: 2023-05-24
 
 ## Goal: Create igraph objects of AD and CTRL PPI networks for multiple datasets
 
@@ -65,7 +65,7 @@ print("loaded AD-risk gene list")
 #   - Values are inversed to allow for shortest path calculation prioritizing genes with highest GEx
 # Outputs a list of the condition specific igraph objects
 object_list <- create_igraph_object(condition = c("AD", "CTRL"),
-                                    receiver = "Excitatory Neurons",
+                                    receiver = "Inhibitory Neurons",
                                     seurat_object = object,
                                     mapped_genes = mapped_genes,
                                     ppi_tmp = ppi_tmp)
@@ -78,8 +78,8 @@ print("split objects")
 
 # save objects
 print("saving objects")
-saveRDS(AD_igraph, file = paste0("/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/shortest_path/", name, "_AD_igraph.rds"))
-saveRDS(CTRL_igraph, file = paste0("/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/shortest_path/", name, "_CTRL_igraph.rds"))
+saveRDS(AD_igraph, file = paste0("/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/shortest_path/", name, "_AD_in_igraph.rds"))
+saveRDS(CTRL_igraph, file = paste0("/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/shortest_path/", name, "_CTRL_in_igraph.rds"))
 
 # session info
 sessionInfo()

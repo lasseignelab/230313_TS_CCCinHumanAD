@@ -42,4 +42,4 @@ SAMPLE_ARRAY3=(`cat ${SAMPLE_LIST3}`)
 INPUT3=`echo ${SAMPLE_ARRAY3[$SLURM_ARRAY_TASK_ID]}`
 
 # execute docker
-singularity exec --cleanenv --containall -B ${wd} ${wd}/bin/docker/rstudio_ccc_ad_1.0.1.sif Rscript --vanilla ${src}/02_ppi_construction.R ${INPUT} ${INPUT2} ${INPUT3} 
+singularity exec --cleanenv --containall -B ${wd} ${wd}/bin/docker/rstudio_ccc_ad_1.0.1.sif Rscript --vanilla ${src}/02_excitatory_ppi_construction.R ${INPUT} ${INPUT2} ${INPUT3} 

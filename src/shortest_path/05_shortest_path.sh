@@ -32,4 +32,4 @@ SAMPLE_ARRAY=(`cat ${SAMPLE_LIST}`)
 INPUT=`echo ${SAMPLE_ARRAY[$SLURM_ARRAY_TASK_ID]}`
 
 # execute docker
-singularity exec --cleanenv --containall -B ${wd} ${wd}/bin/docker/rstudio_ccc_ad_1.0.1.sif Rscript --vanilla ${src}/03_shortest_path.R ${INPUT}
+singularity exec --cleanenv --containall -B ${wd} ${wd}/bin/docker/rstudio_ccc_ad_1.0.1.sif Rscript --vanilla ${src}/05_shortest_path.R ${INPUT}
