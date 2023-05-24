@@ -212,32 +212,6 @@ write.table(ppi_construction_ppi_inputs,
 )
 ```
 
-_shortest path inputs_
-```{r}
-shortest_path_inputs <- dir(
-  here(
-    "data",
-    "shortest_path"
-  ),
-  full.names = TRUE,
-  recursive = FALSE,
-  pattern = "_igraph.rds"
-)
-
-write.table(shortest_path_inputs,
-  file = here(
-    "results",
-    "intermediate_outputs",
-    "inputs",
-    "shortest_path_inputs.txt"
-  ),
-  row.names = FALSE,
-  col.names = FALSE,
-  quote = FALSE,
-  sep = "\t"
-)
-```
-
 # Session Info
 ```{r}
 sessionInfo() # output below
