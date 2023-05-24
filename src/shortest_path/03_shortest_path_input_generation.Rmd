@@ -1,0 +1,121 @@
+---
+title: "03_shortest_path_input_generation"
+author: "Tabea M. Soelter"
+date: '2023-05-24'
+output: html_document
+---
+**Shortest path input generation**
+__Goal__: Generating shortest path required txt file input.
+
+__Reproducibility__:
+* GitHub: lasseignelab/230313_TS_CCCinHumanAD
+* Docker: tsoelter/rstudio_ccc_ad
+    * Version: 1.0.1
+* HPC: Yes
+  * Resources: long partition (150hrs), 6 CPUs, 65GB per CPU
+
+__Analysis Plan__:
+* Load necessary packages 
+* Create and save txt files with paths to files for array jobs
+
+__Analysis__:
+# Load packages
+```{r}
+# Time tracking
+ptm <- proc.time()
+
+# Setting seed
+set.seed(42)
+
+# Load packages
+suppressPackageStartupMessages({
+  library(here)
+  library(styler)
+  library(lintr)
+})
+```
+
+# Txt input file generation
+* I created txt files with the paths to the objects needed in all PPI and shortest path array jobs. 
+
+_shortest path inputs_
+```{r}
+shortest_path_inputs <- dir(
+  here(
+    "data",
+    "shortest_path"
+  ),
+  full.names = TRUE,
+  recursive = FALSE,
+  pattern = "_igraph.rds"
+)
+
+write.table(shortest_path_inputs,
+  file = here(
+    "results",
+    "intermediate_outputs",
+    "inputs",
+    "shortest_path_inputs.txt"
+  ),
+  row.names = FALSE,
+  col.names = FALSE,
+  quote = FALSE,
+  sep = "\t"
+)
+```
+
+# Session Info
+```{r}
+sessionInfo() # output below
+```
+R version 4.1.3 (2022-03-10)
+Platform: x86_64-pc-linux-gnu (64-bit)
+Running under: Ubuntu 20.04.6 LTS
+
+Matrix products: default
+BLAS/LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.8.so
+
+locale:
+[1] C
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+[1] lintr_3.0.2  styler_1.9.1 here_1.0.1  
+
+loaded via a namespace (and not attached):
+ [1] rex_1.2.1         rstudioapi_0.14   xml2_1.3.3        knitr_1.42        magrittr_2.0.3   
+ [6] R.cache_0.16.0    R6_2.5.1          rlang_1.1.0       tools_4.1.3       xfun_0.39        
+[11] R.oo_1.25.0       cyclocomp_1.1.0   cli_3.6.1         withr_2.5.0       remotes_2.4.2    
+[16] lazyeval_0.2.2    rprojroot_2.0.3   digest_0.6.31     lifecycle_1.0.3   crayon_1.5.2     
+[21] processx_3.8.1    purrr_1.0.1       callr_3.7.3       vctrs_0.6.2       R.utils_2.12.2   
+[26] ps_1.7.5          compiler_4.1.3    desc_1.4.2        R.methodsS3_1.8.2
+
+# Time tracking
+```{r}
+fptm <- proc.time() - ptm
+
+# convert to minutes
+(fptm[3] / 60)
+
+# Time elapsed: 2 minutes
+```
+
+# Reproducibility
+```{r}
+# styler
+style_file(here(
+  "src",
+  "shortest_path",
+  "03_shortest_path_input_generation.Rmd"
+))
+
+# lintr
+lint(filename = here(
+  "src",
+  "shortest_path",
+  "03_shortest_path_input_generation.Rmd"
+))
+```
+
