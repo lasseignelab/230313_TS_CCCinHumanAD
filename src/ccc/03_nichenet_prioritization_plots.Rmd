@@ -55,32 +55,61 @@ source(here("src", "functions_CCCinAD_tms.R"))
 # Load data
 * Loading NicheNet outputs for all datasets
 ```{r}
-vine_cortex_output <- readRDS(here(
+vine_cortex_output_ex <- readRDS(here(
   "results",
   "intermediate_outputs",
   "vine_cortex",
   "ccc",
-  "nichenet_output.rds"
+  "ex_neurons_nichenet_output.rds"
 ))
 
-vine_output <- readRDS(here(
+vine_output_ex <- readRDS(here(
   "results",
   "intermediate_outputs",
   "vine",
   "ccc",
-  "nichenet_output.rds"
+  "ex_neurons_nichenet_output.rds"
 ))
 
-geo_output <- readRDS(here(
+geo_output_ex <- readRDS(here(
   "results",
   "intermediate_outputs",
   "geo",
   "ccc",
-  "nichenet_output.rds"
+  "ex_neurons_nichenet_output.rds"
+))
+
+vine_cortex_output_in <- readRDS(here(
+  "results",
+  "intermediate_outputs",
+  "vine_cortex",
+  "ccc",
+  "in_neurons_nichenet_output.rds"
+))
+
+vine_output_in <- readRDS(here(
+  "results",
+  "intermediate_outputs",
+  "vine",
+  "ccc",
+  "in_neurons_nichenet_output.rds"
+))
+
+geo_output_in <- readRDS(here(
+  "results",
+  "intermediate_outputs",
+  "geo",
+  "ccc",
+  "in_neurons_nichenet_output.rds"
 ))
 
 # create a list of output objects
-output_list <- tibble::lst(vine_output, geo_output, vine_cortex_output)
+output_list <- tibble::lst(vine_output_ex,
+                           geo_output_ex,
+                           vine_cortex_output_ex,
+                           vine_output_in,
+                           geo_output_in,
+                           vine_cortex_output_in)
 ```
 
 # Load NicheNet prior
@@ -146,9 +175,17 @@ list2env(prioritization_tables_ls, globalenv())
 
 __vine__
 ```{r}
-vine_plots <- make_nichenet_plot(vine_prioritization_tbl,
-  output = vine_output,
+# excitatory neurons
+ex_vine_plots <- make_nichenet_plot(vine_prioritization_tbl_ex,
+  output = vine_output_ex,
   receiver_oi = "Excitatory Neurons_AD",
+  lfc_cutoff = 0.15
+)
+
+# inhibitory neurons
+in_vine_plots <- make_nichenet_plot(vine_prioritization_tbl_in,
+  output = vine_output_in,
+  receiver_oi = "Inhibitory Neurons_AD",
   lfc_cutoff = 0.15
 )
 
@@ -165,18 +202,30 @@ pdf(
   height = 11
 )
 
-vine_plots$exprs_activity_target_plot$combined_plot
-vine_plots$exprs_activity_target_plot$legends
-vine_plots$lfc_plot
+ex_vine_plots$exprs_activity_target_plot$combined_plot
+ex_vine_plots$exprs_activity_target_plot$legends
+ex_vine_plots$lfc_plot
+
+in_vine_plots$exprs_activity_target_plot$combined_plot
+in_vine_plots$exprs_activity_target_plot$legends
+in_vine_plots$lfc_plot
 
 dev.off()
 ```
 
 __geo__
 ```{r}
-geo_plots <- make_nichenet_plot(geo_prioritization_tbl,
-  output = geo_output,
+# excitatory neurons
+ex_geo_plots <- make_nichenet_plot(geo_prioritization_tbl_ex,
+  output = geo_output_ex,
   receiver_oi = "Excitatory Neurons_AD",
+  lfc_cutoff = 0.15
+)
+
+# inhibitory neurons
+in_geo_plots <- make_nichenet_plot(geo_prioritization_tbl_in,
+  output = geo_output_in,
+  receiver_oi = "Inhibitory Neurons_AD",
   lfc_cutoff = 0.15
 )
 
@@ -193,18 +242,30 @@ pdf(
   height = 11
 )
 
-geo_plots$exprs_activity_target_plot$combined_plot
-geo_plots$exprs_activity_target_plot$legends
-geo_plots$lfc_plot
+ex_geo_plots$exprs_activity_target_plot$combined_plot
+ex_geo_plots$exprs_activity_target_plot$legends
+ex_geo_plots$lfc_plot
+
+in_geo_plots$exprs_activity_target_plot$combined_plot
+in_geo_plots$exprs_activity_target_plot$legends
+in_geo_plots$lfc_plot
 
 dev.off()
 ```
 
 __vine_cortex__
 ```{r}
-vine_cortex_plots <- make_nichenet_plot(vine_cortex_prioritization_tbl,
-  output = vine_cortex_output,
+# excitatory neurons
+ex_vine_cortex_plots <- make_nichenet_plot(vine_cortex_prioritization_tbl_ex,
+  output = vine_cortex_output_ex,
   receiver_oi = "Excitatory Neurons_AD",
+  lfc_cutoff = 0.15
+)
+
+# inhibitory neurons
+in_vine_cortex_plots <- make_nichenet_plot(vine_cortex_prioritization_tbl_in,
+  output = vine_cortex_output_in,
+  receiver_oi = "Inhibitory Neurons_AD",
   lfc_cutoff = 0.15
 )
 
@@ -221,130 +282,16 @@ pdf(
   height = 11
 )
 
-vine_cortex_plots$exprs_activity_target_plot$combined_plot
-vine_cortex_plots$exprs_activity_target_plot$legends
-vine_cortex_plots$lfc_plot
+ex_vine_cortex_plots$exprs_activity_target_plot$combined_plot
+ex_vine_cortex_plots$exprs_activity_target_plot$legends
+ex_vine_cortex_plots$lfc_plot
+
+in_vine_cortex_plots$exprs_activity_target_plot$combined_plot
+in_vine_cortex_plots$exprs_activity_target_plot$legends
+in_vine_cortex_plots$lfc_plot
 
 dev.off()
 ```
-
-# Comparisons  - **CLEAN THIS UP APPROPRIATELY**
-* Since we are using 2 cortex datasets which include different patients, we are interested in the overlap between these 2 datasets. 
-* I am also comparing the hippocampal dataset to the cortex datasets to further investigate that overlap as well.
-```{r}
-# load package
-library(UpSetR)
-
-
-geo_ligands <- geo_prioritization_tbl$prioritization_tbl_ligand_target$ligand %>% unique()
-vine_ligands <- vine_prioritization_tbl$prioritization_tbl_ligand_target$ligand %>% unique()
-vine_cortex_ligands <- vine_cortex_prioritization_tbl$prioritization_tbl_ligand_target$ligand %>% unique()
-
-n <- max(length(geo_ligands), length(vine_ligands), length(vine_cortex_ligands))
-length(geo_ligands) <- n                      
-length(vine_ligands) <- n
-length(vine_cortex_ligands) <- n
-
-ligands <- data.frame(geo_ligands, vine_ligands, vine_cortex_ligands)
-
-
-
-ligands_ls <- as.list(ligands) 
-
-ligands_lst <- lapply(ligands_ls, function(x) x[!is.na(x)])
-
-ligands_upset <- upset(fromList(ligands_lst),
-                       sets = c("geo_ligands", "vine_ligands", "vine_cortex_ligands"),
-                       order.by = "freq")
-  
-  
-# ---------------------------------------------------------------------
-
-geo_receptors <- geo_prioritization_tbl$prioritization_tbl_ligand_target$receptor %>% unique()
-vine_receptors <- vine_prioritization_tbl$prioritization_tbl_ligand_target$receptor %>% unique()
-vine_cortex_receptors <- vine_cortex_prioritization_tbl$prioritization_tbl_ligand_target$receptor %>% unique()
-
-n <- max(length(geo_receptors), length(vine_receptors), length(vine_cortex_receptors))
-length(geo_receptors) <- n
-length(vine_receptors) <- n
-length(vine_cortex_receptors) <- n
-
-receptors <- data.frame(geo_receptors, vine_receptors, vine_cortex_receptors)
-
-receptors_ls <- as.list(receptors) 
-
-receptors_lst <- lapply(receptors_ls, function(x) x[!is.na(x)])
-
-receptors_upset <- upset(fromList(receptors_lst),
-      sets = c("geo_receptors", "vine_receptors", "vine_cortex_receptors"),
-      order.by = "freq")
-
-# -------------------------------------------------------------------
-
-geo_targets <- geo_prioritization_tbl$prioritization_tbl_ligand_target$target %>% unique()
-vine_targets <- vine_prioritization_tbl$prioritization_tbl_ligand_target$target %>% unique()
-vine_cortex_targets <- vine_cortex_prioritization_tbl$prioritization_tbl_ligand_target$target %>% unique()
-
-n <- max(length(geo_targets), length(vine_targets), length(vine_cortex_targets))
-length(geo_targets) <- n
-length(vine_targets) <- n
-length(vine_cortex_targets) <- n
-
-targets <- data.frame(geo_targets, vine_targets, vine_cortex_targets)
-
-targets_ls <- as.list(targets) 
-
-targets_lst <- lapply(targets_ls, function(x) x[!is.na(x)])
-
-targets_upset <- upset(fromList(targets_lst),
-      sets = c("geo_targets", "vine_targets", "vine_cortex_targets"),
-      order.by = "freq")
-
-
-# plot all upset plots 
-pdf(file = here(
-  "results",
-  "intermediate_outputs",
-  "comparisons",
-  "ccc",
-  "ligand_receptor_target_upset.pdf"
-  ), width = 12, height = 8)
-ligands_upset
-receptors_upset
-targets_upset
-dev.off()
-
-# compare only cortex data
-ligands_cortex_upset <- upset(fromList(ligands_lst),
-                       sets = c("geo_ligands", "vine_cortex_ligands"),
-                       order.by = "freq")
-
-receptors_cortex_upset <- upset(fromList(receptors_lst),
-      sets = c("geo_receptors", "vine_cortex_receptors"),
-      order.by = "freq")
-
-targets_cortex_upset <- upset(fromList(targets_lst),
-      sets = c("geo_targets", "vine_cortex_targets"),
-      order.by = "freq")
-
-
-pdf(file = here(
-  "results",
-  "intermediate_outputs",
-  "comparisons",
-  "ccc",
-  "ligand_receptor_target_cortex_upset.pdf"
-  ), width = 12, height = 8)
-
-ligands_cortex_upset
-receptors_cortex_upset
-targets_cortex_upset
-
-dev.off()
-
-# pull out the ones that are 
-```
-
 
 # Session info
 ```{r}
