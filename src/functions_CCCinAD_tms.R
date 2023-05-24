@@ -672,9 +672,14 @@ prioritize_interactions <- function(output_list, file_path, weights = prioritizi
   for(i in names(output_list)) {
     output <- get(i)
     name <- sub("output", "prioritization_tbl", i)
-    path <- sub("_prioritization_tbl", "/ccc/", name)
     prioritization_tables <- get_prioritization_tables(output, weights)
-    saveRDS(prioritization_tables, file = here(file_path, path, "prioritization_tables.rds"))
+    if(str_sub(name, - 2, - 1) == "ex") {
+      path <- sub("_prioritization_tbl_ex", "/ccc/", name)
+      saveRDS(prioritization_tables, file = here(file_path, path, "ex_prioritization_tables.rds"))
+    } else {
+      path <- sub("_prioritization_tbl_in", "/ccc/", name)
+      saveRDS(prioritization_tables, file = here(file_path, path, "in_prioritization_tables.rds"))
+    }
     prioritization_tables_ls[name] <- list(prioritization_tables)
   }
   return(prioritization_tables_ls)
