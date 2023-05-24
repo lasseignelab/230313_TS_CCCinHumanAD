@@ -17,7 +17,7 @@ __Reproducibility__:
 
 __Data__: 
 *NicheNet outputs*
-* Name: nichenet_output.rds
+* Name: ex_neurons_nichenet_output.rds, in_neurons_nichenet_output.rds
 * Location: results/intermediate_outputs/geo/ccc/, results/intermediate_outputs/vine/ccc/, results/intermediate_outputs/vine_cortex/ccc/
  
 __Analysis Plan__: 
@@ -104,12 +104,14 @@ geo_output_in <- readRDS(here(
 ))
 
 # create a list of output objects
-output_list <- tibble::lst(vine_output_ex,
-                           geo_output_ex,
-                           vine_cortex_output_ex,
-                           vine_output_in,
-                           geo_output_in,
-                           vine_cortex_output_in)
+output_list <- tibble::lst(
+  vine_output_ex,
+  geo_output_ex,
+  vine_cortex_output_ex,
+  vine_output_in,
+  geo_output_in,
+  vine_cortex_output_in
+)
 ```
 
 # Load NicheNet prior
