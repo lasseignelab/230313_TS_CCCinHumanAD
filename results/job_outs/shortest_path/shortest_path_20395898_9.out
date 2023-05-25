@@ -1,7 +1,7 @@
 [1] "seed set"
 [1] "packages loaded"
 [1] "enabled args usage"
-[1] "geo_AD"
+[1] "vine_cortex_AD_in"
 [1] "loaded igraph object"
 [1] "calculated distances"
 [1] "saving distance matrix"
@@ -31,4 +31,4 @@ loaded via a namespace (and not attached):
 [17] lifecycle_1.0.3   tzdb_0.3.0        R.utils_2.12.2    vctrs_0.6.2      
 [21] glue_1.6.2        stringi_1.7.12    compiler_4.1.3    pillar_1.9.0     
 [25] R.methodsS3_1.8.2 generics_0.1.3    scales_1.2.1      pkgconfig_2.0.3  
-[1] "Run time: 1.79765416666667 hours"
+[1] "Run time: 1.57878638888889 hours"

@@ -1,5 +1,5 @@
 ---
-title: "05_target_pathways"
+title: "06_target_pathways"
 author: "Tabea M. Soelter"
 date: '2023-05-16'
 output: html_document
@@ -202,13 +202,13 @@ fptm <- proc.time() - ptm
 style_file(here(
   "src",
   "ccc",
-  "05_target_pathways.Rmd"
+  "06_target_pathways.Rmd"
 ))
 
 # lintr
 lint(filename = here(
   "src",
   "ccc",
-  "05_target_pathways.Rmd"
+  "06_target_pathways.Rmd"
 ))
 ```

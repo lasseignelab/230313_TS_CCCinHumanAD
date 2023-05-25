@@ -1,5 +1,5 @@
 ---
-title: "04_nichenet_control"
+title: "05_nichenet_control"
 author: "Tabea M. Soelter"
 date: '2023-05-11'
 output: html_document
@@ -7,6 +7,9 @@ output: html_document
 **Title**
 
 Following this vignette: https://github.com/saeyslab/nichenetr/blob/master/vignettes/seurat_steps.md 
+
+## mention only done in ex neurons as test case
+
 
 #__Goal__: EDIT THIS
 

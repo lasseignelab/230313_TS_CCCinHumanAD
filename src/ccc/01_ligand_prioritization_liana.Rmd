@@ -80,7 +80,7 @@ saveRDS(split_object_list, file = here("data", "ccc", "split_object_list.rds"))
 
 # Prioritize ligands
 * Sender cell populations: Astrocytes, Oligodendrocytes, Microglia, OPCs
-* Receiver cell population: Excitatory Neurons
+* Receiver cell population: Excitatory and Inhibitory Neurons
 ```{r}
 liana_ligands <- lapply(split_object_list,
   lapply,
