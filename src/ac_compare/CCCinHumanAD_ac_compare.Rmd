@@ -1,6 +1,8 @@
 ---
 title: "CCCinHumanAD AC review - Preprocessing"
-output: html_notebook
+output:
+  html_document:
+    df_print: paged
 ---
 
 Notebook to compare results from TS CCC in Human AD project. This will cover comparisons from:
@@ -117,5 +119,42 @@ compare_obj(ca_path = ca_path, cr_path = cr_path)
 ```{r dpi=300}
 cr_path <- here::here("results", "ac_results", "final_outputs", "geo")
 ca_path <- here::here("results", "final_outputs", "geo")
+compare_figure(ca_path = ca_path, cr_path = cr_path, patt = ".png")
+```
+## 01_vine_seurat_preprocessing.Rmd
+
+### objects
+```{r}
+cr_path <- here::here("results", "intermediate_outputs", "vine")
+ca_path <- here::here("results", "ac_results", "intermediate_outputs", "vine")
+compare_obj(ca_path = ca_path, cr_path = cr_path)
+```
+### figures
+```{r dpi=300}
+cr_path <- here::here("results", "ac_results", "final_outputs", "vine")
+ca_path <- here::here("results", "final_outputs", "vine")
+compare_figure(ca_path = ca_path, cr_path = cr_path, patt = ".png")
+
+cr_path <- here::here("results", "ac_results", "intermediate_outputs", "vine")
+ca_path <- here::here("results", "intermediate_outputs", "vine")
+compare_figure(ca_path = ca_path, cr_path = cr_path, patt = ".png")
+```
+
+## 03_vinecortex_seurat_preproccessing.Rmd
+
+### objects
+```{r}
+cr_path <- here::here("results", "intermediate_outputs", "vine_cortex")
+ca_path <- here::here("results", "ac_results", "intermediate_outputs", "vine_cortex")
+compare_obj(ca_path = ca_path, cr_path = cr_path)
+```
+### figures
+```{r dpi=300}
+cr_path <- here::here("results", "ac_results", "final_outputs", "vine_cortex")
+ca_path <- here::here("results", "final_outputs", "vine_cortex")
+compare_figure(ca_path = ca_path, cr_path = cr_path, patt = ".png")
+
+cr_path <- here::here("results", "ac_results", "intermediate_outputs", "vine_cortex")
+ca_path <- here::here("results", "intermediate_outputs", "vine_cortex")
 compare_figure(ca_path = ca_path, cr_path = cr_path, patt = ".png")
 ```
