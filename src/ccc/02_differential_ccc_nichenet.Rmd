@@ -6,7 +6,7 @@ output: html_document
 ---
 **Differential Cell-Cell Communication Analysis using NicheNet**
 
-__Goal__: For every dataset, perform differential NicheNet analyses between AD and CTRL to identify ligands, receptors, and potential downstream target genes between glia (Astrocytes, Oligodendrocytes, Microglia, and OPCs - senders) and Excitatory Neurons (receivers).
+__Goal__: For every dataset, perform differential NicheNet analyses between AD and CTRL to identify ligands, receptors, and potential downstream target genes between glia (Astrocytes, Oligodendrocytes, Microglia, and OPCs - senders) and Excitatory/Inhibitory Neurons (receivers).
   
 __Reproducibility__: 
 * GitHub: lasseignelab/230313_TS_CCCinHumanAD
@@ -140,7 +140,7 @@ ca_object_list <- prep_nichenet(object_list,
 list2env(ca_object_list, globalenv())
 ```
 
-# Define niches
+# Define niches - Excitatory Neurons
 * Since I am interested in differences across conditions, my niches are AD and CTRL. 
 * Within each niche, the sender and receiver cell types are also specified. 
 ```{r}
@@ -167,9 +167,9 @@ user_niches <- list(
 )
 ```
 
-# Differential NicheNet
+# Differential NicheNet - Excitatory Neurons
 * Ligand-receptor and target identification
-* The resulting object ("output") gets saved to results/intermediate_outputs/vine/ccc/
+* The resulting object ("output") gets saved to results/intermediate_outputs/{dataset}/ccc/
 * Output include all identified ligands, receptors, and target genes across conditions and between sender and receiver cell types.
 * I also use ligands identified by liana in 01_ligand_prioritization_liana.Rmd to filter NicheNet inputs to only include ligands identified by 2 methods.
 ```{r}
@@ -178,7 +178,8 @@ nichenet_wrapper(vine,
   user_niches = user_niches,
   lr_network = lr_network,
   ligands = vine_ligands,
-  file_path = "results/intermediate_outputs/vine/"
+  file_path = "results/intermediate_outputs/vine/ccc/",
+  file_name = "ex_neurons_nichenet_output.rds"
 )
 
 # geo
@@ -186,7 +187,8 @@ nichenet_wrapper(geo,
   user_niches = user_niches,
   lr_network = lr_network,
   ligands = geo_ligands,
-  file_path = "results/intermediate_outputs/geo/"
+  file_path = "results/intermediate_outputs/geo/ccc/",
+  file_name = "ex_neurons_nichenet_output.rds"
 )
 
 # vine_cortex
@@ -194,7 +196,62 @@ nichenet_wrapper(vine_cortex,
   user_niches = user_niches,
   lr_network = lr_network,
   ligands = vine_cortex_ligands,
-  file_path = "results/intermediate_outputs/vine_cortex/"
+  file_path = "results/intermediate_outputs/vine_cortex/ccc/",
+  file_name = "ex_neurons_nichenet_output.rds"
+)
+```
+
+# Define niches - Inhibitory Neurons
+```{r}
+user_niches <- list(
+  "AD_niche" = list(
+    "sender" = c(
+      "Astrocytes_AD",
+      "Oligodendrocytes_AD",
+      "OPCs_AD",
+      "Microglia_AD"
+    ),
+    "receiver" = c("Inhibitory Neurons_AD")
+  ),
+  "CTRL_niche" = list(
+    "sender" = c(
+      "Astrocytes_CTRL",
+      "Oligodendrocytes_CTRL",
+      "OPCs_CTRL",
+      "Microglia_CTRL"
+    ),
+    "receiver" = c("Inhibitory Neurons_CTRL")
+  )
+)
+```
+
+# Differential NicheNet - Inhibitory Neurons
+```{r}
+# vine
+nichenet_wrapper(vine,
+  user_niches = user_niches,
+  lr_network = lr_network,
+  ligands = vine_ligands,
+  file_path = "results/intermediate_outputs/vine/ccc/",
+  file_name = "in_neurons_nichenet_output.rds"
+)
+
+# geo
+nichenet_wrapper(geo,
+  user_niches = user_niches,
+  lr_network = lr_network,
+  ligands = geo_ligands,
+  file_path = "results/intermediate_outputs/geo/ccc/",
+  file_name = "in_neurons_nichenet_output.rds"
+)
+
+# vine_cortex
+nichenet_wrapper(vine_cortex,
+  user_niches = user_niches,
+  lr_network = lr_network,
+  ligands = vine_cortex_ligands,
+  file_path = "results/intermediate_outputs/vine_cortex/ccc/",
+  file_name = "in_neurons_nichenet_output.rds"
 )
 ```
 
@@ -291,7 +348,7 @@ fptm <- proc.time() - ptm
 # convert to minutes
 (fptm[3] / 60)
 
-# Time elapsed: 55 minutes
+# Time elapsed: 81 minutes
 # Hands-on time however is between 10-15 minutes!
 ```
 

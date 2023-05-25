@@ -609,7 +609,7 @@ score_interactions <- function(lr_network, exprs_tbl_ligand, exprs_tbl_receptor,
 #   * calculate ligand activities and infer active ligand-target links
 #   * calculate the scaled expression of ligands, receptors, and targets across cell types of interest
 #   * scoring the l-r interctions based on their expression strength of the receptor
-nichenet_wrapper <- function(seurat_obj, user_niches, lr_network, ligands, file_path) {
+nichenet_wrapper <- function(seurat_obj, user_niches, lr_network, ligands, file_path, file_name) {
   # DE analysis between niches --------------------
   DE_sender_receiver <- diff_nichenet(object = seurat_obj,
                                       niches = user_niches,
@@ -659,9 +659,7 @@ nichenet_wrapper <- function(seurat_obj, user_niches, lr_network, ligands, file_
                  exprs_tbl_target = exprs_tbl_target)
   print("Created output")
   # save output
-  saveRDS(output, file = here(paste0(file_path,
-                                     "ccc/nichenet_output.rds"
-  )
+  saveRDS(output, file = here(paste0(file_path, file_name)
   )
   )
   print("Saved output")
@@ -674,9 +672,14 @@ prioritize_interactions <- function(output_list, file_path, weights = prioritizi
   for(i in names(output_list)) {
     output <- get(i)
     name <- sub("output", "prioritization_tbl", i)
-    path <- sub("_prioritization_tbl", "/ccc/", name)
     prioritization_tables <- get_prioritization_tables(output, weights)
-    saveRDS(prioritization_tables, file = here(file_path, path, "prioritization_tables.rds"))
+    if(str_sub(name, - 2, - 1) == "ex") {
+      path <- sub("_prioritization_tbl_ex", "/ccc/", name)
+      saveRDS(prioritization_tables, file = here(file_path, path, "ex_prioritization_tables.rds"))
+    } else {
+      path <- sub("_prioritization_tbl_in", "/ccc/", name)
+      saveRDS(prioritization_tables, file = here(file_path, path, "in_prioritization_tables.rds"))
+    }
     prioritization_tables_ls[name] <- list(prioritization_tables)
   }
   return(prioritization_tables_ls)
@@ -782,42 +785,85 @@ make_nichenet_plot <- function(prioritization_tables, output, receiver_oi, lfc_c
   return(nichenet_plot)
 }
 
-## prep_NicheNet
-# A function which prepares the prioritized NicheNet outputs for mapping to STRINGdb PPI and returns a dataframe with a target and a sender column 
-prep_NicheNet <- function(prioritizedNicheNet, cond_niche){
-  top_ligand_niche_df <- prioritizedNicheNet$prioritization_tbl_ligand_receptor %>% 
-    select(niche, sender, receiver, ligand, receptor, prioritization_score) %>% 
-    group_by(ligand) %>% 
-    top_n(1, prioritization_score) %>% 
-    ungroup() %>% 
-    select(ligand, receptor, niche) %>% 
-    rename(top_niche = niche)
-  ligand_prioritized_tbl_oi <- prioritizedNicheNet$prioritization_tbl_ligand_receptor %>% 
-    select(niche, sender, receiver, ligand, prioritization_score) %>% 
-    group_by(ligand, niche) %>% 
-    top_n(1, prioritization_score) %>% 
-    ungroup() %>% 
-    distinct() %>% 
-    inner_join(top_ligand_niche_df) %>% 
-    filter(niche == top_niche) %>% 
-    group_by(niche) %>% 
-    top_n(50, prioritization_score) %>% 
-    ungroup() 
-  targets <- ligand_prioritized_tbl_oi %>% 
-    inner_join(prioritizedNicheNet$prioritization_tbl_ligand_target,
-               by = c("niche",
-                      "receiver",
-                      "sender",
-                      "ligand",
-                      "receptor",
-                      "prioritization_score"),
-               multiple = "all") %>% 
-    filter(niche == cond_niche) %>%
-    select(sender, target, receiver) %>% 
-    group_by (sender, target, receiver) %>% 
-    distinct(target) %>% 
-    ungroup()
-  return(targets)
+## fea
+# A function to perform pathway nnalysis using gprofiler2 and filters for the top 50 pathways for plotting purposes.
+# Adapted from Lizzy Wilk
+fea <- function(genes){
+  set.seed(42)
+  # create gprofiler2 query ----------
+  fea_result <- gost(query = genes,
+                     organism = "hsapiens",
+                     ordered_query = FALSE,
+                     multi_query = FALSE,
+                     significant = TRUE,
+                     exclude_iea = FALSE,
+                     measure_underrepresentation = FALSE,
+                     evcodes = TRUE,
+                     user_threshold = 0.05,
+                     correction_method = "bonferroni",
+                     domain_scope = "annotated",
+                     numeric_ns = "",
+                     sources = NULL,
+                     as_short_link = FALSE) 
+  # remove arbitrary pathways ----------
+  fea_result <- fea_result$result %>% filter(term_size < 1000 | term_size > 10)
+  # keep only top 50 pathways for plotting purposes ---------
+  fea_result_filt <- fea_result %>% top_n(n = 15)
+  return(fea_result_filt)
+}
+
+## bubbleplot
+# A function to create a DotPlot for gprofiler2 results
+# Adapted from Lizzy Wilk
+bubbleplot <- function(fea_result, region, file_path){
+  plot <- ggplot(fea_result,
+                 aes(x = direction,
+                     y = reorder(term_name, -p_value),
+                     size = intersection_size,
+                     fill = p_value)) +
+    geom_point(alpha = 0.7, shape = 21) +
+    scale_size(range = c(2, 10), name = "Intersection Size") + 
+    scale_fill_distiller(palette = "Purples") + 
+    labs(x = "Direction", y = "Functional Enrichment Terms") +
+    theme_minimal() + 
+    ggtitle(paste0("Top Enriched Terms for Predicted Target\nGenes in ", region)) +
+    theme(axis.text = element_text(face = "bold"))
+  ggsave(filename = "bubbleplot_pathways.png",
+         path = paste0(here(file_path)),
+         plot = plot,
+         width = 10,
+         height = 9,
+         bg = "white")
+  return(plot)
+}
+
+## combined_fea
+# A function to get pathways for up- and down-regulated information of genes submitted 
+combined_fea <- function(genes, receiver){
+  genes_AD <- genes %>% filter(receiver == receiver)
+  upgenes <- as.list(genes_AD %>% filter(direction == "up"))
+  up_fea_filt <- fea(genes = upgenes) %>% mutate(direction = "upregulated")
+  downgenes <- as.list(genes_AD %>% filter(direction == "down"))
+  down_fea_filt <- fea(genes = downgenes) %>% mutate(direction = "downregulated")
+  combined_fea <- rbind(up_fea_filt, down_fea_filt)
+  fea_result <- list(downregulated = down_fea_filt, upregulated = up_fea_filt, combined = combined_fea)
+  return(fea_result)
+}
+
+## pathway_analysis
+# A wrapper function to prepare inputs for pathway analysis, perform pathway analysis using gprofiler2 on up/down regulated target genes from nichenet
+pathway_analysis <- function(nichenet_output, receiver) {
+  # subset output for df with target expression info -----
+  target_expression <- nichenet_output$exprs_tbl_target
+  # filter expression df for necessary columns and cell type as well as add up/down gex info -----
+  neuro_targets_direction <- target_expression %>%
+    select(receiver, target, target_expression_scaled) %>%
+    filter(receiver == "Excitatory Neurons_AD") %>%
+    mutate(direction = ifelse(target_expression_scaled > 0, "up", "down")) %>%
+    unique()
+  # pathway analysis of up/down genes
+  fea_res <- combined_fea(neuro_targets_direction, receiver = receiver)
+  return(fea_res)
 }
 
 ## map_genes
