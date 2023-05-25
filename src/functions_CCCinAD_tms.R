@@ -815,7 +815,7 @@ fea <- function(genes){
 ## bubbleplot
 # A function to create a DotPlot for gprofiler2 results
 # Adapted from Lizzy Wilk
-bubbleplot <- function(fea_result, region, file_path){
+bubbleplot <- function(fea_result, region, file_path, file_name){
   plot <- ggplot(fea_result,
                  aes(x = direction,
                      y = reorder(term_name, -p_value),
@@ -828,7 +828,7 @@ bubbleplot <- function(fea_result, region, file_path){
     theme_minimal() + 
     ggtitle(paste0("Top Enriched Terms for Predicted Target\nGenes in ", region)) +
     theme(axis.text = element_text(face = "bold"))
-  ggsave(filename = "bubbleplot_pathways.png",
+  ggsave(filename = file_name,
          path = paste0(here(file_path)),
          plot = plot,
          width = 10,
@@ -845,20 +845,20 @@ combined_fea <- function(genes, receiver){
   up_fea_filt <- fea(genes = upgenes) %>% mutate(direction = "upregulated")
   downgenes <- as.list(genes_AD %>% filter(direction == "down"))
   down_fea_filt <- fea(genes = downgenes) %>% mutate(direction = "downregulated")
-  combined_fea <- rbind(up_fea_filt, down_fea_filt)
-  fea_result <- list(downregulated = down_fea_filt, upregulated = up_fea_filt, combined = combined_fea)
+  comb_fea <- rbind(up_fea_filt, down_fea_filt)
+  fea_result <- list(downregulated = down_fea_filt, upregulated = up_fea_filt, combined = comb_fea)
   return(fea_result)
 }
 
 ## pathway_analysis
 # A wrapper function to prepare inputs for pathway analysis, perform pathway analysis using gprofiler2 on up/down regulated target genes from nichenet
-pathway_analysis <- function(nichenet_output, receiver) {
+pathway_analysis <- function(nichenet_output, receiver_type) {
   # subset output for df with target expression info -----
   target_expression <- nichenet_output$exprs_tbl_target
   # filter expression df for necessary columns and cell type as well as add up/down gex info -----
   neuro_targets_direction <- target_expression %>%
     select(receiver, target, target_expression_scaled) %>%
-    filter(receiver == "Excitatory Neurons_AD") %>%
+    filter(receiver == receiver_type) %>%
     mutate(direction = ifelse(target_expression_scaled > 0, "up", "down")) %>%
     unique()
   # pathway analysis of up/down genes
