@@ -8,6 +8,9 @@ output: html_document
 
 Following this vignette: https://github.com/saeyslab/nichenetr/blob/master/vignettes/seurat_steps.md 
 
+## mention only done in ex neurons as test case
+
+
 #__Goal__: EDIT THIS
 
 __Reproducibility__: 

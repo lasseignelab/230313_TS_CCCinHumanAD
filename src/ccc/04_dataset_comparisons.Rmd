@@ -7,6 +7,8 @@ output: html_document
 **Plotting Differential Cell-Cell Communication Results**
 
 __Goal__: Prioritize ligands, receptors, and target genes, then plot them for each dataset.
+
+## mention only done in ex neurons as test case
   
 __Reproducibility__: 
 * GitHub: lasseignelab/230313_TS_CCCinHumanAD
