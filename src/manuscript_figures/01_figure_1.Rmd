@@ -1,0 +1,13 @@
+---
+title: "01_figure_1"
+author: "Tabea M. Soelter"
+date: '2023-05-19'
+output: html_document
+---
+code for figure 1
+```{r}
+png(here("results", "final_outputs", "geo", "UMAP_final2.png"), width = 600, height = 600)
+DimPlot(geo_object)
+dev.off()
+```
+
