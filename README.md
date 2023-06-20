@@ -24,7 +24,7 @@ the University of Alabama at Birmingham](https://www.lasseigne.org/)
     ## |   +-- 01_ligand_prioritization_liana.Rmd
     ## |   +-- 02_differential_ccc_nichenet.Rmd
     ## |   +-- 03_nichenet_prioritization_plots.Rmd
-    ## |   \-- 06_target_pathways.Rmd
+    ## |   \-- 04_target_pathways.Rmd
     ## +-- cellranger
     ## |   +-- geo
     ## |   |   +-- SAMN19128593_S19_CTRL.sh
