@@ -1,0 +1,406 @@
+---
+title: "02_ccc_inference"
+author: "Tabea M. Soelter"
+date: '2023-05-31'
+output: html_document
+---
+## Testing LIANA and NN on integrated objects
+* Crude code to run CCC inference on both the 8v8 and CvC integrated objects
+
+# Load libraries
+```{r}
+library(liana)
+library(nichenetr)
+library(here)
+```
+
+# load data
+```{r}
+vine_processed_seurat <- readRDS(here("data", "test", "vine_processed_seurat.rds"))
+```
+
+
+# split object by brain region 
+```{r}
+split_object <- SplitObject(vine_processed_seurat, split.by = "region")
+```
+
+```{r}
+split_object_list <- lapply(split_object, split_objects)
+
+liana_ligands <- lapply(split_object_list,
+  lapply,
+  liana_prioritization,
+  sender = c(
+    "Astrocytes",
+    "Oligodendrocytes",
+    "Microglia",
+    "OPCs"
+  ),
+  receiver = c(
+    "Excitatory Neurons",
+    "Inhibitory Neurons"
+  )
+)
+```
+
+```{r}
+# save list of ligands
+saveRDS(liana_ligands, file = here(
+  "data",
+  "test",
+  "8v8_liana_ligands_unfiltered.rds"
+))
+```
+
+# Load and filter NicheNet prior
+* The GRN and PPI matrices provided by the Saeys lab were downloaded here: https://zenodo.org/record/3260758#.ZEgJROxuf0o
+```{r}
+# load the ligand target matrix
+ligand_target_matrix <- readRDS(here(
+  "data",
+  "ccc",
+  "nichenet_prior",
+  "ligand_target_matrix.rds"
+))
+
+# load and filter the ligand receptor network as recommended by developers
+lr_network <- readRDS(here(
+  "data",
+  "ccc",
+  "nichenet_prior",
+  "lr_network.rds"
+)) %>%
+  mutate(bonafide = !database %in% c("ppi_prediction", "ppi_prediction_go")) %>%
+  dplyr::rename(ligand = from, receptor = to) %>%
+  distinct(ligand, receptor, bonafide)
+
+# set organism
+organism <- "human"
+```
+
+# Filter LIANA ligands
+* I am filtering ligands identified using LIANA by what is within NicheNet's prior.
+```{r}
+# filter ligands of each dataset and condition
+liana_ligands_filt <- lapply(
+  liana_ligands,
+  lapply,
+  filter_ligands
+)
+
+# number of unique ligands: 44 40 54 55
+
+# unlist and add objects to global environment
+list2env(liana_ligands_filt, globalenv())
+``` 
+
+# Collapse and save ligands
+```{r}
+hip_ligands <- unique(unlist(hippocampus))
+length(hip_ligands) # 45
+
+# save ligands
+saveRDS(hip_ligands, file = here(
+  "data",
+  "test",
+  "8v8_hip_liana_ligands.rds"
+))
+
+
+
+ctx_ligands <- unique(unlist(cortex))
+length(ctx_ligands) # 64
+
+# save ligands
+saveRDS(ctx_ligands, file = here(
+  "data",
+  "test",
+  "8v8_ctx_liana_ligands.rds"
+))
+```
+
+##### NICHENET
+
+```{r}
+hip_object <- split_object$hippocampus
+ctx_object <- split_object$cortex
+
+object_list <- tibble::lst(hip_object, ctx_object)
+
+# Making cell-type aggregate object list and save celltype aggregate UMAPs
+ca_object_list <- prep_nichenet(object_list,
+  file_path = "data/test/"
+)
+
+# unlist and add objects to global environment for downstream use
+list2env(ca_object_list, globalenv())
+```
+# set niches
+```{r}
+## Set niches
+user_niches <- list(
+  "AD_niche" = list(
+    "sender" = c(
+      "Astrocytes_AD",
+      "Oligodendrocytes_AD",
+      "OPCs_AD",
+      "Microglia_AD"
+    ),
+    "receiver" = c("Excitatory Neurons_AD")
+  ),
+  "CTRL_niche" = list(
+    "sender" = c(
+      "Astrocytes_CTRL",
+      "Oligodendrocytes_CTRL",
+      "OPCs_CTRL",
+      "Microglia_CTRL"
+    ),
+    "receiver" = c("Excitatory Neurons_CTRL")
+  )
+)
+```
+
+# Differential NicheNet - Excitatory Neurons
+* Ligand-receptor and target identification
+* The resulting object ("output") gets saved to results/intermediate_outputs/{dataset}/ccc/
+* Output include all identified ligands, receptors, and target genes across conditions and between sender and receiver cell types.
+* I also use ligands identified by liana in 01_ligand_prioritization_liana.Rmd to filter NicheNet inputs to only include ligands identified by 2 methods.
+```{r}
+# hip
+nichenet_wrapper(hip_object,
+  user_niches = user_niches,
+  lr_network = lr_network,
+  ligands = hip_ligands,
+  file_path = "data/test/",
+  file_name = "ex_neurons_8v8_hip_output.rds"
+)
+
+# ctx
+nichenet_wrapper(ctx_object,
+  user_niches = user_niches,
+  lr_network = lr_network,
+  ligands = ctx_ligands,
+  file_path = "data/test/",
+  file_name = "ex_neurons_8v8_ctx_output.rds"
+)
+```
+
+```{r}
+test <- FindMarkers(hip_object, ident.1 = "Excitatory Neurons_CTRL", ident.2 = "Excitatory Neurons_AD", logfc.threshold = 0.1)
+```
+
+##### LIANA and NicheNet for cortex v cortex integrated
+# split object by brain region 
+```{r}
+split_object <- SplitObject(filtered_seurat_test, split.by = "dataset")
+```
+
+```{r}
+split_object_list <- lapply(split_object, split_objects)
+
+liana_ligands <- lapply(split_object_list,
+  lapply,
+  liana_prioritization,
+  sender = c(
+    "Astrocytes",
+    "Oligodendrocytes",
+    "Microglia",
+    "OPCs"
+  ),
+  receiver = c(
+    "Excitatory Neurons",
+    "Inhibitory Neurons"
+  )
+)
+```
+
+```{r}
+# save list of ligands
+saveRDS(liana_ligands, file = here(
+  "data",
+  "test",
+  "cortex_liana_ligands_unfiltered.rds"
+))
+```
+
+# Load and filter NicheNet prior
+* The GRN and PPI matrices provided by the Saeys lab were downloaded here: https://zenodo.org/record/3260758#.ZEgJROxuf0o
+```{r}
+# load the ligand target matrix
+ligand_target_matrix <- readRDS(here(
+  "data",
+  "ccc",
+  "nichenet_prior",
+  "ligand_target_matrix.rds"
+))
+
+# load and filter the ligand receptor network as recommended by developers
+lr_network <- readRDS(here(
+  "data",
+  "ccc",
+  "nichenet_prior",
+  "lr_network.rds"
+)) %>%
+  mutate(bonafide = !database %in% c("ppi_prediction", "ppi_prediction_go")) %>%
+  dplyr::rename(ligand = from, receptor = to) %>%
+  distinct(ligand, receptor, bonafide)
+
+# set organism
+organism <- "human"
+```
+
+# Filter LIANA ligands
+* I am filtering ligands identified using LIANA by what is within NicheNet's prior.
+```{r}
+# filter ligands of each dataset and condition
+liana_ligands_filt <- lapply(
+  liana_ligands,
+  lapply,
+  filter_ligands
+)
+
+# number of unique ligands: 92 111 53 50
+
+# unlist and add objects to global environment
+list2env(liana_ligands_filt, globalenv())
+``` 
+
+# Collapse and save ligands
+```{r}
+vine_ligands <- unique(unlist(vine))
+length(vine_ligands) # 63
+
+# save ligands
+saveRDS(vine_ligands, file = here(
+  "data",
+  "test",
+  "vine_cortex_liana_ligands.rds"
+))
+
+
+
+geo_ligands <- unique(unlist(geo))
+length(geo_ligands) # 114
+
+# save ligands
+saveRDS(geo_ligands, file = here(
+  "data",
+  "test",
+  "geo_cortex_liana_ligands.rds"
+))
+```
+
+##### NICHENET
+
+```{r}
+vine_object <- split_object$vine
+geo_object <- split_object$geo
+
+object_list <- tibble::lst(vine_object, geo_object)
+
+# Making cell-type aggregate object list and save celltype aggregate UMAPs
+ca_object_list <- prep_nichenet(object_list,
+  file_path = "data/test/"
+)
+
+# unlist and add objects to global environment for downstream use
+list2env(ca_object_list, globalenv())
+```
+# set niches
+```{r}
+## Set niches
+user_niches <- list(
+  "AD_niche" = list(
+    "sender" = c(
+      "Astrocytes_AD",
+      "Oligodendrocytes_AD",
+      "OPCs_AD",
+      "Microglia_AD"
+    ),
+    "receiver" = c("Excitatory Neurons_AD")
+  ),
+  "CTRL_niche" = list(
+    "sender" = c(
+      "Astrocytes_CTRL",
+      "Oligodendrocytes_CTRL",
+      "OPCs_CTRL",
+      "Microglia_CTRL"
+    ),
+    "receiver" = c("Excitatory Neurons_CTRL")
+  )
+)
+```
+
+# Differential NicheNet - Excitatory Neurons
+* Ligand-receptor and target identification
+* The resulting object ("output") gets saved to results/intermediate_outputs/{dataset}/ccc/
+* Output include all identified ligands, receptors, and target genes across conditions and between sender and receiver cell types.
+* I also use ligands identified by liana in 01_ligand_prioritization_liana.Rmd to filter NicheNet inputs to only include ligands identified by 2 methods.
+```{r}
+# vine
+nichenet_wrapper(vine_object,
+  user_niches = user_niches,
+  lr_network = lr_network,
+  ligands = vine_ligands,
+  file_path = "data/test/",
+  file_name = "ex_neurons_vine_ctx_output.rds"
+)
+
+# geo
+nichenet_wrapper(geo_object,
+  user_niches = user_niches,
+  lr_network = lr_network,
+  ligands = geo_ligands,
+  file_path = "data/test/",
+  file_name = "ex_neurons_geo_ctx_output.rds"
+)
+```
+
+
+# set niches
+```{r}
+## Set niches
+user_niches <- list(
+  "AD_niche" = list(
+    "sender" = c(
+      "Astrocytes_AD",
+      "Oligodendrocytes_AD",
+      "OPCs_AD",
+      "Microglia_AD"
+    ),
+    "receiver" = c("Inhibitory Neurons_AD")
+  ),
+  "CTRL_niche" = list(
+    "sender" = c(
+      "Astrocytes_CTRL",
+      "Oligodendrocytes_CTRL",
+      "OPCs_CTRL",
+      "Microglia_CTRL"
+    ),
+    "receiver" = c("Inhibitory Neurons_CTRL")
+  )
+)
+```
+
+# Differential NicheNet - Inhibitory Neurons
+```{r}
+# vine
+nichenet_wrapper(vine_object,
+  user_niches = user_niches,
+  lr_network = lr_network,
+  ligands = vine_ligands,
+  file_path = "data/test/",
+  file_name = "in_neurons_vine_ctx_output.rds"
+)
+
+# geo
+nichenet_wrapper(geo_object,
+  user_niches = user_niches,
+  lr_network = lr_network,
+  ligands = geo_ligands,
+  file_path = "data/test/",
+  file_name = "in_neurons_geo_ctx_output.rds"
+)
+```
+
