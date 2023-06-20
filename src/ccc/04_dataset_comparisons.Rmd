@@ -171,6 +171,724 @@ dev.off()
 # pull out the ones that are 
 ```
 
+# logfc heatmap of cortex samples
+- these are the log2FC when the 2 cortex datasets (geo and vine) were analyzed separately form each other. 
+```{r}
+geo_ex_prioritization_tables <- readRDS("/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/results/intermediate_outputs/geo/ccc/ex_prioritization_tables.rds")
+
+vinec_ex_prioritization_tables <- readRDS("/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/results/intermediate_outputs/vine_cortex/ccc/ex_prioritization_tables.rds")
+
+# filter for targets
+geo_targets <- geo_ex_prioritization_tables$prioritization_tbl_ligand_target$target %>% unique()
+vine_cortex_targets <- vinec_ex_prioritization_tables$prioritization_tbl_ligand_target$target %>% unique()
+
+n <- max(length(geo_targets), length(vine_cortex_targets))
+length(geo_targets) <- n
+length(vine_cortex_targets) <- n
+
+targets <- data.frame(geo_targets, vine_cortex_targets)
+
+targets_ls <- as.list(targets) 
+
+targets_lst <- lapply(targets_ls, function(x) x[!is.na(x)])
+
+targets_upset <- upset(fromList(targets_lst),
+      sets = c("geo_targets", "vine_cortex_targets"),
+      order.by = "freq")
+
+targets_upset
+
+######### GEX ############
+vinecortex_object <- readRDS("/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/vinecortex_processed_seurat.rds")
+
+vinecortex_ex <- subset(vinecortex_object, idents = "Excitatory Neurons")
+Idents(vinecortex_ex) <- vinecortex_ex@meta.data$orig.ident
+
+vinecortex_ex_dge <- FindAllMarkers(vinecortex_ex, logfc.threshold = 0, assay = "RNA")
+dim(vinecortex_ex_dge) # 928 7
+saveRDS(vinecortex_ex_dge, file = here("results", "test", "vinecortex_ex_dge.rds"))
+
+geo_object <- readRDS("/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/geo_processed_seurat.rds")
+
+
+geo_ex <- subset(geo_object, idents = "Excitatory Neurons")
+Idents(geo_ex) <- geo_ex@meta.data$orig.ident
+
+geo_ex_dge <- FindAllMarkers(geo_ex, logfc.threshold = 0, assay = "RNA")
+dim(geo_ex_dge) # 20772 7
+saveRDS(geo_ex_dge, file = here("results", "test", "geo_ex_dge.rds"))
+```
+
+# filter degs by target genes
+```{r}
+all_targets <- targets %>% pivot_longer(cols = ends_with("_targets"),
+                                        names_to = "dataset",
+                                        values_to = "gene") %>% select(gene) %>% drop_na() %>% unique() %>% 
+  as.data.frame()
+
+
+
+geo_targets_dge <- subset(geo_ex_dge, gene %in% all_targets$gene) %>% mutate(dataset = "geo") %>% select("avg_log2FC", "cluster", "gene", "dataset") %>% as.data.frame()
+
+try <- left_join(all_targets, geo_targets_dge, by = "gene")
+try$dataset <- ifelse(is.na(try$dataset), "geo", try$dataset)
+
+vinec_targets_dge <- subset(vinecortex_ex_dge, gene %in% all_targets$gene) %>% mutate(dataset = "vine_cortex") %>% select("avg_log2FC", "cluster", "gene", "dataset") %>% as.data.frame()
+
+try2 <- left_join(all_targets, vinec_targets_dge, by = "gene")
+try2$dataset <- ifelse(is.na(try2$dataset), "vine_cortex", try2$dataset)
+
+
+all_dge <- bind_rows(try, try2)
+
+all_dge$cluster <- as.character(all_dge$cluster)
+
+all_dge$cluster <- ifelse(is.na(all_dge$cluster), "AD", all_dge$cluster)
+
+#all_dge$cluster <- as.factor(all_dge$cluster)
+
+all_dge$avg_log2FC <- ifelse(is.na(all_dge$avg_log2FC), "0", all_dge$avg_log2FC)
+
+all_dge <- all_dge %>% filter(cluster == "AD") %>% select("gene", "avg_log2FC", "dataset")
+
+test_mat <- all_dge %>% pivot_wider(names_from = "gene", values_from = "avg_log2FC") %>% as.data.frame()
+
+row.names(test_mat) <- test_mat$dataset
+
+test_mat <- select(test_mat, -dataset) %>% as.matrix()
+
+matrix <- t(test_mat)
+
+test_df <- as.data.frame(matrix)
+
+#test_df$geo[test_df$geo == 'c("0.252715625035496", "0.252715625035496")'] <- "0.252715625035496"
+#test_df$vine_cortex[test_df$vine_cortex == 'c("0.65897168295409", "0.65897168295409")'] <- "0.65897168295409"
+
+#test_df$geo[test_df$geo == 'c("-0.359313937119446", "-0.359313937119446")'] <- "-0.359313937119446"
+#test_df$vine_cortex[test_df$vine_cortex == 'c("0.935628356737513", "0.935628356737513")'] <- "0.935628356737513"
+
+#test_df$geo[test_df$geo == 'c("0.267734275963018", "0.267734275963018")'] <- "0.267734275963018"
+#test_df$vine_cortex[test_df$vine_cortex == 'c("0.419371827840917", "0.419371827840917")'] <- "0.419371827840917"
+
+test_df2 <- test_df %>% mutate_all(as.numeric)
+
+matrix2 <- as.matrix(test_df2)
+
+
+library(ComplexHeatmap)
+library(circlize)
+
+col_fun = colorRamp2(c(-1.5, 0, 1.5), c("blue", "black", "yellow"))
+png(here("results", "test", "ex_log2fc_heatmap.png"), width = 600, height = 900)
+Heatmap(
+  matrix2,
+  col = col_fun,
+  name = "log2FC",
+  row_names_side = "left",
+  row_title = "Target Genes Across Cortex Datasets in Ex Neurons",
+  row_title_gp = gpar(fontsize = 12, fontface = "bold"),
+  column_names_side = "top",
+  column_title = "Datasets",
+  column_title_gp = gpar(fontsize = 12, fontface = "bold"),
+  show_column_dend = FALSE,
+  show_row_dend = FALSE,
+  cluster_columns = FALSE,
+  cluster_rows = TRUE
+)
+dev.off()
+```
+
+#### GEX IN Neurons 
+```{r}
+######### GEX ############
+vinecortex_object <- readRDS("/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/vinecortex_processed_seurat.rds")
+
+vinecortex_in <- subset(vinecortex_object, idents = "Inhibitory Neurons")
+Idents(vinecortex_in) <- vinecortex_in@meta.data$orig.ident
+
+vinecortex_in_dge <- FindAllMarkers(vinecortex_in, logfc.threshold = 0, assay = "RNA")
+dim(vinecortex_in_dge) # 2388 7
+saveRDS(vinecortex_in_dge, file = here("results", "test", "vinecortex_in_dge.rds"))
+
+geo_object <- readRDS("/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/geo_processed_seurat.rds")
+
+
+geo_in <- subset(geo_object, idents = "Inhibitory Neurons")
+Idents(geo_in) <- geo_in@meta.data$orig.ident
+
+geo_in_dge <- FindAllMarkers(geo_in, logfc.threshold = 0, assay = "RNA")
+dim(geo_in_dge) # 17766 7
+saveRDS(geo_in_dge, file = here("results", "test", "geo_in_dge.rds"))
+```
+
+# get targets
+```{r}
+geo_in_prioritization_tables <- readRDS("/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/results/intermediate_outputs/geo/ccc/in_prioritization_tables.rds")
+
+vinec_in_prioritization_tables <- readRDS("/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/results/intermediate_outputs/vine_cortex/ccc/in_prioritization_tables.rds")
+
+# filter for targets
+geo_targets_in <- geo_in_prioritization_tables$prioritization_tbl_ligand_target$target %>% unique()
+vine_cortex_targets_in <- vinec_in_prioritization_tables$prioritization_tbl_ligand_target$target %>% unique()
+
+n <- max(length(geo_targets_in), length(vine_cortex_targets_in))
+length(geo_targets_in) <- n
+length(vine_cortex_targets_in) <- n
+
+targets_in <- data.frame(geo_targets_in, vine_cortex_targets_in)
+
+targets_in_ls <- as.list(targets_in) 
+
+targets_in_lst <- lapply(targets_in_ls, function(x) x[!is.na(x)])
+
+targets_upset_in <- upset(fromList(targets_in_lst),
+      sets = c("geo_targets_in", "vine_cortex_targets_in"),
+      order.by = "freq")
+
+targets_upset_in
+```
+
+# filter degs by target genes in inhib neurons
+```{r}
+all_targets_in <- targets_in %>% pivot_longer(cols = ends_with("targets_in"),
+                                        names_to = "dataset",
+                                        values_to = "gene") %>% select(gene) %>% drop_na() %>% unique() %>% 
+  as.data.frame()
+
+
+
+geo_targets_dge_in <- subset(geo_in_dge, gene %in% all_targets_in$gene) %>% mutate(dataset = "geo") %>% select("avg_log2FC", "cluster", "gene", "dataset") %>% as.data.frame()
+
+try_in <- left_join(all_targets_in, geo_targets_dge_in, by = "gene")
+try_in$dataset <- ifelse(is.na(try_in$dataset), "geo", try_in$dataset)
+
+vinec_targets_dge_in <- subset(vinecortex_in_dge, gene %in% all_targets_in$gene) %>% mutate(dataset = "vine_cortex") %>% select("avg_log2FC", "cluster", "gene", "dataset") %>% as.data.frame()
+
+try2_in <- left_join(all_targets_in, vinec_targets_dge_in, by = "gene")
+try2_in$dataset <- ifelse(is.na(try2_in$dataset), "vine_cortex", try2_in$dataset)
+
+
+all_dge_in <- bind_rows(try_in, try2_in)
+
+all_dge_in$cluster <- as.character(all_dge_in$cluster)
+
+all_dge_in$cluster <- ifelse(is.na(all_dge_in$cluster), "AD", all_dge_in$cluster)
+
+#all_dge$cluster <- as.factor(all_dge$cluster)
+
+all_dge_in$avg_log2FC <- ifelse(is.na(all_dge_in$avg_log2FC), "0", all_dge_in$avg_log2FC)
+
+all_dge_in <- all_dge_in %>% filter(cluster == "AD") %>% select("gene", "avg_log2FC", "dataset")
+
+test_mat_in <- all_dge_in %>% pivot_wider(names_from = "gene", values_from = "avg_log2FC") %>% as.data.frame()
+
+row.names(test_mat_in) <- test_mat_in$dataset
+
+test_mat_in <- select(test_mat_in, -dataset) %>% as.matrix()
+
+matrix_in <- t(test_mat_in)
+
+test_df_in <- as.data.frame(matrix_in)
+test_df2_in <- test_df_in %>% mutate_all(as.numeric)
+
+matrix2_in <- as.matrix(test_df2_in)
+
+library(ComplexHeatmap)
+library(circlize)
+
+col_fun = colorRamp2(c(-1, 0, 1), c("blue", "black", "yellow"))
+png(here("results", "test", "in_log2fc_heatmap.png"), width = 600, height = 900)
+Heatmap(
+  matrix2_in,
+  col = col_fun,
+  name = "log2FC",
+  row_names_side = "left",
+  row_title = "Target Genes Across Cortex Datasets in In Neurons",
+  row_title_gp = gpar(fontsize = 12, fontface = "bold"),
+  column_names_side = "top",
+  column_title = "Datasets",
+  column_title_gp = gpar(fontsize = 12, fontface = "bold"),
+  show_column_dend = FALSE,
+  show_row_dend = FALSE,
+  cluster_columns = FALSE,
+  cluster_rows = TRUE
+)
+dev.off()
+```
+
+# X-Y plot
+```{r}
+pdf(here("results", "test", "xy_plots.pdf"))
+#### in neurons
+x <- test_df2_in$geo
+y <- test_df2_in$vine_cortex
+
+
+plot(x, y, main = "Log2FC in target genes in inhibitory neurons",
+     xlab = "log2FC in GEO", ylab = "log2FC in VINE_Cortex",
+     pch = 19, frame = FALSE)
+abline(lm(y ~ x, data = test_df2_in), col = "blue")
+
+#### ex neurons
+x <- test_df2$geo
+y <- test_df2$vine_cortex
+
+
+plot(x, y, main = "Log2FC in target genes in excitatory neurons",
+     xlab = "log2FC in GEO", ylab = "log2FC in VINE_Cortex",
+     pch = 19, frame = FALSE)
+abline(lm(y ~ x, data = test_df2), col = "blue")
+dev.off()
+```
+
+### overlap of cortex v cortex integration
+- these are the overlaps and log2FC of the 2 cortex datasets integrated into 1
+```{r}
+in_neurons_geo_ctx_output <- readRDS("/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/test/in_neurons_geo_ctx_output.rds")
+in_neurons_vine_ctx_output <- readRDS("/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/test/in_neurons_vine_ctx_output.rds")
+ex_neurons_geo_ctx_output <- readRDS("/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/test/ex_neurons_geo_ctx_output.rds")
+ex_neurons_vine_ctx_output <- readRDS("/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/test/ex_neurons_vine_ctx_output.rds")
+
+output_list <- tibble::lst(
+  ex_neurons_geo_ctx_output,
+  in_neurons_geo_ctx_output,
+  ex_neurons_vine_ctx_output,
+  in_neurons_vine_ctx_output
+)
+## load nichenet prior from another script. Needs to be added here if this is seriously plan forward
+
+prioritizing_weights <- c(
+  "scaled_ligand_score" = 5,
+  "scaled_ligand_expression_scaled" = 1,
+  "ligand_fraction" = 1,
+  "scaled_ligand_score_spatial" = 0,
+  "scaled_receptor_score" = 0.5,
+  "scaled_receptor_expression_scaled" = 0.5,
+  "receptor_fraction" = 1,
+  "ligand_scaled_receptor_expression_fraction" = 1,
+  "scaled_receptor_score_spatial" = 0,
+  "scaled_activity" = 0,
+  "scaled_activity_normalized" = 1,
+  "bona_fide" = 1
+)
+
+# Prioritize interactions based on weights and save outputs to respective dirs
+prioritize_interactions2 <- function(output_list, file_path, weights = prioritizing_weights) {
+  prioritization_tables_ls <- tibble::lst()
+  for(i in names(output_list)) {
+    output <- get(i)
+    name <- sub("output", "prioritization_tbl", i)
+    prioritization_tables <- get_prioritization_tables(output, weights)
+    prioritization_tables_ls[name] <- list(prioritization_tables)
+  }
+  return(prioritization_tables_ls)
+}
+
+prioritization_tables_ls <- prioritize_interactions2(output_list,
+  file_path = here(
+    "results",
+    "test"
+  )
+)
+
+# unlist and add objects to global environment
+list2env(prioritization_tables_ls, globalenv())
+
+#### overlap
+geo_ligands_ex <- ex_neurons_geo_ctx_prioritization_tbl$prioritization_tbl_ligand_target$ligand %>% unique()
+  
+vine_ligands_ex <-ex_neurons_vine_ctx_prioritization_tbl$prioritization_tbl_ligand_target$ligand %>% unique()
+
+n <- max(length(geo_ligands_ex), length(vine_ligands_ex))
+length(geo_ligands_ex) <- n                      
+length(vine_ligands_ex) <- n
+
+ligands_ex <- data.frame(geo_ligands_ex, vine_ligands_ex)
+
+
+
+ligands_ex_ls <- as.list(ligands_ex) 
+
+ligands_ex_lst <- lapply(ligands_ex_ls, function(x) x[!is.na(x)])
+
+ligands_ex_upset <- upset(fromList(ligands_ex_lst),
+                       sets = c("geo_ligands_ex", "vine_ligands_ex"),
+                       order.by = "freq")
+ligands_ex_upset
+  
+  
+# ---------------------------------------------------------------------
+
+geo_receptors_ex <- ex_neurons_geo_ctx_prioritization_tbl$prioritization_tbl_ligand_target$receptor %>% unique()
+vine_receptors_ex <- ex_neurons_vine_ctx_prioritization_tbl$prioritization_tbl_ligand_target$receptor %>% unique()
+
+n <- max(length(geo_receptors_ex), length(vine_receptors_ex))
+length(geo_receptors_ex) <- n
+length(vine_receptors_ex) <- n
+
+receptors_ex <- data.frame(geo_receptors_ex, vine_receptors_ex)
+
+receptors_ex_ls <- as.list(receptors_ex) 
+
+receptors_ex_lst <- lapply(receptors_ex_ls, function(x) x[!is.na(x)])
+
+receptors_ex_upset <- upset(fromList(receptors_ex_lst),
+      sets = c("geo_receptors_ex", "vine_receptors_ex"),
+      order.by = "freq")
+
+receptors_ex_upset
+
+# -------------------------------------------------------------------
+
+geo_targets_ex <- ex_neurons_geo_ctx_prioritization_tbl$prioritization_tbl_ligand_target$target %>% unique()
+vine_targets_ex <- ex_neurons_vine_ctx_prioritization_tbl$prioritization_tbl_ligand_target$target %>% unique()
+
+n <- max(length(geo_targets_ex), length(vine_targets_ex))
+length(geo_targets_ex) <- n
+length(vine_targets_ex) <- n
+
+targets_ex <- data.frame(geo_targets_ex, vine_targets_ex)
+
+targets_ex_ls <- as.list(targets_ex) 
+
+targets_ex_lst <- lapply(targets_ex_ls, function(x) x[!is.na(x)])
+
+targets_ex_upset <- upset(fromList(targets_ex_lst),
+      sets = c("geo_targets_ex", "vine_targets_ex"),
+      order.by = "freq")
+
+targets_ex_upset
+
+pdf(here("results", "test", "ex_upset_ctx.pdf"))
+ligands_ex_upset
+receptors_ex_upset
+targets_ex_upset
+dev.off()
+
+
+# inhibitory neurons - comparisons
+geo_ligands_in <- in_neurons_geo_ctx_prioritization_tbl$prioritization_tbl_ligand_target$ligand %>% unique()
+  
+vine_ligands_in <- in_neurons_vine_ctx_prioritization_tbl$prioritization_tbl_ligand_target$ligand %>% unique()
+
+n <- max(length(geo_ligands_in), length(vine_ligands_in))
+length(geo_ligands_in) <- n                      
+length(vine_ligands_in) <- n
+
+ligands_in <- data.frame(geo_ligands_in, vine_ligands_in)
+
+
+
+ligands_in_ls <- as.list(ligands_in) 
+
+ligands_in_lst <- lapply(ligands_in_ls, function(x) x[!is.na(x)])
+
+ligands_in_upset <- upset(fromList(ligands_in_lst),
+                       sets = c("geo_ligands_in", "vine_ligands_in"),
+                       order.by = "freq")
+ligands_in_upset
+  
+  
+# ---------------------------------------------------------------------
+
+geo_receptors_in <- in_neurons_geo_ctx_prioritization_tbl$prioritization_tbl_ligand_target$receptor %>% unique()
+vine_receptors_in <- in_neurons_vine_ctx_prioritization_tbl$prioritization_tbl_ligand_target$receptor %>% unique()
+
+n <- max(length(geo_receptors_in), length(vine_receptors_in))
+length(geo_receptors_in) <- n
+length(vine_receptors_in) <- n
+
+receptors_in <- data.frame(geo_receptors_in, vine_receptors_in)
+
+receptors_in_ls <- as.list(receptors_in) 
+
+receptors_in_lst <- lapply(receptors_in_ls, function(x) x[!is.na(x)])
+
+receptors_in_upset <- upset(fromList(receptors_in_lst),
+      sets = c("geo_receptors_in", "vine_receptors_in"),
+      order.by = "freq")
+
+receptors_in_upset
+
+# -------------------------------------------------------------------
+
+geo_targets_in <- in_neurons_geo_ctx_prioritization_tbl$prioritization_tbl_ligand_target$target %>% unique()
+vine_targets_in <- in_neurons_vine_ctx_prioritization_tbl$prioritization_tbl_ligand_target$target %>% unique()
+
+n <- max(length(geo_targets_in), length(vine_targets_in))
+length(geo_targets_in) <- n
+length(vine_targets_in) <- n
+
+targets_in <- data.frame(geo_targets_in, vine_targets_in)
+
+targets_in_ls <- as.list(targets_in) 
+
+targets_in_lst <- lapply(targets_in_ls, function(x) x[!is.na(x)])
+
+targets_in_upset <- upset(fromList(targets_in_lst),
+      sets = c("geo_targets_in", "vine_targets_in"),
+      order.by = "freq")
+
+targets_in_upset
+
+pdf(here("results", "test", "in_upset_ctx.pdf"))
+ligands_in_upset
+receptors_in_upset
+targets_in_upset
+dev.off()
+```
+
+# GEX for log2FC
+```{r}
+######### GEX ############
+cortex_object <- readRDS("/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/test/cortex_processed_seurat.rds")
+
+split_object <- SplitObject(cortex_object, split.by = "dataset")
+
+vinecortex_ex <- subset(split_object$vine, idents = "Excitatory Neurons")
+Idents(vinecortex_ex) <- vinecortex_ex@meta.data$orig.ident
+
+vinecortex_ex_dge <- FindAllMarkers(vinecortex_ex, logfc.threshold = 0, assay = "RNA")
+dim(vinecortex_ex_dge) # 1130 7
+saveRDS(vinecortex_ex_dge, file = here("results", "test", "vinecortex_int_ex_dge.rds"))
+
+
+geo_ex <- subset(split_object$geo, idents = "Excitatory Neurons")
+Idents(geo_ex) <- geo_ex@meta.data$orig.ident
+
+geo_ex_dge <- FindAllMarkers(geo_ex, logfc.threshold = 0, assay = "RNA")
+dim(geo_ex_dge) # 16342 7
+saveRDS(geo_ex_dge, file = here("results", "test", "geo_int_ex_dge.rds"))
+
+
+### inhibitory neurons
+vinecortex_in <- subset(split_object$vine, idents = "Inhibitory Neurons")
+Idents(vinecortex_in) <- vinecortex_in@meta.data$orig.ident
+
+vinecortex_in_dge <- FindAllMarkers(vinecortex_in, logfc.threshold = 0, assay = "RNA")
+dim(vinecortex_in_dge) # 1948 7
+saveRDS(vinecortex_in_dge, file = here("results", "test", "vinecortex_int_in_dge.rds"))
+
+
+geo_in <- subset(split_object$geo, idents = "Inhibitory Neurons")
+Idents(geo_in) <- geo_in@meta.data$orig.ident
+
+geo_in_dge <- FindAllMarkers(geo_in, logfc.threshold = 0, assay = "RNA")
+dim(geo_in_dge) # 18072 7
+saveRDS(geo_in_dge, file = here("results", "test", "geo_int_in_dge.rds"))
+```
+
+## logfc of targets in integrated cortex targets
+excitatory neurons
+```{r}
+all_targets_ex <- targets_ex %>% pivot_longer(cols = ends_with("targets_ex"),
+                                        names_to = "dataset",
+                                        values_to = "gene") %>% select(gene) %>% drop_na() %>% unique() %>% 
+  as.data.frame()
+
+
+
+geo_targets_dge_ex <- subset(geo_ex_dge, gene %in% all_targets_ex$gene) %>% mutate(dataset = "geo") %>% select("avg_log2FC", "cluster", "gene", "dataset") %>% as.data.frame()
+
+try_ex <- left_join(all_targets_ex, geo_targets_dge_ex, by = "gene")
+try_ex$dataset <- ifelse(is.na(try_ex$dataset), "geo", try_ex$dataset)
+
+vinec_targets_dge_ex <- subset(vinecortex_ex_dge, gene %in% all_targets_ex$gene) %>% mutate(dataset = "vine_cortex") %>% select("avg_log2FC", "cluster", "gene", "dataset") %>% as.data.frame()
+
+try2_ex <- left_join(all_targets_ex, vinec_targets_dge_ex, by = "gene")
+try2_ex$dataset <- ifelse(is.na(try2_ex$dataset), "vine_cortex", try2_ex$dataset)
+
+
+all_dge_ex <- bind_rows(try_ex, try2_ex)
+
+all_dge_ex$cluster <- as.character(all_dge_ex$cluster)
+
+all_dge_ex$cluster <- ifelse(is.na(all_dge_ex$cluster), "AD", all_dge_ex$cluster)
+
+#all_dge$cluster <- as.factor(all_dge$cluster)
+
+all_dge_ex$avg_log2FC <- ifelse(is.na(all_dge_ex$avg_log2FC), "0", all_dge_ex$avg_log2FC)
+
+all_dge_ex <- all_dge_ex %>% filter(cluster == "AD") %>% select("gene", "avg_log2FC", "dataset")
+
+test_mat_ex <- all_dge_ex %>% pivot_wider(names_from = "gene", values_from = "avg_log2FC") %>% as.data.frame()
+
+row.names(test_mat_ex) <- test_mat_ex$dataset
+
+test_mat_ex <- select(test_mat_ex, -dataset) %>% as.matrix()
+
+matrix_ex <- t(test_mat_ex)
+
+test_df_ex <- as.data.frame(matrix_ex)
+test_df2_ex <- test_df_ex %>% mutate_all(as.numeric)
+
+matrix2_ex <- as.matrix(test_df2_ex)
+
+library(ComplexHeatmap)
+library(circlize)
+
+col_fun = colorRamp2(c(-1, 0, 1), c("blue", "black", "yellow"))
+x <- test_df2_ex$geo
+y <- test_df2_ex$vine_cortex
+png(here("results", "test", "ex_ctx_log2fc_heatmap.png"), width = 600, height = 900)
+Heatmap(
+  matrix2_ex,
+  col = col_fun,
+  name = "log2FC",
+  row_names_side = "left",
+  row_title = "Target Genes Across Int Cortex Datasets in Ex Neurons",
+  row_title_gp = gpar(fontsize = 12, fontface = "bold"),
+  column_names_side = "top",
+  column_title = "Datasets",
+  column_title_gp = gpar(fontsize = 12, fontface = "bold"),
+  show_column_dend = FALSE,
+  show_row_dend = FALSE,
+  cluster_columns = FALSE,
+  cluster_rows = TRUE
+)
+dev.off()
+
+# XY plot
+png(here("results", "test", "ex_ctx_log2fc_xyplot.png"))
+plot(x, y, main = "Log2FC in target genes in excitatory neurons",
+     xlab = "log2FC in GEO", ylab = "log2FC in VINE_Cortex",
+     pch = 19, frame = FALSE)
+abline(lm(y ~ x, data = test_df2_ex), col = "blue")
+dev.off()
+```
+
+inhibitory neurons
+
+```{r}
+all_targets_in <- targets_in %>% pivot_longer(cols = ends_with("targets_in"),
+                                        names_to = "dataset",
+                                        values_to = "gene") %>% select(gene) %>% drop_na() %>% unique() %>% 
+  as.data.frame()
+
+
+
+geo_targets_dge_in <- subset(geo_in_dge, gene %in% all_targets_in$gene) %>% mutate(dataset = "geo") %>% select("avg_log2FC", "cluster", "gene", "dataset") %>% as.data.frame()
+
+try_in <- left_join(all_targets_in, geo_targets_dge_in, by = "gene")
+try_in$dataset <- ifelse(is.na(try_in$dataset), "geo", try_in$dataset)
+
+vinec_targets_dge_in <- subset(vinecortex_in_dge, gene %in% all_targets_in$gene) %>% mutate(dataset = "vine_cortex") %>% select("avg_log2FC", "cluster", "gene", "dataset") %>% as.data.frame()
+
+try2_in <- left_join(all_targets_in, vinec_targets_dge_in, by = "gene")
+try2_in$dataset <- ifelse(is.na(try2_in$dataset), "vine_cortex", try2_in$dataset)
+
+
+all_dge_in <- bind_rows(try_in, try2_in)
+
+all_dge_in$cluster <- as.character(all_dge_in$cluster)
+
+all_dge_in$cluster <- ifelse(is.na(all_dge_in$cluster), "AD", all_dge_in$cluster)
+
+#all_dge$cluster <- as.factor(all_dge$cluster)
+
+all_dge_in$avg_log2FC <- ifelse(is.na(all_dge_in$avg_log2FC), "0", all_dge_in$avg_log2FC)
+
+all_dge_in <- all_dge_in %>% filter(cluster == "AD") %>% select("gene", "avg_log2FC", "dataset")
+
+test_mat_in <- all_dge_in %>% pivot_wider(names_from = "gene", values_from = "avg_log2FC") %>% as.data.frame()
+
+row.names(test_mat_in) <- test_mat_in$dataset
+
+test_mat_in <- select(test_mat_in, -dataset) %>% as.matrix()
+
+matrix_in <- t(test_mat_in)
+
+test_df_in <- as.data.frame(matrix_in)
+test_df2_in <- test_df_in %>% mutate_all(as.numeric)
+
+matrix2_in <- as.matrix(test_df2_in)
+
+library(ComplexHeatmap)
+library(circlize)
+
+col_fun = colorRamp2(c(-1, 0, 1), c("blue", "black", "yellow"))
+x <- test_df2_in$geo
+y <- test_df2_in$vine_cortex
+png(here("results", "test", "in_ctx_log2fc_heatmap.png"), width = 600, height = 900)
+Heatmap(
+  matrix2_in,
+  col = col_fun,
+  name = "log2FC",
+  row_names_side = "left",
+  row_title = "Target Genes Across Int Cortex Datasets in Inhib Neurons",
+  row_title_gp = gpar(fontsize = 12, fontface = "bold"),
+  column_names_side = "top",
+  column_title = "Datasets",
+  column_title_gp = gpar(fontsize = 12, fontface = "bold"),
+  show_column_dend = FALSE,
+  show_row_dend = FALSE,
+  cluster_columns = FALSE,
+  cluster_rows = TRUE
+)
+dev.off()
+
+# XY plot
+png(here("results", "test", "in_ctx_log2fc_xyplot.png"))
+plot(x, y, main = "Log2FC in target genes in inhibitory neurons",
+     xlab = "log2FC in GEO", ylab = "log2FC in VINE_Cortex",
+     pch = 19, frame = FALSE)
+abline(lm(y ~ x, data = test_df2_in), col = "blue")
+dev.off()
+```
+
+# Testing overlap further
+* in order to actually determine the overlap, it was suggested to make all values above 0 1 and all values beloew 0 -1, so we could better see.
+  * This changes the color scale of the previously generated heatmaps and increases legibility. This is not for publication, but just to be able to take a look. 
+```{r}
+### Excitatory Neurons (Cortex data integrated)
+# make all positive values 1 and all negative values -1 
+mat_ex_filt <- ifelse(matrix2_ex > 0, 1, ifelse(matrix2_ex < 0, -1, matrix2_ex))
+
+col_fun = colorRamp2(c(-1, 0, 1), c("blue", "black", "yellow"))
+png(here("results", "test", "ex_ctx_log2fc_heatmap_v2.png"), width = 600, height = 900)
+Heatmap(
+  mat_ex_filt,
+  col = col_fun,
+  name = "log2FC",
+  row_names_side = "left",
+  row_title = "Target Genes Across Int Cortex Datasets in Ex Neurons",
+  row_title_gp = gpar(fontsize = 12, fontface = "bold"),
+  column_names_side = "top",
+  column_title = "Datasets",
+  column_title_gp = gpar(fontsize = 12, fontface = "bold"),
+  show_column_dend = FALSE,
+  show_row_dend = FALSE,
+  cluster_columns = FALSE,
+  cluster_rows = TRUE
+)
+dev.off()
+
+### Inhibitory Neurons (Cortex data integrated)
+# make all positive values 1 and all negative values -1 
+mat_in_filt <- ifelse(matrix2_in > 0, 1, ifelse(matrix2_in < 0, -1, matrix2_in))
+
+col_fun = colorRamp2(c(-1, 0, 1), c("blue", "black", "yellow"))
+png(here("results", "test", "in_ctx_log2fc_heatmap_v2.png"), width = 600, height = 900)
+Heatmap(
+  mat_in_filt,
+  col = col_fun,
+  name = "log2FC",
+  row_names_side = "left",
+  row_title = "Target Genes Across Int Cortex Datasets in Inhib Neurons",
+  row_title_gp = gpar(fontsize = 12, fontface = "bold"),
+  column_names_side = "top",
+  column_title = "Datasets",
+  column_title_gp = gpar(fontsize = 12, fontface = "bold"),
+  show_column_dend = FALSE,
+  show_row_dend = FALSE,
+  cluster_columns = FALSE,
+  cluster_rows = TRUE
+)
+dev.off()
+```
+  
+
+
 
 # Session info
 ```{r}
