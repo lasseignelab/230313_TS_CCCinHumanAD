@@ -23,7 +23,7 @@ make_seurat_object <- function(path){
     object_list[[i]] <- object
   } 
   print("Making diseased Seurat Object")
-  AD_list <- object_list[grepl("AD", names(object_list))]
+  AD_list <- object_list[grepl("_AD", names(object_list))]
   for (i in names(AD_list)) {
     sample_name <- basename(i)
     sample_name <- gsub("[[:punct:]]", "", sample_name)
@@ -33,7 +33,7 @@ make_seurat_object <- function(path){
   diseased <- Merge_Seurat_List(AD_list)
   
   print("Making control Seurat Object")
-  CTRL_list <- object_list[grepl("CTRL", names(object_list))]
+  CTRL_list <- object_list[grepl("_CTRL", names(object_list))]
   for (i in names(CTRL_list)) {
     sample_name <- basename(i)
     sample_name <- gsub("[[:punct:]]", "", sample_name)
@@ -256,7 +256,7 @@ split_objects <- function(object, active_assay = "RNA") {
   if(object@active.assay == active_assay) {
     split_object <- SplitObject(object, split.by = "orig.ident")
   } else {
-    print(paste0("Active assay is not RNA in ", i))
+    print(paste0("Active assay is not RNA in ", object))
   }
   return(split_object)
 }
