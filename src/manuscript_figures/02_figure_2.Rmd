@@ -4,220 +4,234 @@ author: "Tabea M. Soelter"
 date: '2023-05-19'
 output: html_document
 ---
-Code for figure 2
+This is a script for generating figure 2 of my manuscript.
+- A: Jaccard index correlation plot - ligands
+- B: Jaccard index correlation plot - receptors
+- C: Jaccard index correlation plot - targets
+- D: Scaled Ligand activity heatmap
+- E: Jaccard index lollipop plot between ex and in neurons - receptors
+- F: Jaccard index lollipop plot between ex and in neurons - targets
 
-# packages
+order might change here.
+- might consider talking about all ligand plots first, then rec, then targets
+
+# Load packages
 ```{r}
-library(tidyverse)
-library(ComplexHeatmap)
-library(Seurat)
+# Time tracking
+ptm <- proc.time()
+
+# set seed
+set.seed(42)
+
+# load packages
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(multinichenetr)
+  library(circlize)
+  library(ComplexHeatmap)
+  library(RColorBrewer)
+  library(reshape2)
+  library(patchwork)
+  library(cowplot)
+  library(here)
+  library(styler)
+  library(lintr)
+})
 ```
 
-# data
+# Load multinichenet data
 ```{r}
-ex_prioritization_tables <- readRDS("/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/results/intermediate_outputs/geo/ccc/ex_prioritization_tables.rds")
-
-in_prioritization_tables <- readRDS("/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/results/intermediate_outputs/geo/ccc/in_prioritization_tables.rds")
-
-geo_object <- readRDS("/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/geo_processed_seurat.rds")
+output <- readRDS(here("data", "ccc", "geo_multinichenet_output.rds"))
 ```
 
-# prep plot
-- get ligands 
-- get gex of ligands from seurat object
+# Figure 1A
+Jaccard Index correlation plot, where 1 half is excitatory neurons and the other is inhibitory neurons for ligands
 ```{r}
-gene_matrix <- GetAssayData(geo_object, assay = "RNA")
-
-
-ex_ligands <- ex_prioritization_tables$prioritization_tbl_ligand_target %>% select(ligand) %>% unique()
-ex_ligands <- ex_ligands$ligand
-
-gex <- gene_matrix[ex_ligands, ]
-
-
-metadata <- geo_object[[]]
-metadata <- metadata[rownames(metadata) %in% colnames(gex), ]
-
+ggcorrplot(jaccard_ex_mat) +
+  scale_fill_gradientn(limits = c(0, 1),
+                       breaks = seq(0, 1, by = 0.2),
+                       colors = colors,
+                       name = "Jaccard Index") +
+  theme_bw() +
+  theme(axis.title.x = element_text(size = 12, face = "bold"),
+        axis.title.y = element_text(angle = 90, size = 12, face = "bold"),
+        axis.text = element_text(size = 10, face = "bold"),
+        plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+        legend.text = element_text(face = "bold"),
+        legend.title = element_text(face = "bold"),
+        panel.grid.major = element_blank()) +
+  labs(x = "Excitatory Neurons", y = "Inhibitory Neurons") +
+  ggtitle("Ligands")
 ```
 
+# Figure 1B
+Jaccard Index correlation plot, where 1 half is excitatory neurons and the other is inhibitory neurons for receptors
 ```{r}
-metadata <- geo_object@meta.data
-
-metadata <- metadata %>% mutate(cell_type = recode(RNA_snn_res.0.5,
-  `1`  = "Oligodendrocytes",
-  `2`  = "Oligodendrocytes",
-  `3`  = "Oligodendrocytes",
-  `4`  = "Astrocytes",
-  `5`  = "Microglia",
-  `6`  = "Excitatory Neurons",
-  `7`  = "OPCs",
-  `8`  = "Inhibitory Neurons",
-  `9`  = "Excitatory Neurons",
-  `10` = "Inhibitory Neurons",
-  `11` = "Inhibitory Neurons",
-  `12` = "Astrocytes",
-  `13` = "Inhibitory Neurons",
-  `14` = "Excitatory Neurons",
-  `15` = "Excitatory Neurons",
-  `16` = "Inhibitory Neurons",
-  `17` = "Excitatory Neurons",
-  `18` = "Microglia",
-  `19` = "OPCs",
-  `20` = "Oligodendrocytes",
-  `21` = "Endothelial Cells",
-  `22` = "Microglia",
-  `23` = "Unknown"))
-
-ordered_metadata <- metadata[order(metadata$cell_type), ]
-
-ha <- HeatmapAnnotation(df = ordered_metadata,
-                        show_annotation_name = TRUE)
-
-
-# Expression data
-
-
-seurat_object <- ScaleData(geo_object,
-                           features = ex_ligands)
-
-my_data <- seurat_object@assays$RNA@scale.data
-
-gene_data <- subset(my_data, rownames(my_data) %in% ex_ligands)
-
-data <- gene_data[, rownames(ordered_metadata)]
-
-p <- Heatmap(data)
-draw(p)
+ggcorrplot(jaccard_ex_mat) +
+  scale_fill_gradientn(limits = c(0, 1),
+                       breaks = seq(0, 1, by = 0.2),
+                       colors = colors,
+                       name = "Jaccard Index") +
+  theme_bw() +
+  theme(axis.title.x = element_text(size = 12, face = "bold"),
+        axis.title.y = element_text(angle = 90, size = 12, face = "bold"),
+        axis.text = element_text(size = 10, face = "bold"),
+        plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+        legend.text = element_text(face = "bold"),
+        legend.title = element_text(face = "bold"),
+        panel.grid.major = element_blank()) +
+  labs(x = "Excitatory Neurons", y = "Inhibitory Neurons") +
+  ggtitle("Receptors")
 ```
 
-
+# Figure 1C
+Jaccard Index correlation plot, where 1 half is excitatory neurons and the other is inhibitory neurons for targets
 ```{r}
-counts <- GetAssayData(geo_object, assay = "RNA", slot = "data")
-counts <- as.matrix(counts[rownames(counts) %in% ex_ligands, ])
-
-metadata <- geo_object[[]]
-metadata <- metadata[rownames(metadata) %in% colnames(counts), ]
-
-metadata <- metadata %>% mutate(cell_type = recode(RNA_snn_res.0.5,
-  `1`  = "Oligodendrocytes",
-  `2`  = "Oligodendrocytes",
-  `3`  = "Oligodendrocytes",
-  `4`  = "Astrocytes",
-  `5`  = "Microglia",
-  `6`  = "Excitatory Neurons",
-  `7`  = "OPCs",
-  `8`  = "Inhibitory Neurons",
-  `9`  = "Excitatory Neurons",
-  `10` = "Inhibitory Neurons",
-  `11` = "Inhibitory Neurons",
-  `12` = "Astrocytes",
-  `13` = "Inhibitory Neurons",
-  `14` = "Excitatory Neurons",
-  `15` = "Excitatory Neurons",
-  `16` = "Inhibitory Neurons",
-  `17` = "Excitatory Neurons",
-  `18` = "Microglia",
-  `19` = "OPCs",
-  `20` = "Oligodendrocytes",
-  `21` = "Endothelial Cells",
-  `22` = "Microglia",
-  `23` = "Unknown"))
-
-ordered_metadata <- metadata[order(metadata$cell_type), ]
-
-ha <- HeatmapAnnotation(df = ordered_metadata,
-                        show_annotation_name = TRUE)
-
-genes_mat <- subset(counts, rownames(counts) %in% ex_ligands)
-
-genes_mat_o <- genes_mat[, rownames(ordered_metadata)]
-
-p <- Heatmap(
-  genes_mat,
-  #width = unit(15, "cm"), 
-  #height = unit(25, "cm"),
-  row_names_side = "left",
-  #col = col_fun,
-  cluster_rows = FALSE,
-  cluster_columns = FALSE,
-  column_order = NULL,
-  show_row_dend = FALSE,
-  show_column_dend = FALSE,
-  show_row_names = TRUE,
-  row_names_gp = gpar(fontsize = 8),
-  show_column_names = FALSE,
-  use_raster = TRUE,
-  raster_device = c("png"),
-  #raster_quality = 15,
-  bottom_annotation = NULL,
-  #top_annotation = ha
-)
-
-draw(p)
+ggcorrplot(jaccard_ex_mat) +
+  scale_fill_gradientn(limits = c(0, 1),
+                       breaks = seq(0, 1, by = 0.2),
+                       colors = colors,
+                       name = "Jaccard Index") +
+  theme_bw() +
+  theme(axis.title.x = element_text(size = 12, face = "bold"),
+        axis.title.y = element_text(angle = 90, size = 12, face = "bold"),
+        axis.text = element_text(size = 10, face = "bold"),
+        plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+        legend.text = element_text(face = "bold"),
+        legend.title = element_text(face = "bold"),
+        panel.grid.major = element_blank()) +
+  labs(x = "Excitatory Neurons", y = "Inhibitory Neurons") +
+  ggtitle("Targets")
 ```
 
-### For loop to generate combined DEG output at log2FC threshold of 0.1:
+# Figure 1D
+heatmap of scaled ligand activity split by sender cell type 
 ```{r}
+df <- output$prioritization_tables$group_prioritization_tbl %>%
+  filter()
+  
+prioritization_tbl_oi = prioritization_tables$group_prioritization_tbl %>% 
+    dplyr::filter(group == top_group & fraction_expressing_ligand_receptor > 
+                    0) %>% dplyr::distinct(group, sender, receiver, ligand, 
+                                           receptor, receiver, id, prioritization_score)
+  if (!is.null(groups_oi)) {
+    prioritization_tbl_oi = prioritization_tbl_oi %>% dplyr::filter(group %in% 
+                                                                      groups_oi)
+  }
+  if (!is.null(senders_oi)) {
+    prioritization_tbl_oi = prioritization_tbl_oi %>% dplyr::filter(sender %in% 
+                                                                      senders_oi)
+  }
+  if (!is.null(receivers_oi)) {
+    prioritization_tbl_oi = prioritization_tbl_oi %>% dplyr::filter(receiver %in% 
+                                                                      receivers_oi)
+  }
+  if (rank_per_group == TRUE) {
+    prioritization_tbl_oi = prioritization_tbl_oi %>% dplyr::group_by(group) %>% 
+      dplyr::mutate(prioritization_rank = rank(desc(prioritization_score))) %>% 
+      dplyr::filter(prioritization_rank <= top_n)
+  }
+  else {
+    prioritization_tbl_oi = prioritization_tbl_oi %>% dplyr::mutate(prioritization_rank = rank(desc(prioritization_score))) %>% 
+      dplyr::filter(prioritization_rank <= top_n)
 
 
-# specify the cell types in the data to loop through
-celltypes <- levels(geo_object)
-
-# create empty dataframe to store the loop outputs within
-DEGs_df <- data.frame()
-
-# for loop, loops through each of the 'celltypes' in cerebral and calculates the DEG between conditions (heterozygous and control)
-for (i in celltypes) {
-  # subset seurat data for each cerebral cell type ----------
-  celltype <- subset(geo_object, idents = i)
-  # change the subsetted object identity to be type (heterozygous or control) so that DEG are calculated between the two conditions ------------
-  Idents(celltype) <- celltype@meta.data$orig.ident
-  # calculate DEGs between conditions -----------
-  DEGs <- FindAllMarkers(celltype,
-    logfc.threshold = 0.1,
-    test.use = "wilcox",
-    only.pos = FALSE,
-    assay = "RNA"
-  )
-  # add an additional column to the df with cell type annotation (for downstream analysis purposes) -----------
-  DEGs$cell_type <- i
-  # combine the dataframe generated in the for loop with the entire list of all DEGs across cell types in cerebral ----------
-  DEGs_df <- rbind(DEGs_df, DEGs)
-}
 
 
-# filter DEG list for just setbp1 targets
-subset <- DEGs_df[DEGs_df$gene %in% ex_ligands, ]
 
-# grab just log2fc values from DEG matrix, keep rownames and then order (below) by rowname
-genes_mat <- subset[, c("avg_log2FC", "cell_type", "gene", "cluster", "p_val_adj"), drop = FALSE]
 
-# filtering for significant values
-genes_mat <- genes_mat[genes_mat$p_val_adj < 0.5, ]
-genes_mat <- genes_mat[, -5]
 
-genes_pivot <- pivot_wider(genes_mat, names_from = c("cell_type", "cluster"), values_from = "avg_log2FC", names_repair = "minimal")
-genes_pivot[is.na(genes_pivot)] <- 0
-rownames <- genes_pivot$gene # add gene names as rownames
-genes_pivot <- genes_pivot[, -1, drop = FALSE] # drop gene column
-rownames(genes_pivot) <- rownames
 
-# grab meta data for plot:
-meta <- as.data.frame(colnames(genes_pivot))
-meta.data <- t(as.data.frame(strsplit(sub("(_)(?=[^_]+$)", " ", meta$`colnames(genes_pivot)`, perl = TRUE), " ")))
+group_oi = "AD"
+receiver_oi = "Excitatory.Neurons"
+prioritized_tbl_oi_M_10 = get_top_n_lr_pairs(multinichenet_output$prioritization_tables, 10, groups_oi = group_oi, receivers_oi = receiver_oi)
 
-meta.data <- t(genes_pivot) %>% as.data.frame()
+combined_plot = make_ligand_activity_target_plot(group_oi, receiver_oi, prioritized_tbl_oi_M_10, multinichenet_output$prioritization_tables, multinichenet_output$ligand_activities_targets_DEgenes, contrast_tbl, multinichenet_output$grouping_tbl, multinichenet_output$celltype_info, ligand_target_matrix, plot_legend = FALSE)
+pdf("combined_plot_ex.pdf", width = 20, height = 10)
+combined_plot
+dev.off()
+```
 
-rownames(meta.data) <- meta$`colnames(genes_pivot)`
-colnames(meta.data) <- c("cell_type", "condition")
+# Figure 1E
+Lollipop plot for jaccard index between receptors in ex and in neurons across sender cells.
+```{r}
+jaccard_receptors %>%
+  arrange(jaccard_index) %>%
+  mutate(sender = factor(sender, levels = sender)) %>%
+  ggplot(aes(x = sender, y = jaccard_index)) +
+  geom_segment(aes(xend = sender, yend = 0)) + 
+  geom_point(size = 4, color = "#6a3d9a") +
+  coord_flip() +
+  theme_bw() +
+  theme(axis.title.x = element_text(size = 12, face = "bold"),
+        axis.title.y = element_text(size = 12, face = "bold"),
+        axis.text = element_text(size = 10, face = "bold"),
+        plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+        panel.grid.major = element_blank()) +
+  xlab("Sender Cells") +
+  ylab("Jaccard Similarity between Excitatory and Inhibitory Neurons") +
+  ylim(0, 0.5) +
+  ggtitle("Receptors")
+```
 
-heatmap(genes_pivot %>% as.matrix())
-
+# Figure 1F
+Lollipop plot for jaccard index between targets in ex and in neurons across sender cells.
+```{r}
+jaccard_targets %>%
+  arrange(jaccard_index) %>%
+  mutate(sender = factor(sender, levels = sender)) %>%
+  ggplot(aes(x = sender, y = jaccard_index)) +
+  geom_segment(aes(xend = sender, yend = 0)) + 
+  geom_point(size = 4, color = "#cab2d6") +
+  coord_flip() +
+  theme_bw() +
+  theme(axis.title.x = element_text(size = 12, face = "bold"),
+        axis.title.y = element_text(size = 12, face = "bold"),
+        axis.text = element_text(size = 10, face = "bold"),
+        plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+        panel.grid.major = element_blank()) +
+  xlab("Sender Cells") +
+  ylab("Jaccard Similarity between Excitatory and Inhibitory Neurons") +
+  ylim(0, 0.5) +
+  ggtitle("Targets")
 ```
 
 
-# plots
-```{r}
 
+alluvial code for later
+```{r}
+####  ####  ####
+receiver_oi <- "Inhibitory.Neurons"
+senders_oi <- c("Astrocytes", "Microglia", "OPCs", "Oligodendrocytes")
+
+lrt_df <- multinichenet_output$lr_target_prior_cor %>% 
+  filter(receiver %in% receiver_oi) %>%
+  filter(sender %in% senders_oi) %>%
+  select(c("sender", "receiver", "ligand", "receptor", "target"))
+
+library(ggplot2)
+library(ggalluvial)
+
+
+ggplot(lrt_df, aes(axis1 = ligand, axis2 = receptor, axis3 = target)) +
+  geom_alluvium(aes(fill = sender), aes.bind = "flows")
+
+
+
+
+lrt_df <- multinichenet_output$prioritization_tables$group_prioritization_tbl %>% 
+  filter(group == "AD") %>%
+  filter(receiver %in% receiver_oi) %>%
+  filter(sender %in% senders_oi) %>%
+  select(c("sender", "receiver", "ligand", "receptor", "id"))
+
+t_df <- multinichenet_output$lr_target_prior_cor %>%
+  select(c("id", "target"))
+
+overlap <- inner_join(lrt_df, t_df, by = "id")
+
+ggplot(overlap, aes(axis1 = ligand, axis2 = receptor, axis3 = target)) +
+  geom_alluvium(aes(fill = sender), aes.bind = "flows")
 ```
+
 
