@@ -1,6 +1,6 @@
 README
 ================
-2023-05-25
+2023-06-20
 
 **EDIT THIS DOCUMENT AND KNIT, DO NOT EDIT README.MD DIRECTLY**
 
@@ -24,9 +24,7 @@ the University of Alabama at Birmingham](https://www.lasseigne.org/)
     ## |   +-- 01_ligand_prioritization_liana.Rmd
     ## |   +-- 02_differential_ccc_nichenet.Rmd
     ## |   +-- 03_nichenet_prioritization_plots.Rmd
-    ## |   +-- 04_dataset_comparisons.Rmd
-    ## |   +-- 05_nichenet_control.Rmd
-    ## |   \-- 06_target_pathways.Rmd
+    ## |   \-- 04_target_pathways.Rmd
     ## +-- cellranger
     ## |   +-- geo
     ## |   |   +-- SAMN19128593_S19_CTRL.sh

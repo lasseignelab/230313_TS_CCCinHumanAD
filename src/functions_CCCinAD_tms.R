@@ -23,7 +23,7 @@ make_seurat_object <- function(path){
     object_list[[i]] <- object
   } 
   print("Making diseased Seurat Object")
-  AD_list <- object_list[grepl("AD", names(object_list))]
+  AD_list <- object_list[grepl("_AD", names(object_list))]
   for (i in names(AD_list)) {
     sample_name <- basename(i)
     sample_name <- gsub("[[:punct:]]", "", sample_name)
@@ -33,7 +33,7 @@ make_seurat_object <- function(path){
   diseased <- Merge_Seurat_List(AD_list)
   
   print("Making control Seurat Object")
-  CTRL_list <- object_list[grepl("CTRL", names(object_list))]
+  CTRL_list <- object_list[grepl("_CTRL", names(object_list))]
   for (i in names(CTRL_list)) {
     sample_name <- basename(i)
     sample_name <- gsub("[[:punct:]]", "", sample_name)
@@ -66,8 +66,6 @@ format_metadata <- function(seurat_object){
   metadata$cells <- rownames(metadata)
   # Create sample column -----
   metadata$sample <- NA
-  metadata$sample[which(str_detect(metadata$cells, "^CTRL_"))] <- "ctrl"
-  metadata$sample[which(str_detect(metadata$cells, "^AD_"))] <- "AD"
   # Rename columns -----
   metadata <- metadata %>% dplyr::rename(seq_folder = orig.ident,
                                          nUMI = nCount_RNA,
@@ -78,9 +76,9 @@ format_metadata <- function(seurat_object){
 ## plot_qc
 # A function which takes seurat metadata and plots quality control metrics for filtering purposes
 plot_qc <- function(metadata) {
-  # Visualize the number of cell counts per sample
+  # Visualize the number of cell counts per condition
   number_of_cells <- metadata %>% 
-    ggplot(aes(x = sample, fill = sample)) + 
+    ggplot(aes(x = seq_folder, fill = seq_folder)) + 
     geom_bar() +
     theme_classic() +
     theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
@@ -88,7 +86,7 @@ plot_qc <- function(metadata) {
     ggtitle("NCells") 
   # Visualize the number UMIs/transcripts per cell
   number_of_umis <- metadata %>% 
-    ggplot(aes(color = sample, x = nUMI, fill = sample)) + 
+    ggplot(aes(color = seq_folder, x = nUMI, fill = seq_folder)) + 
     geom_density(alpha = 0.2) + 
     scale_x_log10() + 
     theme_classic() +
@@ -96,20 +94,20 @@ plot_qc <- function(metadata) {
     geom_vline(xintercept = 500)
   # Visualize the distribution of genes detected per cell
   dist_genes_per_cell <- metadata %>% 
-    ggplot(aes(color = sample, x = nGene, fill = sample)) + 
+    ggplot(aes(color = seq_folder, x = nGene, fill = seq_folder)) + 
     geom_density(alpha = 0.2) + 
     theme_classic() +
     scale_x_log10() + 
     geom_vline(xintercept = 300)
   # Visualize the overall complexity of the gene expression by visualizing the genes detected per UMI (novelty score)
   novelty_score <- metadata %>%
-    ggplot(aes(x = log10GenesPerUMI, color = sample, fill = sample)) +
+    ggplot(aes(x = log10GenesPerUMI, color = seq_folder, fill = seq_folder)) +
     geom_density(alpha = 0.2) +
     theme_classic() +
     geom_vline(xintercept = 0.8)
   # Visualize the distribution of mitochondrial gene expression detected per cell
   dist_mito_gex <- metadata %>% 
-    ggplot(aes(color = sample, x = mitoRatio, fill = sample)) + 
+    ggplot(aes(color = seq_folder, x = mitoRatio, fill = seq_folder)) + 
     geom_density(alpha = 0.2) + 
     scale_x_log10() + 
     theme_classic() +
@@ -125,7 +123,7 @@ plot_qc <- function(metadata) {
     theme_classic() +
     geom_vline(xintercept = 500) +
     geom_hline(yintercept = 250) +
-    facet_wrap(~sample)
+    facet_wrap(~seq_folder)
   # Plot QC metrics
   plot(number_of_cells) 
   plot(number_of_umis)
@@ -256,7 +254,7 @@ split_objects <- function(object, active_assay = "RNA") {
   if(object@active.assay == active_assay) {
     split_object <- SplitObject(object, split.by = "orig.ident")
   } else {
-    print(paste0("Active assay is not RNA in ", i))
+    print(paste0("Active assay is not RNA in ", object))
   }
   return(split_object)
 }

@@ -11,7 +11,7 @@ __Goal__: Process GSE163577 (snRNA-seq) data for downstream analyses.
 __Reproducibility__: 
 * GitHub: lasseignelab/230313_TS_CCCinHumanAD
 * Docker: tsoelter/rstudio_ccc_ad
-    * Version: 1.0.0 
+    * Version: 1.0.1 
 * HPC: Yes
   * Resources: long partition (150hrs), 6 CPUs, 65GB per CPU
 
@@ -66,7 +66,13 @@ merged_seurat <- calculate_qc(merged_seurat)
 # Format metadata
 ```{r}
 metadata <- format_metadata(merged_seurat)
-dim(metadata) # 402829 7
+
+metadata$sample <- ifelse(str_sub(merged_seurat@assays[["RNA"]]@data@Dimnames[[2]], 1, 4) == "CTRL",
+                          str_sub(merged_seurat@assays[["RNA"]]@data@Dimnames[[2]], 17, 23),
+                          str_sub(merged_seurat@assays[["RNA"]]@data@Dimnames[[2]], 15, 19))
+metadata$sample <- gsub("_", "", metadata$sample)
+
+dim(metadata) # 263855 7
 
 # Add metadata to merged_seurat
 merged_seurat@meta.data <- metadata
@@ -89,7 +95,7 @@ measurements.
 # Cell-level filtering
 sub_seurat <- subset(merged_seurat,
   subset =
-    nGene > 250 &
+    nGene > 300 &
       nGene < 3000 &
       mitoRatio < 0.20 &
       log10GenesPerUMI > 0.80
@@ -111,13 +117,16 @@ filtered_seurat <- CreateSeuratObject(filtered_counts,
 
 # Save filtered seurat object
 ```{r}
-saveRDS(filtered_seurat, file = here("data", "vine_filtered_seurat.rds"))
+saveRDS(filtered_seurat, file = here(
+  "data",
+  "seurat_preprocessing",
+  "vine_filtered_seurat.rds"))
 ```
 
 # Plot QC metrics after filtering
 ```{r warning=FALSE}
 metadata <- filtered_seurat@meta.data
-dim(metadata) # 372166 10
+dim(metadata) # 225690 10
 
 # plot and save post-filter QC outputs
 pdf(file = here(
@@ -142,12 +151,15 @@ dev.off()
 * We will have to provide the PCs from the elbow plot above (1:30)
 ```{r warning=FALSE}
 filtered_seurat <- harmony_integration(filtered_seurat, dims = 1:30)
-# harmony converged after 6 iterations
+# harmony converged after 4 iterations
 ```
 
 # Save integrated seurat object
 ```{r}
-saveRDS(filtered_seurat, file = here("data", "vine_integrated_seurat.rds"))
+saveRDS(filtered_seurat, file = here(
+  "data",
+  "seurat_preprocessing",
+  "vine_integrated_seurat.rds"))
 ```
 
 # Clustering
@@ -158,8 +170,7 @@ saveRDS(filtered_seurat, file = here("data", "vine_integrated_seurat.rds"))
 filtered_seurat@active.assay
 
 # vector of desired resolutions
-resolutions <- c(0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9,
-                 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9)
+resolutions <- c(0.2, 0.4, 0.6, 0.8, 0.9, 1.0, 1.2, 1.4, 1.6, 1.8)
 
 # clustering of resolutions (answer no to miniconda installation)
 filtered_seurat <- find_clusters(filtered_seurat,
@@ -171,25 +182,24 @@ filtered_seurat <- find_clusters(filtered_seurat,
 
 # Save clustered seurat object
 ```{r}
-saveRDS(filtered_seurat, file = here("data", "vine_clustered_seurat.rds"))
+saveRDS(filtered_seurat, file = here(
+  "data",
+  "seurat_preprocessing",
+  "vine_clustered_seurat.rds"))
 ```
 
 # Determine resolution
 ```{r}
-# Plot resolutions between 0.1 and 0.9
-tree <- clustree(filtered_seurat@meta.data, prefix = "RNA_snn_res.0.")
-
-# Resolutions between 1 and 1.9
-tree2 <- clustree(filtered_seurat@meta.data, prefix = "RNA_snn_res.1.")
+# Plot all resolutions 
+tree <- clustree(filtered_seurat@meta.data, prefix = "RNA_snn_res.")
 
 pdf(file = here("results", "intermediate_outputs", "vine", "clustree_umap.pdf"))
 tree
-tree2
 
-# plotting UMAP for most stable resolution (0.7)
+# plotting UMAP for most stable resolution (1)
 DimPlot(filtered_seurat,
   reduction = "umap_harmony",
-  group.by = "RNA_snn_res.0.7"
+  group.by = "RNA_snn_res.1"
 )
 
 dev.off()
@@ -197,8 +207,8 @@ dev.off()
 
 # Find marker genes
 ```{r}
-# Set the identity as Leiden with resolution 0.7
-filtered_seurat <- SetIdent(filtered_seurat, value = "RNA_snn_res.0.7")
+# Set the identity as Leiden with resolution 1.0
+filtered_seurat <- SetIdent(filtered_seurat, value = "RNA_snn_res.1")
 
 # Find marker genes
 all_marker_genes <- FindAllMarkers(filtered_seurat,
@@ -223,53 +233,42 @@ top25 <- all_marker_genes %>%
   group_by(cluster) %>%
   top_n(-25, p_val_adj)
 
-dim(top25) # 1034 7
+dim(top25) # 1169 7
 ```
 
 # Finding markers of unresolved clusters
-* Clusters unidentified are: 3, 5, 6, 11, 12, 14, 16, 18, 20, 22, 23, 25, 27
+* Clusters unidentified are: 27, 31
 ```{r}
 # vector of clusters of interest
-identities <- c("3", "5", "6", "11", "12", "14", "16", "18", "20", "22", "23", "25", "27")
+identities <- c("27", "31")
 
 # find marker genes across clusters of interest
 top_markers <- find_markers(filtered_seurat,
-  resolution = "RNA_snn_res.0.7",
+  resolution = "RNA_snn_res.1",
   identities = identities,
   value = 15
 )
 
-dim(top_markers) # 195 6
+dim(top_markers) # 30 6
 ```
 
-# Feature plots of unresolved clusters
-Clusters that remain unresolved:
-* Cluster 5: Astrocytes vs Excitatory Neurons
-  * Based on below plots: Astrocytes
-* Clusters 11 and 12: Endothelial cells vs Microglia
-  * Based on below plots: Endothelial cells
-* Clusters 14, 16, and 18 : Endothelial cells vs Pericytes
-  * Based on below plots: 
-    * Cluster 14: Pericytes
-    * Cluster 16: Pericytes
-    * Cluster 18: Endothelial cells
+# Feature plots to confirm clusters
 ```{r warning=FALSE}
 pdf(file = here("results", "intermediate_outputs", "vine", "feature_plots.pdf"))
 
-# Labeled UMAP
-DimPlot(filtered_seurat, label = TRUE)
+FeaturePlot(filtered_seurat, features = c("PDGFRB"), label = TRUE)
 
-# Cluster 5: RALYL (Ex Neurons) vs SLC1A2 (Astrocytes)
-FeaturePlot(filtered_seurat, features = c("RALYL", "SLC1A2"), label = TRUE)
-FeaturePlot(filtered_seurat, features = c("RALYL", "SLC1A2"), label = FALSE)
+FeaturePlot(filtered_seurat, features = c("DOCK8", "APBB1IP", "ARHGAP15"), label = TRUE)
 
-# Clusters 11 and 12: FLT1 (Endothelial cells) vs DOCK8 (Microglia)
-FeaturePlot(filtered_seurat, features = c("FLT1", "DOCK8"), label = TRUE)
-FeaturePlot(filtered_seurat, features = c("FLT1", "DOCK8"), label = FALSE)
+FeaturePlot(filtered_seurat, features = c("SNAP25", "RBFOX1"), label = TRUE)
 
-# Cluster 14: FLT1 (Endothelial cells) vs PDGFRB (Pericytes)
-FeaturePlot(filtered_seurat, features = c("FLT1", "PDGFRB"), label = TRUE)
-FeaturePlot(filtered_seurat, features = c("FLT1", "PDGFRB"), label = FALSE)
+FeaturePlot(filtered_seurat, features = c("SLC7A11", "GFAP", "ADGRV1"), label = TRUE)
+
+FeaturePlot(filtered_seurat, features = c("ST18", "MBP"), label = TRUE)
+
+FeaturePlot(filtered_seurat, features = c("TNR", "PCDH15"), label = TRUE)
+
+FeaturePlot(filtered_seurat, features = c("FLT1", "VWF"), label = TRUE)
 
 dev.off()
 ```
@@ -279,50 +278,52 @@ dev.off()
 filtered_seurat <- RenameIdents(filtered_seurat,
   `1`  = "Endothelial cells",
   `2`  = "Oligodendrocytes",
-  `3`  = "Glia - Unspecified",
-  `4`  = "Oligodendrocytes",
-  `5`  = "Astrocytes",
-  `6`  = "Smooth Muscle cells",
-  `7`  = "Astrocytes",
+  `3`  = "Oligodendrocytes",
+  `4`  = "Pericytes",
+  `5`  = "Oligodendrocytes",
+  `6`  = "Endothelial cells",
+  `7`  = "Pericytes",
   `8`  = "Endothelial cells",
-  `9`  = "Microglia",
-  `10` = "Endothelial cells",
-  `11` = "Endothelial cells",
+  `9`  = "Astrocytes",
+  `10` = "Astrocytes",
+  `11` = "Pericytes",
   `12` = "Endothelial cells",
   `13` = "Microglia",
-  `14` = "Pericytes",
-  `15` = "OPCs",
-  `16` = "Pericytes",
+  `14` = "Astrocytes",
+  `15` = "Microglia",
+  `16` = "OPCs",
   `17` = "Oligodendrocytes",
-  `18` = "Endothelial cells",
-  `19` = "Oligodendrocytes",
-  `20` = "Neurons",
-  `21` = "Astrocytes",
-  `22` = "Endothelial cells",
+  `18` = "Smooth muscle cells",
+  `19` = "Pericytes",
+  `20` = "Astrocytes",
+  `21` = "Neurons",
+  `22` = "Astrocytes",
   `23` = "Astrocytes",
-  `24` = "Astrocytes",
-  `25` = "Excitatory Neurons",
+  `24` = "Excitatory Neurons",
+  `25` = "Microglia",
   `26` = "Microglia",
-  `27` = "Microglia",
-  `28` = "Inhibitory Neurons",
-  `29` = "Astrocytes"
+  `27` = "Epithelial cells",
+  `28` = "Microglia",
+  `29` = "Microglia",
+  `30` = "Microglia",
+  `31` = "Glia - Unspecified"
 )
 ```
 
-# Subclustering of cluster 20 
+# Subclustering of cluster 21 
 ```{r}
-# Subcluster the neuron cluster (cluster 20)
+# Subcluster the neuron cluster (cluster 21)
 filtered_seurat <- FindSubCluster(filtered_seurat,
   cluster = "Neurons",
   graph.name = "RNA_snn",
-  resolution = 0.1
+  resolution = 0.15
 )
 
 # Set identity to resolution with sub clusters
 filtered_seurat <- SetIdent(filtered_seurat, value = "sub.cluster")
 
 # Sub-clusters for marker identification
-idents <- c("Neurons_0", "Neurons_1", "Neurons_2", "Neurons_3", "Neurons_4")
+idents <- c("Neurons_0", "Neurons_1", "Neurons_2", "Neurons_3")
 
 # Find markers for sub-clusters
 neurons_markers <- find_markers(filtered_seurat,
@@ -331,15 +332,14 @@ neurons_markers <- find_markers(filtered_seurat,
   value = 5
 )
 
-dim(neurons_markers) # 25 6
+dim(neurons_markers) # 20 6
 
 # Assign new cell types
 filtered_seurat <- RenameIdents(filtered_seurat,
   "Neurons_0" = "Excitatory Neurons",
-  "Neurons_1" = "Inhibitory Neurons",
+  "Neurons_1" = "Excitatory Neurons",
   "Neurons_2" = "Inhibitory Neurons",
-  "Neurons_3" = "Inhibitory Neurons",
-  "Neurons_4" = "Excitatory Neurons"
+  "Neurons_3" = "Astrocytes"
 )
 
 # Check cluster assignments
@@ -347,7 +347,7 @@ png(file = here(
   "results",
   "intermediate_outputs",
   "vine",
-  "UMAP_subcluster.png"
+  "UMAP_final.png"
 ))
 DimPlot(filtered_seurat)
 dev.off()
@@ -355,7 +355,7 @@ dev.off()
 
 # Plot final UMAP
 ```{r}
-png(file = here("results", "final_outputs", "vine", "UMAP_final.png"))
+png(file = here("results", "final_outputs", "vine", "UMAP.png"))
 DimPlot_scCustom(filtered_seurat,
   figure_plot = TRUE,
   label = FALSE,
@@ -366,7 +366,10 @@ dev.off()
 
 # Save processed seurat object
 ```{r}
-saveRDS(filtered_seurat, here("data", "vine_processed_seurat.rds"))
+saveRDS(filtered_seurat, here(
+  "data",
+  "seurat_preprocessing",
+  "vine_processed_seurat.rds"))
 ```
 
 # Session info
@@ -375,7 +378,7 @@ sessionInfo() # see output below
 ```
 R version 4.1.3 (2022-03-10)
 Platform: x86_64-pc-linux-gnu (64-bit)
-Running under: Ubuntu 20.04.5 LTS
+Running under: Ubuntu 20.04.6 LTS
 
 Matrix products: default
 BLAS/LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.8.so
@@ -387,60 +390,47 @@ attached base packages:
 [1] stats     graphics  grDevices utils     datasets  methods   base     
 
 other attached packages:
- [1] here_1.0.1         lintr_3.0.2        styler_1.9.1       scCustomize_1.1.1 
- [5] clustree_0.5.0     ggraph_2.1.0       harmony_0.1.0      Rcpp_1.0.10       
- [9] lubridate_1.9.2    forcats_1.0.0      stringr_1.5.0      dplyr_1.1.0       
-[13] purrr_1.0.1        readr_2.1.4        tidyr_1.3.0        tibble_3.2.0      
-[17] ggplot2_3.4.1      tidyverse_2.0.0    SeuratObject_4.1.3 Seurat_4.3.0.9002 
+ [1] lintr_3.0.2        styler_1.9.1       here_1.0.1         scCustomize_1.1.1  clustree_0.5.0    
+ [6] ggraph_2.1.0       harmony_0.1.0      Rcpp_1.0.10        lubridate_1.9.2    forcats_1.0.0     
+[11] stringr_1.5.0      dplyr_1.1.2        purrr_1.0.1        readr_2.1.4        tidyr_1.3.0       
+[16] tibble_3.2.1       ggplot2_3.4.2      tidyverse_2.0.0    SeuratObject_4.1.3 Seurat_4.3.0.9002 
 
 loaded via a namespace (and not attached):
-  [1] backports_1.4.1        circlize_0.4.15        plyr_1.8.8            
-  [4] igraph_1.4.1           lazyeval_0.2.2         sp_1.6-0              
-  [7] splines_4.1.3          listenv_0.9.0          scattermore_0.8       
- [10] digest_0.6.31          htmltools_0.5.4        viridis_0.6.2         
- [13] fansi_1.0.4            checkmate_2.1.0        magrittr_2.0.3        
- [16] paletteer_1.5.0        tensor_1.5             cluster_2.1.2         
- [19] ROCR_1.0-11            limma_3.50.3           remotes_2.4.2         
- [22] tzdb_0.3.0             globals_0.16.2         graphlayouts_0.8.4    
- [25] matrixStats_0.63.0     R.utils_2.12.2         timechange_0.2.0      
- [28] spatstat.sparse_3.0-1  colorspace_2.1-0       ggrepel_0.9.3         
- [31] xfun_0.37              crayon_1.5.2           callr_3.7.3           
- [34] jsonlite_1.8.4         progressr_0.13.0       spatstat.data_3.0-1   
- [37] survival_3.3-1         zoo_1.8-11             glue_1.6.2            
- [40] xmlparsedata_1.0.5     polyclip_1.10-4        gtable_0.3.1          
- [43] leiden_0.4.3           R.cache_0.16.0         future.apply_1.10.0   
- [46] shape_1.4.6            abind_1.4-5            scales_1.2.1          
- [49] spatstat.random_3.1-3  miniUI_0.1.1.1         viridisLite_0.4.1     
- [52] xtable_1.8-4           reticulate_1.28        rex_1.2.1             
- [55] htmlwidgets_1.6.1      httr_1.4.5             RColorBrewer_1.1-3    
- [58] ellipsis_0.3.2         ica_1.0-3              R.methodsS3_1.8.2     
- [61] pkgconfig_2.0.3        farver_2.1.1           uwot_0.1.14           
- [64] deldir_1.0-6           utf8_1.2.3             janitor_2.2.0         
- [67] labeling_0.4.2         tidyselect_1.2.0       rlang_1.0.6           
- [70] reshape2_1.4.4         later_1.3.0            munsell_0.5.0         
- [73] tools_4.1.3            cli_3.6.0              ggprism_1.0.4         
- [76] generics_0.1.3         ggridges_0.5.4         evaluate_0.20         
- [79] fastmap_1.1.1          yaml_2.3.7             goftest_1.2-3         
- [82] rematch2_2.1.2         processx_3.8.0         knitr_1.42            
- [85] fitdistrplus_1.1-8     tidygraph_1.2.3        RANN_2.6.1            
- [88] pbapply_1.7-0          future_1.32.0          nlme_3.1-155          
- [91] mime_0.12              R.oo_1.25.0            ggrastr_1.0.1         
- [94] xml2_1.3.3             compiler_4.1.3         rstudioapi_0.14       
- [97] beeswarm_0.4.0         plotly_4.10.1          png_0.1-8             
-[100] spatstat.utils_3.0-2   tweenr_2.0.2           stringi_1.7.12        
-[103] ps_1.7.2               cyclocomp_1.1.0        desc_1.4.2            
-[106] lattice_0.20-45        Matrix_1.5-3           vctrs_0.5.2           
-[109] pillar_1.8.1           lifecycle_1.0.3        spatstat.geom_3.1-0   
-[112] lmtest_0.9-40          GlobalOptions_0.1.2    RcppAnnoy_0.0.20      
-[115] data.table_1.14.8      cowplot_1.1.1          irlba_2.3.5.1         
-[118] httpuv_1.6.9           patchwork_1.1.2        R6_2.5.1              
-[121] promises_1.2.0.1       KernSmooth_2.23-20     gridExtra_2.3         
-[124] vipor_0.4.5            parallelly_1.34.0      codetools_0.2-18      
-[127] MASS_7.3-55            rprojroot_2.0.3        withr_2.5.0           
-[130] sctransform_0.3.5.9002 parallel_4.1.3         hms_1.1.2             
-[133] grid_4.1.3             rmarkdown_2.20         snakecase_0.11.0      
-[136] Rtsne_0.16             spatstat.explore_3.0-6 ggforce_0.4.1         
-[139] shiny_1.7.4            ggbeeswarm_0.7.1    
+  [1] circlize_0.4.15        plyr_1.8.8             igraph_1.4.2           lazyeval_0.2.2        
+  [5] sp_1.6-0               splines_4.1.3          listenv_0.9.0          scattermore_0.8       
+  [9] digest_0.6.31          htmltools_0.5.5        viridis_0.6.2          fansi_1.0.4           
+ [13] magrittr_2.0.3         tensor_1.5             paletteer_1.5.0        cluster_2.1.2         
+ [17] ROCR_1.0-11            limma_3.50.3           remotes_2.4.2          tzdb_0.3.0            
+ [21] globals_0.16.2         graphlayouts_0.8.4     matrixStats_0.63.0     R.utils_2.12.2        
+ [25] timechange_0.2.0       spatstat.sparse_3.0-1  colorspace_2.1-0       ggrepel_0.9.3         
+ [29] xfun_0.39              crayon_1.5.2           callr_3.7.3            jsonlite_1.8.4        
+ [33] progressr_0.13.0       spatstat.data_3.0-1    survival_3.3-1         zoo_1.8-12            
+ [37] glue_1.6.2             polyclip_1.10-4        gtable_0.3.3           leiden_0.4.3          
+ [41] R.cache_0.16.0         future.apply_1.10.0    shape_1.4.6            abind_1.4-5           
+ [45] scales_1.2.1           spatstat.random_3.1-4  miniUI_0.1.1.1         viridisLite_0.4.1     
+ [49] xtable_1.8-4           reticulate_1.28        rex_1.2.1              htmlwidgets_1.6.2     
+ [53] httr_1.4.5             RColorBrewer_1.1-3     ellipsis_0.3.2         ica_1.0-3             
+ [57] pkgconfig_2.0.3        R.methodsS3_1.8.2      farver_2.1.1           uwot_0.1.14           
+ [61] deldir_1.0-6           utf8_1.2.3             janitor_2.2.0          labeling_0.4.2        
+ [65] tidyselect_1.2.0       rlang_1.1.0            reshape2_1.4.4         later_1.3.0           
+ [69] munsell_0.5.0          tools_4.1.3            cli_3.6.1              ggprism_1.0.4         
+ [73] generics_0.1.3         ggridges_0.5.4         evaluate_0.20          fastmap_1.1.1         
+ [77] yaml_2.3.7             goftest_1.2-3          rematch2_2.1.2         processx_3.8.1        
+ [81] knitr_1.42             fitdistrplus_1.1-11    tidygraph_1.2.3        RANN_2.6.1            
+ [85] pbapply_1.7-0          future_1.32.0          nlme_3.1-155           mime_0.12             
+ [89] R.oo_1.25.0            ggrastr_1.0.1          xml2_1.3.3             compiler_4.1.3        
+ [93] rstudioapi_0.14        beeswarm_0.4.0         plotly_4.10.1          png_0.1-8             
+ [97] spatstat.utils_3.0-2   tweenr_2.0.2           stringi_1.7.12         ps_1.7.5              
+[101] cyclocomp_1.1.0        desc_1.4.2             lattice_0.20-45        Matrix_1.5-4          
+[105] vctrs_0.6.2            pillar_1.9.0           lifecycle_1.0.3        spatstat.geom_3.1-0   
+[109] lmtest_0.9-40          GlobalOptions_0.1.2    RcppAnnoy_0.0.20       data.table_1.14.8     
+[113] cowplot_1.1.1          irlba_2.3.5.1          httpuv_1.6.9           patchwork_1.1.2       
+[117] R6_2.5.1               promises_1.2.0.1       KernSmooth_2.23-20     gridExtra_2.3         
+[121] vipor_0.4.5            parallelly_1.35.0      codetools_0.2-18       MASS_7.3-55           
+[125] rprojroot_2.0.3        withr_2.5.0            sctransform_0.3.5.9002 mgcv_1.8-39           
+[129] parallel_4.1.3         hms_1.1.3              grid_4.1.3             rmarkdown_2.21        
+[133] snakecase_0.11.0       Rtsne_0.16             spatstat.explore_3.1-0 ggforce_0.4.1         
+[137] shiny_1.7.4            ggbeeswarm_0.7.1   
 
 # Time tracking
 ```{r}

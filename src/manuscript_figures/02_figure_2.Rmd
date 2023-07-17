@@ -1,0 +1,237 @@
+---
+title: "02_figure_2"
+author: "Tabea M. Soelter"
+date: '2023-05-19'
+output: html_document
+---
+This is a script for generating figure 2 of my manuscript.
+- A: Jaccard index correlation plot - ligands
+- B: Jaccard index correlation plot - receptors
+- C: Jaccard index correlation plot - targets
+- D: Scaled Ligand activity heatmap
+- E: Jaccard index lollipop plot between ex and in neurons - receptors
+- F: Jaccard index lollipop plot between ex and in neurons - targets
+
+order might change here.
+- might consider talking about all ligand plots first, then rec, then targets
+
+# Load packages
+```{r}
+# Time tracking
+ptm <- proc.time()
+
+# set seed
+set.seed(42)
+
+# load packages
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(multinichenetr)
+  library(circlize)
+  library(ComplexHeatmap)
+  library(RColorBrewer)
+  library(reshape2)
+  library(patchwork)
+  library(cowplot)
+  library(here)
+  library(styler)
+  library(lintr)
+})
+```
+
+# Load multinichenet data
+```{r}
+output <- readRDS(here("data", "ccc", "geo_multinichenet_output.rds"))
+```
+
+# Figure 1A
+Jaccard Index correlation plot, where 1 half is excitatory neurons and the other is inhibitory neurons for ligands
+```{r}
+ggcorrplot(jaccard_ex_mat) +
+  scale_fill_gradientn(limits = c(0, 1),
+                       breaks = seq(0, 1, by = 0.2),
+                       colors = colors,
+                       name = "Jaccard Index") +
+  theme_bw() +
+  theme(axis.title.x = element_text(size = 12, face = "bold"),
+        axis.title.y = element_text(angle = 90, size = 12, face = "bold"),
+        axis.text = element_text(size = 10, face = "bold"),
+        plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+        legend.text = element_text(face = "bold"),
+        legend.title = element_text(face = "bold"),
+        panel.grid.major = element_blank()) +
+  labs(x = "Excitatory Neurons", y = "Inhibitory Neurons") +
+  ggtitle("Ligands")
+```
+
+# Figure 1B
+Jaccard Index correlation plot, where 1 half is excitatory neurons and the other is inhibitory neurons for receptors
+```{r}
+ggcorrplot(jaccard_ex_mat) +
+  scale_fill_gradientn(limits = c(0, 1),
+                       breaks = seq(0, 1, by = 0.2),
+                       colors = colors,
+                       name = "Jaccard Index") +
+  theme_bw() +
+  theme(axis.title.x = element_text(size = 12, face = "bold"),
+        axis.title.y = element_text(angle = 90, size = 12, face = "bold"),
+        axis.text = element_text(size = 10, face = "bold"),
+        plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+        legend.text = element_text(face = "bold"),
+        legend.title = element_text(face = "bold"),
+        panel.grid.major = element_blank()) +
+  labs(x = "Excitatory Neurons", y = "Inhibitory Neurons") +
+  ggtitle("Receptors")
+```
+
+# Figure 1C
+Jaccard Index correlation plot, where 1 half is excitatory neurons and the other is inhibitory neurons for targets
+```{r}
+ggcorrplot(jaccard_ex_mat) +
+  scale_fill_gradientn(limits = c(0, 1),
+                       breaks = seq(0, 1, by = 0.2),
+                       colors = colors,
+                       name = "Jaccard Index") +
+  theme_bw() +
+  theme(axis.title.x = element_text(size = 12, face = "bold"),
+        axis.title.y = element_text(angle = 90, size = 12, face = "bold"),
+        axis.text = element_text(size = 10, face = "bold"),
+        plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+        legend.text = element_text(face = "bold"),
+        legend.title = element_text(face = "bold"),
+        panel.grid.major = element_blank()) +
+  labs(x = "Excitatory Neurons", y = "Inhibitory Neurons") +
+  ggtitle("Targets")
+```
+
+# Figure 1D
+heatmap of scaled ligand activity split by sender cell type 
+```{r}
+df <- output$prioritization_tables$group_prioritization_tbl %>%
+  filter()
+  
+prioritization_tbl_oi = prioritization_tables$group_prioritization_tbl %>% 
+    dplyr::filter(group == top_group & fraction_expressing_ligand_receptor > 
+                    0) %>% dplyr::distinct(group, sender, receiver, ligand, 
+                                           receptor, receiver, id, prioritization_score)
+  if (!is.null(groups_oi)) {
+    prioritization_tbl_oi = prioritization_tbl_oi %>% dplyr::filter(group %in% 
+                                                                      groups_oi)
+  }
+  if (!is.null(senders_oi)) {
+    prioritization_tbl_oi = prioritization_tbl_oi %>% dplyr::filter(sender %in% 
+                                                                      senders_oi)
+  }
+  if (!is.null(receivers_oi)) {
+    prioritization_tbl_oi = prioritization_tbl_oi %>% dplyr::filter(receiver %in% 
+                                                                      receivers_oi)
+  }
+  if (rank_per_group == TRUE) {
+    prioritization_tbl_oi = prioritization_tbl_oi %>% dplyr::group_by(group) %>% 
+      dplyr::mutate(prioritization_rank = rank(desc(prioritization_score))) %>% 
+      dplyr::filter(prioritization_rank <= top_n)
+  }
+  else {
+    prioritization_tbl_oi = prioritization_tbl_oi %>% dplyr::mutate(prioritization_rank = rank(desc(prioritization_score))) %>% 
+      dplyr::filter(prioritization_rank <= top_n)
+
+
+
+
+
+
+
+
+group_oi = "AD"
+receiver_oi = "Excitatory.Neurons"
+prioritized_tbl_oi_M_10 = get_top_n_lr_pairs(multinichenet_output$prioritization_tables, 10, groups_oi = group_oi, receivers_oi = receiver_oi)
+
+combined_plot = make_ligand_activity_target_plot(group_oi, receiver_oi, prioritized_tbl_oi_M_10, multinichenet_output$prioritization_tables, multinichenet_output$ligand_activities_targets_DEgenes, contrast_tbl, multinichenet_output$grouping_tbl, multinichenet_output$celltype_info, ligand_target_matrix, plot_legend = FALSE)
+pdf("combined_plot_ex.pdf", width = 20, height = 10)
+combined_plot
+dev.off()
+```
+
+# Figure 1E
+Lollipop plot for jaccard index between receptors in ex and in neurons across sender cells.
+```{r}
+jaccard_receptors %>%
+  arrange(jaccard_index) %>%
+  mutate(sender = factor(sender, levels = sender)) %>%
+  ggplot(aes(x = sender, y = jaccard_index)) +
+  geom_segment(aes(xend = sender, yend = 0)) + 
+  geom_point(size = 4, color = "#6a3d9a") +
+  coord_flip() +
+  theme_bw() +
+  theme(axis.title.x = element_text(size = 12, face = "bold"),
+        axis.title.y = element_text(size = 12, face = "bold"),
+        axis.text = element_text(size = 10, face = "bold"),
+        plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+        panel.grid.major = element_blank()) +
+  xlab("Sender Cells") +
+  ylab("Jaccard Similarity between Excitatory and Inhibitory Neurons") +
+  ylim(0, 0.5) +
+  ggtitle("Receptors")
+```
+
+# Figure 1F
+Lollipop plot for jaccard index between targets in ex and in neurons across sender cells.
+```{r}
+jaccard_targets %>%
+  arrange(jaccard_index) %>%
+  mutate(sender = factor(sender, levels = sender)) %>%
+  ggplot(aes(x = sender, y = jaccard_index)) +
+  geom_segment(aes(xend = sender, yend = 0)) + 
+  geom_point(size = 4, color = "#cab2d6") +
+  coord_flip() +
+  theme_bw() +
+  theme(axis.title.x = element_text(size = 12, face = "bold"),
+        axis.title.y = element_text(size = 12, face = "bold"),
+        axis.text = element_text(size = 10, face = "bold"),
+        plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+        panel.grid.major = element_blank()) +
+  xlab("Sender Cells") +
+  ylab("Jaccard Similarity between Excitatory and Inhibitory Neurons") +
+  ylim(0, 0.5) +
+  ggtitle("Targets")
+```
+
+
+
+alluvial code for later
+```{r}
+####  ####  ####
+receiver_oi <- "Inhibitory.Neurons"
+senders_oi <- c("Astrocytes", "Microglia", "OPCs", "Oligodendrocytes")
+
+lrt_df <- multinichenet_output$lr_target_prior_cor %>% 
+  filter(receiver %in% receiver_oi) %>%
+  filter(sender %in% senders_oi) %>%
+  select(c("sender", "receiver", "ligand", "receptor", "target"))
+
+library(ggplot2)
+library(ggalluvial)
+
+
+ggplot(lrt_df, aes(axis1 = ligand, axis2 = receptor, axis3 = target)) +
+  geom_alluvium(aes(fill = sender), aes.bind = "flows")
+
+
+
+
+lrt_df <- multinichenet_output$prioritization_tables$group_prioritization_tbl %>% 
+  filter(group == "AD") %>%
+  filter(receiver %in% receiver_oi) %>%
+  filter(sender %in% senders_oi) %>%
+  select(c("sender", "receiver", "ligand", "receptor", "id"))
+
+t_df <- multinichenet_output$lr_target_prior_cor %>%
+  select(c("id", "target"))
+
+overlap <- inner_join(lrt_df, t_df, by = "id")
+
+ggplot(overlap, aes(axis1 = ligand, axis2 = receptor, axis3 = target)) +
+  geom_alluvium(aes(fill = sender), aes.bind = "flows")
+```
+
+
