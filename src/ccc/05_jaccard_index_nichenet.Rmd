@@ -1,0 +1,504 @@
+---
+title: "05_jaccard_index_nichenet"
+author: "Tabea M. Soelter"
+date: '2023-07-07'
+output: html_document
+---
+**Calculating Jaccard Index for CCC genes across cell types**
+__Goal__: Calculate similarity, using the Jaccard Index, of identified ligands, receptors, and target genes across cell types, in order to identify cell-type-specific and cell-type-agnostic CCC mechanisms.
+  
+__Reproducibility__: 
+* GitHub: lasseignelab/230313_TS_CCCinHumanAD
+* Docker: tsoelter/rstudio_ccc_ad
+    * Version: 1.0.2
+* HPC: Yes
+  * Resources: long partition (150hrs), 8 CPUs, 65GB per CPU
+
+__Data__:
+* Name: geo_multinichenet_output.rds
+* Location: /data/user/tsoelter/projects/tms_ccc/data/ccc/
+* Type: large list
+* Processed: Yes, output from MultiNicheNet
+ 
+__Analysis Plan__:
+* Load necessary packages 
+* Load data 
+* Prepare input for Jaccard Index calculation
+  * Create dfs with 2 columns: gene, cell type
+    * gene refers to either the ligands, receptors, or target genes
+* Calculate Jaccard Index
+  * Do this for both Ex and In Neurons
+  * Dfs should be filtered for condition of interest (AD) and receiver cell type
+
+__Analysis__:
+# Load packages
+```{r}
+# Time tracking
+ptm <- proc.time()
+
+# Setting seed
+set.seed(42)
+
+# Load packages
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(here)
+  library(styler)
+  library(lintr)
+})
+
+source(here("src", "functions_CCCinAD_tms.R"))
+```
+
+# Load data
+```{r}
+output <- readRDS(here("data", "ccc", "geo_multinichenet_output.rds"))
+```
+
+# Create Inputs
+```{r}
+top_n_target <- 250
+
+group_oi = "AD"
+receiver_oi = c("Excitatory.Neurons", "Inhibitory.Neurons")
+sender_oi <- c("Astrocytes", "Microglia", "OPCs", "Oligodendrocytes")
+
+contrast_tbl <- tibble(contrast = c("AD-CTRL", "CTRL-AD"),
+                       group = c("AD", "CTRL"))
+
+lr_target_prior_cor_filtered = output$lr_target_prior_cor %>%
+  inner_join(output$ligand_activities_targets_DEgenes$ligand_activities %>%
+               distinct(ligand, target, direction_regulation, contrast)) %>%
+  inner_join(contrast_tbl) %>%
+  filter(group == group_oi, receiver %in% receiver_oi, sender %in% sender_oi)
+
+lr_target_prior_cor_filtered_up = lr_target_prior_cor_filtered %>%
+  filter(direction_regulation == "up") %>%
+  filter( (rank_of_target < top_n_target) & (pearson > 0.50 | spearman > 0.50))
+
+lr_target_prior_cor_filtered_down = lr_target_prior_cor_filtered %>%
+  filter(direction_regulation == "down") %>%
+  filter( (rank_of_target < top_n_target) & (pearson < -0.50 | spearman < -0.50))
+
+lr_target_prior_cor_filtered = bind_rows(lr_target_prior_cor_filtered_up, lr_target_prior_cor_filtered_down)
+
+# Create new column with ligand-receptor-target only info
+lr_target_prior_cor_filtered$ligand_receptor_target <- gsub("(_[^_]+_)(.*?)(_[^_]+_)",
+                                                            "\\1\\4",
+                                                            lr_target_prior_cor_filtered$id_target,
+                                                            perl = TRUE)
+
+# Create new column with ligand-receptor only info
+lr_target_prior_cor_filtered$ligand_receptor <- gsub("^([^_]*_[^_]*).*",
+                                                     "\\1",
+                                                     lr_target_prior_cor_filtered$id,
+                                                     perl = TRUE)
+
+# Rename receiver cell types
+lr_target_prior_cor_filtered$receiver <- ifelse(
+  lr_target_prior_cor_filtered$receiver == "Inhibitory.Neurons",
+  "Inhibitory Neurons",
+  "Excitatory Neurons")
+
+# Check receivers were renamed and number
+table(lr_target_prior_cor_filtered$receiver) # Ex 263 In 313
+```
+
+# Calculate Jaccard Index
+```{r}
+jaccard <- function(a, b) {
+    intersection = length(intersect(a, b))
+    union = length(a) + length(b) - intersection
+    return (intersection/union)
+}
+
+
+##### ligands
+receivers_oi <- c("Excitatory Neurons", "Inhibitory Neurons")
+
+
+jaccard_results <- list()
+
+for (i in receivers_oi) {
+  filtered_receiver <- lr_target_prior_cor_filtered %>% filter(receiver == i) %>% select(c("sender", "ligand"))
+  
+  for (cell_type in sender_oi) {
+    genes <- unique(filtered_receiver$ligand[filtered_receiver$sender == cell_type]) 
+    
+    for (other_cell_type in sender_oi[sender_oi != cell_type]) {
+      other_genes <- unique(filtered_receiver$ligand[filtered_receiver$sender == other_cell_type])
+      
+      jaccard_index <- jaccard(genes, other_genes) 
+      
+      result_key <- paste(i, cell_type, other_cell_type, sep = "_")
+      jaccard_results[[result_key]] <- jaccard_index
+    }
+  }
+}
+
+jaccard_results_ligands <- jaccard_results
+
+
+##### receptors
+
+jaccard_results <- list()
+
+for (i in receivers_oi) {
+  filtered_receiver <- lr_target_prior_cor_filtered %>% filter(receiver == i) %>% select(c("sender", "receptor"))
+  
+  for (cell_type in sender_oi) {
+    genes <- unique(filtered_receiver$receptor[filtered_receiver$sender == cell_type]) 
+    
+    for (other_cell_type in sender_oi[sender_oi != cell_type]) {
+      other_genes <- unique(filtered_receiver$receptor[filtered_receiver$sender == other_cell_type])
+      
+      jaccard_index <- jaccard(genes, other_genes) 
+      
+      result_key <- paste(i, cell_type, other_cell_type, sep = "_")
+      jaccard_results[[result_key]] <- jaccard_index
+    }
+  }
+}
+
+jaccard_results_receptors <- jaccard_results
+
+
+##### targets
+
+jaccard_results <- list()
+
+for (i in receivers_oi) {
+  filtered_receiver <- lr_target_prior_cor_filtered %>% filter(receiver == i) %>% select(c("sender", "target"))
+  
+  for (cell_type in sender_oi) {
+    genes <- unique(filtered_receiver$target[filtered_receiver$sender == cell_type]) 
+    
+    for (other_cell_type in sender_oi[sender_oi != cell_type]) {
+      other_genes <- unique(filtered_receiver$target[filtered_receiver$sender == other_cell_type])
+      
+      jaccard_index <- jaccard(genes, other_genes) 
+      
+      result_key <- paste(i, cell_type, other_cell_type, sep = "_")
+      jaccard_results[[result_key]] <- jaccard_index
+    }
+  }
+}
+
+jaccard_results_targets <- jaccard_results
+```
+
+# plotting
+```{r}
+colors <- c(
+  "lightblue",
+  "royalblue",
+  "darkred",
+  "darkorchid4",
+  "white")
+
+jaccard_ligands_df <- data.frame(cell_types = names(jaccard_results_ligands),
+                                 jaccard_index = unlist(jaccard_results_ligands),
+                                 stringsAsFactors = FALSE)
+
+jaccard_ligands_df <- jaccard_ligands_df %>%
+  separate(cell_types,
+           into = c(
+             "receiver",
+             "celltype1",
+             "celltype2"),
+           sep = "_")
+
+jaccard_ligands_df <- jaccard_ligands_df %>%
+  spread(key = celltype2,
+         value = jaccard_index)
+# prep ex neuron input
+jaccard_ligands_ex <- jaccard_ligands_df %>%
+  filter(receiver == "Excitatory Neurons")
+
+jaccard_ex_mat <- as.matrix(jaccard_ligands_ex[-c(1:2)])
+rownames(jaccard_ex_mat) <- jaccard_ligands_ex[[2]]
+
+jaccard_ligands_in <- jaccard_ligands_df %>%
+  filter(receiver == "Inhibitory Neurons")
+
+jaccard_in_mat <- as.matrix(jaccard_ligands_in[-c(1:2)])
+rownames(jaccard_in_mat) <- jaccard_ligands_in[[2]]
+
+corrplot::corrplot(jaccard_ex_mat, method = "circle", is.corr = FALSE, type = "lower", diag = FALSE)
+corrplot::corrplot(jaccard_in_mat, method = "circle", is.corr = FALSE, type = "lower", diag = FALSE)
+
+jaccard_ex_mat[lower.tri(jaccard_ex_mat)] <- jaccard_in_mat[lower.tri(jaccard_in_mat)]
+
+ggcorrplot(jaccard_ex_mat) +
+  scale_fill_gradientn(limits = c(0, 1),
+                       breaks = seq(0, 1, by = 0.2),
+                       colors = colors,
+                       name = "Jaccard Index") +
+  theme_bw() +
+  theme(axis.title.x = element_text(size = 12, face = "bold"),
+        axis.title.y = element_text(angle = 90, size = 12, face = "bold"),
+        axis.text = element_text(size = 10, face = "bold"),
+        plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+        legend.text = element_text(face = "bold"),
+        legend.title = element_text(face = "bold"),
+        panel.grid.major = element_blank()) +
+  labs(x = "Excitatory Neurons", y = "Inhibitory Neurons") +
+  ggtitle("Ligands")
+```
+
+receptors
+```{r}
+jaccard_receptors_df <- data.frame(cell_types = names(jaccard_results_receptors),
+                                 jaccard_index = unlist(jaccard_results_receptors),
+                                 stringsAsFactors = FALSE)
+
+jaccard_receptors_df <- jaccard_receptors_df %>%
+  separate(cell_types,
+           into = c(
+             "receiver",
+             "celltype1",
+             "celltype2"),
+           sep = "_")
+
+jaccard_receptors_df <- jaccard_receptors_df %>%
+  spread(key = celltype2,
+         value = jaccard_index)
+# prep ex neuron input
+jaccard_receptors_ex <- jaccard_receptors_df %>%
+  filter(receiver == "Excitatory Neurons")
+
+jaccard_ex_mat <- as.matrix(jaccard_receptors_ex[-c(1:2)])
+rownames(jaccard_ex_mat) <- jaccard_receptors_ex[[2]]
+
+jaccard_receptors_in <- jaccard_receptors_df %>%
+  filter(receiver == "Inhibitory Neurons")
+
+jaccard_in_mat <- as.matrix(jaccard_receptors_in[-c(1:2)])
+rownames(jaccard_in_mat) <- jaccard_receptors_in[[2]]
+
+corrplot::corrplot(jaccard_ex_mat, method = "circle", is.corr = FALSE, type = "lower", diag = FALSE)
+corrplot::corrplot(jaccard_in_mat, method = "circle", is.corr = FALSE, type = "lower", diag = FALSE)
+
+jaccard_ex_mat[lower.tri(jaccard_ex_mat)] <- jaccard_in_mat[lower.tri(jaccard_in_mat)]
+
+ggcorrplot(jaccard_ex_mat) +
+  scale_fill_gradientn(limits = c(0, 1),
+                       breaks = seq(0, 1, by = 0.2),
+                       colors = colors,
+                       name = "Jaccard Index") +
+  theme_bw() +
+  theme(axis.title.x = element_text(size = 12, face = "bold"),
+        axis.title.y = element_text(angle = 90, size = 12, face = "bold"),
+        axis.text = element_text(size = 10, face = "bold"),
+        plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+        legend.text = element_text(face = "bold"),
+        legend.title = element_text(face = "bold"),
+        panel.grid.major = element_blank()) +
+  labs(x = "Excitatory Neurons", y = "Inhibitory Neurons") +
+  ggtitle("Receptors")
+```
+
+targets
+```{r}
+jaccard_targets_df <- data.frame(cell_types = names(jaccard_results_targets),
+                                 jaccard_index = unlist(jaccard_results_targets),
+                                 stringsAsFactors = FALSE)
+
+jaccard_targets_df <- jaccard_targets_df %>%
+  separate(cell_types,
+           into = c(
+             "receiver",
+             "celltype1",
+             "celltype2"),
+           sep = "_")
+
+jaccard_targets_df <- jaccard_targets_df %>%
+  spread(key = celltype2,
+         value = jaccard_index)
+# prep ex neuron input
+jaccard_targets_ex <- jaccard_targets_df %>%
+  filter(receiver == "Excitatory Neurons")
+
+jaccard_ex_mat <- as.matrix(jaccard_targets_ex[-c(1:2)])
+rownames(jaccard_ex_mat) <- jaccard_targets_ex[[2]]
+
+jaccard_targets_in <- jaccard_targets_df %>%
+  filter(receiver == "Inhibitory Neurons")
+
+jaccard_in_mat <- as.matrix(jaccard_targets_in[-c(1:2)])
+rownames(jaccard_in_mat) <- jaccard_targets_in[[2]]
+
+corrplot::corrplot(jaccard_ex_mat, method = "circle", is.corr = FALSE, type = "lower", diag = FALSE)
+corrplot::corrplot(jaccard_in_mat, method = "circle", is.corr = FALSE, type = "upper", diag = FALSE)
+
+jaccard_ex_mat[lower.tri(jaccard_ex_mat)] <- jaccard_in_mat[lower.tri(jaccard_in_mat)]
+
+ggcorrplot(jaccard_ex_mat) +
+  scale_fill_gradientn(limits = c(0, 1),
+                       breaks = seq(0, 1, by = 0.2),
+                       colors = colors,
+                       name = "Jaccard Index") +
+  theme_bw() +
+  theme(axis.title.x = element_text(size = 12, face = "bold"),
+        axis.title.y = element_text(angle = 90, size = 12, face = "bold"),
+        axis.text = element_text(size = 10, face = "bold"),
+        plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+        legend.text = element_text(face = "bold"),
+        legend.title = element_text(face = "bold"),
+        panel.grid.major = element_blank()) +
+  labs(x = "Excitatory Neurons", y = "Inhibitory Neurons") +
+  ggtitle("Targets")
+```
+
+# Cleveland dot plot
+prep data
+```{r}
+
+jaccard_results <- list()
+
+for (i in sender_oi) {
+  filtered_receiver <- lr_target_prior_cor_filtered %>% filter(sender == i) %>% select(c("receiver", "target"))
+  
+  for (cell_type in receivers_oi) {
+    genes <- unique(filtered_receiver$target[filtered_receiver$receiver == cell_type]) 
+    
+    for (other_cell_type in receivers_oi[receivers_oi != cell_type]) {
+      other_genes <- unique(filtered_receiver$target[filtered_receiver$receiver == other_cell_type])
+      
+      jaccard_index <- jaccard(genes, other_genes) 
+      
+      result_key <- paste(i, cell_type, other_cell_type, sep = "_")
+      jaccard_results[[result_key]] <- jaccard_index
+    }
+  }
+}
+
+jaccard_results_targets <- jaccard_results
+
+
+
+
+
+# receptors
+jaccard_results <- list()
+
+for (i in sender_oi) {
+  filtered_receiver <- lr_target_prior_cor_filtered %>% filter(sender == i) %>% select(c("receiver", "receptor"))
+  
+  for (cell_type in receivers_oi) {
+    genes <- unique(filtered_receiver$receptor[filtered_receiver$receiver == cell_type]) 
+    
+    for (other_cell_type in receivers_oi[receivers_oi != cell_type]) {
+      other_genes <- unique(filtered_receiver$receptor[filtered_receiver$receiver == other_cell_type])
+      
+      jaccard_index <- jaccard(genes, other_genes) 
+      
+      result_key <- paste(i, cell_type, other_cell_type, sep = "_")
+      jaccard_results[[result_key]] <- jaccard_index
+    }
+  }
+}
+
+jaccard_results_receptors <- jaccard_results
+
+
+
+jaccard_receptors <- data.frame(cell_types = names(jaccard_results_receptors),
+                                 jaccard_index = unlist(jaccard_results_receptors),
+                                 stringsAsFactors = FALSE)
+
+jaccard_receptors <- jaccard_receptors %>%
+  separate(cell_types,
+           into = c(
+             "sender",
+             "celltype1",
+             "celltype2"),
+           sep = "_")
+
+rownames(jaccard_receptors) <- NULL
+
+jaccard_receptors <- jaccard_receptors %>%
+  distinct(jaccard_index, .keep_all = TRUE)
+
+# targets
+jaccard_results <- list()
+
+for (i in sender_oi) {
+  filtered_receiver <- lr_target_prior_cor_filtered %>% filter(sender == i) %>% select(c("receiver", "target"))
+  
+  for (cell_type in receivers_oi) {
+    genes <- unique(filtered_receiver$target[filtered_receiver$receiver == cell_type]) 
+    
+    for (other_cell_type in receivers_oi[receivers_oi != cell_type]) {
+      other_genes <- unique(filtered_receiver$target[filtered_receiver$receiver == other_cell_type])
+      
+      jaccard_index <- jaccard(genes, other_genes) 
+      
+      result_key <- paste(i, cell_type, other_cell_type, sep = "_")
+      jaccard_results[[result_key]] <- jaccard_index
+    }
+  }
+}
+
+jaccard_results_targets <- jaccard_results
+
+
+
+jaccard_targets <- data.frame(cell_types = names(jaccard_results_targets),
+                                 jaccard_index = unlist(jaccard_results_targets),
+                                 stringsAsFactors = FALSE)
+
+jaccard_targets <- jaccard_targets %>%
+  separate(cell_types,
+           into = c(
+             "sender",
+             "celltype1",
+             "celltype2"),
+           sep = "_")
+
+rownames(jaccard_targets) <- NULL
+
+jaccard_targets <- jaccard_targets %>%
+  distinct(jaccard_index, .keep_all = TRUE)
+
+# plot lollipop plot for targets
+jaccard_targets %>%
+  arrange(jaccard_index) %>%
+  mutate(sender = factor(sender, levels = sender)) %>%
+  ggplot(aes(x = sender, y = jaccard_index)) +
+  geom_segment(aes(xend = sender, yend = 0)) + 
+  geom_point(size = 4, color = "#cab2d6") +
+  coord_flip() +
+  theme_bw() +
+  theme(axis.title.x = element_text(size = 12, face = "bold"),
+        axis.title.y = element_text(size = 12, face = "bold"),
+        axis.text = element_text(size = 10, face = "bold"),
+        plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+        panel.grid.major = element_blank()) +
+  xlab("Sender Cells") +
+  ylab("Jaccard Similarity between Excitatory and Inhibitory Neurons") +
+  ylim(0, 0.5) +
+  ggtitle("Targets")
+
+# plot lollipop plot for receptors
+jaccard_receptors %>%
+  arrange(jaccard_index) %>%
+  mutate(sender = factor(sender, levels = sender)) %>%
+  ggplot(aes(x = sender, y = jaccard_index)) +
+  geom_segment(aes(xend = sender, yend = 0)) + 
+  geom_point(size = 4, color = "#6a3d9a") +
+  coord_flip() +
+  theme_bw() +
+  theme(axis.title.x = element_text(size = 12, face = "bold"),
+        axis.title.y = element_text(size = 12, face = "bold"),
+        axis.text = element_text(size = 10, face = "bold"),
+        plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+        panel.grid.major = element_blank()) +
+  xlab("Sender Cells") +
+  ylab("Jaccard Similarity between Excitatory and Inhibitory Neurons") +
+  ylim(0, 0.5) +
+  ggtitle("Receptors")
+```
+
+
+
