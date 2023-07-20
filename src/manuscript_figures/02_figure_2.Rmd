@@ -107,8 +107,24 @@ ggcorrplot(jaccard_ex_mat) +
 # Figure 1D
 heatmap of scaled ligand activity split by sender cell type 
 ```{r}
+group_oi <- "AD"
+receiver_oi <- c("Excitatory.Neurons", "Inhibitory.Neurons")
+sender_oi <- c("Astrocytes", "Oligodendrocytes", "OPCs", "Microglia")
+
 df <- output$prioritization_tables$group_prioritization_tbl %>%
-  filter()
+  filter(group == top_group & fraction_expressing_ligand_receptor > 0) %>%
+  distinct(group, sender, receiver, ligand, receptor, receiver, id, prioritization_score) %>%
+  filter(group == group_oi) %>%
+  filter(sender %in% sender_oi) %>%
+  filter(receiver %in% receiver_oi)
+
+
+
+
+
+
+
+
   
 prioritization_tbl_oi = prioritization_tables$group_prioritization_tbl %>% 
     dplyr::filter(group == top_group & fraction_expressing_ligand_receptor > 
@@ -130,10 +146,9 @@ prioritization_tbl_oi = prioritization_tables$group_prioritization_tbl %>%
     prioritization_tbl_oi = prioritization_tbl_oi %>% dplyr::group_by(group) %>% 
       dplyr::mutate(prioritization_rank = rank(desc(prioritization_score))) %>% 
       dplyr::filter(prioritization_rank <= top_n)
-  }
-  else {
+  } else {
     prioritization_tbl_oi = prioritization_tbl_oi %>% dplyr::mutate(prioritization_rank = rank(desc(prioritization_score))) %>% 
-      dplyr::filter(prioritization_rank <= top_n)
+      dplyr::filter(prioritization_rank <= top_n)}
 
 
 
