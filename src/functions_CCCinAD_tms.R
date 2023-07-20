@@ -1,6 +1,51 @@
 ### Functions for CCC in AD project 
 # Tabea M. Soelter 
 
+## remove_ambientRNA
+# A function which removes ambient RNA from h5 files outputted from Cell Ranger for single cell data.
+remove_ambientRNA <- function(inputs, outputs, plots) {
+  print("Making list of objects")
+  counts_list <- list.dirs(inputs, 
+                           full.names = TRUE, 
+                           recursive = FALSE)
+  pdf(paste0(plots, "rho_density_plots.pdf"))
+  for (i in counts_list) {
+    set.seed(42)
+    # load in cell ranger h5 outputs
+    print("Loading cell ranger h5 objects")
+    filt_matrix <- Read10X_h5(paste0(i, "/filtered_feature_bc_matrix.h5"))
+    raw_matrix <- Read10X_h5(paste0(i, "/raw_feature_bc_matrix.h5"))
+    # create seurat object
+    print("Making seurat object")
+    object <- CreateSeuratObject(counts = filt_matrix)
+    # make soup channel object
+    print("Making soup channel object")
+    sco <- SoupChannel(raw_matrix, filt_matrix)
+    # get cluster info
+    print("Get cluster info")
+    object <- SCTransform(object, verbose = FALSE)
+    object <- RunPCA(object, approx = FALSE, verbose = FALSE)
+    object <- RunUMAP(object, dims = 1:30, verbose = FALSE)
+    object <- FindNeighbors(object, dims = 1:30, verbose = FALSE)
+    object <- FindClusters(object, verbose = FALSE)
+    # ading metadata to soup channel object
+    meta <- object@meta.data
+    umap <- object@reductions$umap@cell.embeddings
+    sco <- setClusters(sco, setNames(meta$seurat_clusters, rownames(meta)))
+    sco <- setDR(sco, umap)
+    # Analyzing the soup
+    print("Profiling the soup")
+    sco <- autoEstCont(sco)
+    # Create integer matrix
+    adjusted_matrix <- adjustCounts(sco, roundToInt = TRUE)
+    # save
+    print("Saving filtered objects")
+    sample_name <- basename(i)
+    DropletUtils::write10xCounts(paste0(outputs, sample_name), adjusted_matrix) 
+  }
+  dev.off()
+}
+
 ## make_seurat_object
 # A function which takes a path to sample folders with the three CellRanger output files and creates a merged seurat object
 make_seurat_object <- function(path){

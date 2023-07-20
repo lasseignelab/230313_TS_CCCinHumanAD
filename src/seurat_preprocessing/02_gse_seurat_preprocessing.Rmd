@@ -1,0 +1,551 @@
+---
+title: "02_gse_seurat_preprocessing"
+author: "Tabea M. Soelter"
+date: '2023-07-13'
+output: html_document
+---
+**Pre-processing of snRNA-seq data from GEO (Accession #: GSE157827)**
+
+__Goal__: Process GSE157827 (snRNA-seq) data for downstream analyses.
+  
+__Reproducibility__: 
+* GitHub: lasseignelab/230313_TS_CCCinHumanAD
+* Docker: tsoelter/rstudio_ccc_ad
+    * Version: 1.0.3 
+* HPC: Yes
+  * Resources: long partition (150hrs), 8 CPUs, 65GB per CPU
+
+__Data__: 
+* Name: N/A
+* Location: /data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/CellRangerCounts/GSE157827/
+ 
+__Analysis Plan__: 
+* Load necessary packages 
+* Load data 
+* Create Seurat object
+* Perform quality control and filtering
+* Integration
+* Clustering and cell type assignment
+* Save processed Seurat Object
+
+__Analysis__:
+# Load packages
+```{r}
+# Time tracking
+ptm <- proc.time()
+
+# Setting seed
+set.seed(42)
+
+# Load packages
+suppressPackageStartupMessages({
+  library(Seurat)
+  library(tidyverse)
+  library(harmony)
+  library(clustree)
+  library(stringr)
+  library(scCustomize)
+  library(here)
+  library(styler)
+  library(lintr)
+})
+
+source(here("src", "functions_CCCinAD_tms.R"))
+```
+
+# Create seurat object
+```{r}
+merged_seurat <- make_seurat_object(here(
+  "data",
+  "CellRangerCounts",
+  "GSE157827",
+  "post_soupX"
+))
+```
+
+# Calculate QC metrics
+```{r}
+merged_seurat <- calculate_qc(merged_seurat)
+```
+
+# Format metadata
+```{r}
+metadata <- format_metadata(merged_seurat)
+
+metadata$sample <- ifelse(
+  str_sub(merged_seurat@assays[["RNA"]]@data@Dimnames[[2]], 1, 4) == "CTRL",
+  str_sub(merged_seurat@assays[["RNA"]]@data@Dimnames[[2]], 18, 24),
+  str_sub(merged_seurat@assays[["RNA"]]@data@Dimnames[[2]], 16, 20)
+)
+
+dim(metadata) # 183089 7
+
+# Add metadata to merged_seurat
+merged_seurat@meta.data <- metadata
+```
+
+# Plot QC metrics
+```{r warning=FALSE}
+pdf(
+  file = here(
+    "results",
+    "intermediate_outputs",
+    "gse157827",
+    "qc_plots.pdf"
+  )
+)
+plot_qc(metadata)
+dev.off()
+```
+
+# Filtering 
+* Performing cell-level and gene-level filtering on the data. 
+* Cell-level filtering is performed based on the plotted QC metrics (above).
+* Gene-level filtering aims at removing count values = 0, since they can skew average gene expression
+measurements.
+  * Discussed in the following review: https://genomebiology.biomedcentral.com/articles/10.1186/s13059-022-02601-5)
+```{r}
+# Cell-level filtering
+sub_seurat <- subset(merged_seurat,
+  subset =
+    nGene > 500 &
+      nGene < 10000 &
+      mitoRatio < 0.20 &
+      log10GenesPerUMI > 0.80
+)
+
+# Gene-level filtering
+counts <- GetAssayData(sub_seurat, slot = "counts")
+
+nonzero <- counts > 0
+
+keep_genes <- rowSums(nonzero) >= 10
+
+filtered_counts <- counts[keep_genes, ]
+
+filtered_seurat <- CreateSeuratObject(filtered_counts,
+  meta.data = sub_seurat@meta.data
+)
+```
+
+# save filtered seurat object
+```{r}
+saveRDS(filtered_seurat, file = here(
+  "data",
+  "seurat_preprocessing",
+  "gse_filtered_seurat.rds"
+))
+```
+
+# Plot QC metrics after filtering
+```{r warning=FALSE}
+metadata <- filtered_seurat@meta.data
+dim(metadata) # 168108 10
+
+# plot and save post-filter QC outputs
+pdf(file = here(
+  "results",
+  "intermediate_outputs",
+  "gse157827",
+  "qc_plots_filtered.pdf"
+))
+plot_qc(metadata)
+dev.off()
+```
+
+# Determine cell cycle effects
+```{r warning=FALSE}
+pdf(
+  file = here(
+    "results",
+    "intermediate_outputs",
+    "gse157827",
+    "cellcycle_pca.pdf"
+  )
+)
+filtered_seurat <- cell_cylce_effects(filtered_seurat)
+dev.off()
+```
+
+# Normalization and Integration
+* We are using harmony as it has been shown to remove technical variation while preserving biological variation.
+* We will have to provide the PCs from the elbow plot above
+```{r}
+filtered_seurat <- harmony_integration(filtered_seurat, dims = 1:30)
+# harmony converged after 6 iterations
+```
+
+# Save integrated seurat object
+```{r}
+saveRDS(filtered_seurat, file = here(
+  "data",
+  "seurat_preprocessing",
+  "gse_integrated_seurat.rds"
+))
+```
+
+# Clustering
+* Since I am using harmony for integration, I will have to ensure to use the RNA assay and the harmony reduction for everything downstream.
+* I am using Leiden for clustering in my find_clusters function. 
+```{r warning=FALSE}
+# check active assay (needs to be RNA)
+filtered_seurat@active.assay
+
+# vector of desired resolutions
+resolutions <- c(0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.2, 1.3)
+
+# clustering of resolutions (Type "n" when asked about miniconda installation)
+filtered_seurat <- find_clusters(filtered_seurat,
+  dims = 1:30,
+  reduction = "harmony",
+  resolutions = resolutions
+)
+```
+
+# Save clustered seurat object
+```{r}
+saveRDS(filtered_seurat, file = here(
+  "data",
+  "seurat_preprocessing",
+  "gse_clustered_seurat.rds"
+))
+```
+
+# Determine resolution
+```{r}
+# Plot resolutions
+tree <- clustree(filtered_seurat@meta.data, prefix = "RNA_snn_res.")
+
+pdf(
+  file = here(
+    "results",
+    "intermediate_outputs",
+    "gse157827",
+    "clustree_umap.pdf"
+  )
+)
+
+tree
+# plotting UMAP for most stable resolution (1) for the number of cells
+DimPlot(filtered_seurat,
+  reduction = "umap_harmony",
+  group.by = "RNA_snn_res.1"
+)
+
+dev.off()
+```
+
+# Find marker genes
+```{r}
+# Set the identity as Leiden with resolution 1
+filtered_seurat <- SetIdent(filtered_seurat, value = "RNA_snn_res.1")
+
+# Find marker genes
+all_marker_genes <- FindAllMarkers(filtered_seurat,
+  log2FC.threshold = 0.2,
+  test.use = "wilcox",
+  min.pct = 0.1,
+  only.pos = TRUE,
+  max.cells.per.ident = 50,
+  assay = "RNA"
+)
+
+# Save marker genes
+saveRDS(all_marker_genes, here(
+  "results",
+  "intermediate_outputs",
+  "gse157827",
+  "all_marker_genes.rds"
+))
+
+# Look at the top 25 up-regulated genes
+top25 <- all_marker_genes %>%
+  group_by(cluster) %>%
+  top_n(-25, p_val_adj)
+
+dim(top25) # 1036 7
+```
+
+# Feature plots to confirm clusters
+```{r}
+pdf(file = here(
+  "results",
+  "intermediate_outputs",
+  "gse157827",
+  "feature_plots.pdf"))
+
+FeaturePlot(filtered_seurat,
+            features = c("PDGFRB"),
+            label = TRUE)
+
+FeaturePlot(filtered_seurat,
+            features = c("DOCK8", "APBB1IP", "ARHGAP15"),
+            label = TRUE)
+
+FeaturePlot(filtered_seurat,
+            features = c("SNAP25", "RBFOX1"),
+            label = TRUE)
+
+FeaturePlot(filtered_seurat,
+            features = c("AQP4", "GFAP", "ADGRV1"),
+            label = TRUE)
+
+FeaturePlot(filtered_seurat,
+            features = c("ST18", "MBP", "QDPR"),
+            label = TRUE)
+
+FeaturePlot(filtered_seurat,
+            features = c("PDGFRA", "PCDH15"),
+            label = TRUE)
+
+FeaturePlot(filtered_seurat,
+            features = c("FLT1", "VWF"),
+            label = TRUE)
+
+dev.off()
+```
+
+# Assign cell types
+```{r}
+filtered_seurat <- RenameIdents(filtered_seurat,
+  `1`  = "Oligodendrocytes",
+  `2`  = "Excitatory Neurons",
+  `3`  = "Oligodendrocytes",
+  `4`  = "Excitatory Neurons",
+  `5`  = "OPCs",
+  `6`  = "Excitatory Neurons",
+  `7`  = "Inhibitory Neurons",
+  `8`  = "Astrocytes",
+  `9`  = "Microglia",
+  `10` = "Astrocytes",
+  `11` = "Inhibitory Neurons",
+  `12` = "Oligodendrocytes",
+  `13` = "Excitatory Neurons",
+  `14` = "Excitatory Neurons",
+  `15` = "Neurons",
+  `16` = "Inhibitory Neurons",
+  `17` = "Inhibitory Neurons",
+  `18` = "Excitatory Neurons",
+  `19` = "Excitatory Neurons",
+  `20` = "Neurons",
+  `21` = "Endothelial cells",
+  `22` = "Excitatory Neurons",
+  `23` = "Excitatory Neurons",
+  `24` = "Excitatory Neurons",
+  `25` = "Inhibitory Neurons",
+  `26` = "Neurons",
+  `27` = "Oligodendrocytes",
+  `28` = "Astrocytes",
+  `29` = "OPCs",
+  `30` = "Astrocytes",
+  `31` = "OPCs",
+  `32` = "Inhibitory Neurons",
+  `33` = "OPCs",
+  `34` = "Microglia"
+)
+```
+
+# Subclustering of Neuron clusters
+```{r}
+# Subcluster the neuron clusters (clusters 15 and 20)
+filtered_seurat <- FindSubCluster(filtered_seurat,
+  cluster = "Neurons",
+  graph.name = "RNA_snn",
+  resolution = 0.2
+)
+
+# Set identity to resolution with sub clusters
+filtered_seurat <- SetIdent(filtered_seurat, value = "sub.cluster")
+
+# Sub-clusters for marker identification
+idents <- c("Neurons_0", "Neurons_1", "Neurons_2", "Neurons_3")
+
+# Find markers for sub-clusters
+neurons_markers <- find_markers(filtered_seurat,
+  resolution = "sub.cluster",
+  identities = idents,
+  value = 5
+)
+
+dim(neurons_markers) # 20 6
+
+# Assign new cell types
+filtered_seurat <- RenameIdents(filtered_seurat,
+  "Neurons_0" = "Excitatory Neurons",
+  "Neurons_1" = "Excitatory Neurons",
+  "Neurons_2" = "Excitatory Neurons",
+  "Neurons_3" = "Inhibitory Neurons"
+)
+```
+
+# Plot final UMAPs
+```{r}
+# UMAP of assigned clusters
+png(file = here("results", "final_outputs", "gse157827", "UMAP.png"))
+DimPlot_scCustom(filtered_seurat,
+  figure_plot = TRUE,
+  label = FALSE,
+  ggplot_default_colors = TRUE
+)
+dev.off()
+
+png(file = here(
+  "results",
+  "intermediate_outputs",
+  "gse157827",
+  "UMAP_final.png"
+))
+DimPlot(filtered_seurat)
+dev.off()
+```
+
+# Save processed seurat object
+```{r}
+saveRDS(filtered_seurat, here(
+  "data",
+  "seurat_preprocessing",
+  "gse_processed_seurat.rds"
+))
+```
+
+# Session Info
+```{r}
+sessionInfo() # see output below
+```
+R version 4.1.3 (2022-03-10)
+Platform: x86_64-pc-linux-gnu (64-bit)
+Running under: Ubuntu 20.04.6 LTS
+
+Matrix products: default
+BLAS/LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.8.so
+
+locale:
+[1] C
+
+attached base packages:
+[1] grid      stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+ [1] scCustomize_1.1.1     clustree_0.5.0        ggraph_2.1.0         
+ [4] harmony_0.1.0         Rcpp_1.0.11           SeuratObject_4.1.3   
+ [7] Seurat_4.3.0.9011     lintr_3.0.2           styler_1.9.1         
+[10] here_1.0.1            cowplot_1.1.1         patchwork_1.1.2      
+[13] reshape2_1.4.4        RColorBrewer_1.1-3    ComplexHeatmap_2.10.0
+[16] circlize_0.4.15       multinichenetr_1.0.0  lubridate_1.9.2      
+[19] forcats_1.0.0         stringr_1.5.0         dplyr_1.1.2          
+[22] purrr_1.0.1           readr_2.1.4           tidyr_1.3.0          
+[25] tibble_3.2.1          ggplot2_3.4.2         tidyverse_2.0.0      
+
+loaded via a namespace (and not attached):
+  [1] rsvd_1.0.5                  Hmisc_5.1-0                 ica_1.0-3                  
+  [4] ps_1.7.5                    class_7.3-20                rprojroot_2.0.3            
+  [7] foreach_1.5.2               lmtest_0.9-40               crayon_1.5.2               
+ [10] rbibutils_2.2.13            MASS_7.3-55                 nlme_3.1-155               
+ [13] backports_1.4.1             sva_3.42.0                  rlang_1.1.1                
+ [16] XVector_0.34.0              caret_6.0-94                ROCR_1.0-11                
+ [19] irlba_2.3.5.1               callr_3.7.3                 nloptr_2.0.3               
+ [22] limma_3.50.3                scater_1.22.0               BiocParallel_1.28.3        
+ [25] rjson_0.2.21                bit64_4.0.5                 glue_1.6.2                 
+ [28] sctransform_0.3.5.9006      processx_3.8.1              pbkrtest_0.5.2             
+ [31] parallel_4.1.3              vipor_0.4.5                 spatstat.sparse_3.0-2      
+ [34] AnnotationDbi_1.56.2        BiocGenerics_0.40.0         UpSetR_1.4.0               
+ [37] muscat_1.8.2                spatstat.geom_3.2-2         tidyselect_1.2.0           
+ [40] SummarizedExperiment_1.24.0 fitdistrplus_1.1-11         variancePartition_1.24.1   
+ [43] XML_3.99-0.14               zoo_1.8-12                  ggpubr_0.6.0               
+ [46] xtable_1.8-4                magrittr_2.0.3              evaluate_0.21              
+ [49] Rdpack_2.4                  scuttle_1.4.0               cli_3.6.1                  
+ [52] zlibbioc_1.40.0             rstudioapi_0.14             miniUI_0.1.1.1             
+ [55] sp_2.0-0                    rpart_4.1.16                aod_1.3.2                  
+ [58] locfdr_1.1-8                shiny_1.7.4.1               BiocSingular_1.10.0        
+ [61] xfun_0.39                   clue_0.3-64                 cluster_2.1.2              
+ [64] caTools_1.18.2              tidygraph_1.2.3             KEGGREST_1.34.0            
+ [67] ggrepel_0.9.3               listenv_0.9.0               Biostrings_2.62.0          
+ [70] png_0.1-8                   future_1.33.0               ipred_0.9-14               
+ [73] withr_2.5.0                 bitops_1.0-7                ggforce_0.4.1              
+ [76] plyr_1.8.8                  hardhat_1.3.0               dqrng_0.3.0                
+ [79] e1071_1.7-13                pROC_1.18.2                 coda_0.19-4                
+ [82] pillar_1.9.0                nichenetr_2.0.0             gplots_3.1.3               
+ [85] GlobalOptions_0.1.2         cachem_1.0.8                GetoptLong_1.0.5           
+ [88] paletteer_1.5.0             DelayedMatrixStats_1.16.0   vctrs_0.6.3                
+ [91] ellipsis_0.3.2              generics_0.1.3              lava_1.7.2.1               
+ [94] tools_4.1.3                 foreign_0.8-82              beeswarm_0.4.0             
+ [97] munsell_0.5.0               tweenr_2.0.2                emmeans_1.8.6              
+[100] proxy_0.4-27                DelayedArray_0.20.0         fastmap_1.1.1              
+[103] compiler_4.1.3              abind_1.4-5                 httpuv_1.6.11              
+[106] plotly_4.10.2               GenomeInfoDbData_1.2.7      prodlim_2023.03.31         
+[109] gridExtra_2.3               glmmTMB_1.1.7               edgeR_3.36.0               
+[112] lattice_0.20-45             ggnewscale_0.4.9            deldir_1.0-9               
+[115] visNetwork_2.1.2            utf8_1.2.3                  later_1.3.1                
+[118] recipes_1.0.6               jsonlite_1.8.7              scales_1.2.1               
+[121] ScaledMatrix_1.2.0          carData_3.0-5               pbapply_1.7-2              
+[124] sparseMatrixStats_1.6.0     estimability_1.4.1          genefilter_1.76.0          
+[127] lazyeval_0.2.2              promises_1.2.0.1            car_3.1-2                  
+[130] doParallel_1.0.17           R.utils_2.12.2              goftest_1.2-3              
+[133] spatstat.utils_3.0-3        reticulate_1.30             checkmate_2.2.0            
+[136] cyclocomp_1.1.0             rmarkdown_2.23              blme_1.0-5                 
+[139] statmod_1.5.0               Rtsne_0.16                  Biobase_2.54.0             
+[142] uwot_0.1.16                 igraph_1.5.0                yaml_2.3.7                 
+[145] survival_3.3-1              numDeriv_2016.8-1.1         htmltools_0.5.5            
+[148] memoise_2.0.1               locfit_1.5-9.8              graphlayouts_1.0.0         
+[151] IRanges_2.28.0              viridisLite_0.4.2           digest_0.6.33              
+[154] RhpcBLASctl_0.23-42         mime_0.12                   RSQLite_2.3.1              
+[157] future.apply_1.11.0         remotes_2.4.2               data.table_1.14.8          
+[160] blob_1.2.4                  R.oo_1.25.0                 S4Vectors_0.32.4           
+[163] DiagrammeR_1.0.10           labeling_0.4.2              splines_4.1.3              
+[166] Formula_1.2-5               rematch2_2.1.2              RCurl_1.98-1.12            
+[169] broom_1.0.5                 hms_1.1.3                   colorspace_2.1-0           
+[172] base64enc_0.1-3             ggbeeswarm_0.7.2            GenomicRanges_1.46.1       
+[175] shape_1.4.6                 ggrastr_1.0.1               nnet_7.3-17                
+[178] RANN_2.6.1                  mvtnorm_1.2-2               fansi_1.0.4                
+[181] tzdb_0.4.0                  parallelly_1.36.0           ModelMetrics_1.2.2.2       
+[184] R6_2.5.1                    factoextra_1.0.7            ggridges_0.5.4             
+[187] lifecycle_1.0.3             bluster_1.4.0               ggsignif_0.6.4             
+[190] minqa_1.2.5                 leiden_0.4.3                snakecase_0.11.0           
+[193] Matrix_1.5-4                desc_1.4.2                  RcppAnnoy_0.0.21           
+[196] iterators_1.0.14            spatstat.explore_3.2-1      TMB_1.9.4                  
+[199] gower_1.0.1                 R.cache_0.16.0              htmlwidgets_1.6.2          
+[202] beachmat_2.10.0             polyclip_1.10-4             shadowtext_0.1.2           
+[205] timechange_0.2.0            mgcv_1.8-39                 globals_0.16.2             
+[208] htmlTable_2.4.1             spatstat.random_3.1-5       progressr_0.13.0           
+[211] codetools_0.2-18            matrixStats_1.0.0           metapod_1.2.0              
+[214] randomForest_4.7-1.1        gtools_3.9.4                prettyunits_1.1.1          
+[217] SingleCellExperiment_1.16.0 R.methodsS3_1.8.2           GenomeInfoDb_1.30.1        
+[220] gtable_0.3.3                DBI_1.1.3                   stats4_4.1.3               
+[223] tensor_1.5                  httr_1.4.6                  KernSmooth_2.23-20         
+[226] stringi_1.7.12              progress_1.2.2              farver_2.1.1               
+[229] annotate_1.72.0             viridis_0.6.3               rex_1.2.1                  
+[232] fdrtool_1.2.17              timeDate_4022.108           xml2_1.3.3                 
+[235] boot_1.3-28                 BiocNeighbors_1.12.0        lme4_1.1-33                
+[238] geneplotter_1.72.0          scattermore_1.2             scran_1.22.1               
+[241] DESeq2_1.34.0               bit_4.0.5                   MatrixGenerics_1.6.0       
+[244] spatstat.data_3.0-1         janitor_2.2.0               pkgconfig_2.0.3            
+[247] lmerTest_3.1-3              ggprism_1.0.4               corrplot_0.92              
+[250] rstatix_0.7.2               knitr_1.43
+
+# Time tracking
+```{r}
+fptm <- proc.time() - ptm
+
+# convert to hours
+(fptm[3] / 60) / 60
+
+# Time elapsed: 9 hours
+# Hands-on time however is between 30-60 minutes!
+```
+
+# Reproducibility
+```{r eval=FALSE, include=FALSE}
+# styler
+style_file(here(
+  "src",
+  "seurat_preprocessing",
+  "02_gse_seurat_preprocessing.Rmd"
+))
+
+# lintr
+lint(filename = here(
+  "src",
+  "seurat_preprocessing",
+  "02_gse_seurat_preprocessing.Rmd"
+))
+```
