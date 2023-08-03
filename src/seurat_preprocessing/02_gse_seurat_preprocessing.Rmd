@@ -90,7 +90,7 @@ pdf(
   file = here(
     "results",
     "intermediate_outputs",
-    "gse157827",
+    "gse",
     "qc_plots.pdf"
   )
 )
@@ -146,7 +146,7 @@ dim(metadata) # 168108 10
 pdf(file = here(
   "results",
   "intermediate_outputs",
-  "gse157827",
+  "gse",
   "qc_plots_filtered.pdf"
 ))
 plot_qc(metadata)
@@ -159,7 +159,7 @@ pdf(
   file = here(
     "results",
     "intermediate_outputs",
-    "gse157827",
+    "gse",
     "cellcycle_pca.pdf"
   )
 )
@@ -220,7 +220,7 @@ pdf(
   file = here(
     "results",
     "intermediate_outputs",
-    "gse157827",
+    "gse",
     "clustree_umap.pdf"
   )
 )
@@ -254,7 +254,7 @@ all_marker_genes <- FindAllMarkers(filtered_seurat,
 saveRDS(all_marker_genes, here(
   "results",
   "intermediate_outputs",
-  "gse157827",
+  "gse",
   "all_marker_genes.rds"
 ))
 
@@ -271,7 +271,7 @@ dim(top25) # 1036 7
 pdf(file = here(
   "results",
   "intermediate_outputs",
-  "gse157827",
+  "gse",
   "feature_plots.pdf"))
 
 FeaturePlot(filtered_seurat,
@@ -381,7 +381,7 @@ filtered_seurat <- RenameIdents(filtered_seurat,
 # Plot final UMAPs
 ```{r}
 # UMAP of assigned clusters
-png(file = here("results", "final_outputs", "gse157827", "UMAP.png"))
+png(file = here("results", "final_outputs", "gse", "UMAP.png"))
 DimPlot_scCustom(filtered_seurat,
   figure_plot = TRUE,
   label = FALSE,
@@ -392,7 +392,7 @@ dev.off()
 png(file = here(
   "results",
   "intermediate_outputs",
-  "gse157827",
+  "gse",
   "UMAP_final.png"
 ))
 DimPlot(filtered_seurat)
