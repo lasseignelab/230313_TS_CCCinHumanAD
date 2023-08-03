@@ -1,6 +1,6 @@
 README
 ================
-2023-06-20
+2023-08-03
 
 **EDIT THIS DOCUMENT AND KNIT, DO NOT EDIT README.MD DIRECTLY**
 
@@ -21,10 +21,10 @@ the University of Alabama at Birmingham](https://www.lasseigne.org/)
     ## src
     ## +-- README
     ## +-- ccc
-    ## |   +-- 01_ligand_prioritization_liana.Rmd
-    ## |   +-- 02_differential_ccc_nichenet.Rmd
+    ## |   +-- 01_differential_ccc_multinichenet.Rmd
     ## |   +-- 03_nichenet_prioritization_plots.Rmd
-    ## |   \-- 04_target_pathways.Rmd
+    ## |   +-- 04_target_pathways.Rmd
+    ## |   \-- 05_jaccard_index_nichenet.Rmd
     ## +-- cellranger
     ## |   +-- geo
     ## |   |   +-- SAMN19128593_S19_CTRL.sh
@@ -46,6 +46,10 @@ the University of Alabama at Birmingham](https://www.lasseigne.org/)
     ## |   |   +-- SAMN19128609_S2_CTRL.sh
     ## |   |   +-- SAMN19128610_S1_CTRL.sh
     ## |   |   \-- SAMN19128611_S7_AD.sh
+    ## |   +-- gse
+    ## |   |   +-- GSE157827_all_array.sh
+    ## |   |   +-- id_sheet.csv
+    ## |   |   \-- sample_sheet.csv
     ## |   +-- vine
     ## |   |   +-- SRR13278437_S1_CTRL.sh
     ## |   |   +-- SRR13278438_S2_AD.sh
@@ -70,20 +74,25 @@ the University of Alabama at Birmingham](https://www.lasseigne.org/)
     ## +-- functions_CCCinAD_tms.R
     ## +-- manuscript_figures
     ## |   +-- 01_figure_1.Rmd
-    ## |   \-- 02_figure_2.Rmd
+    ## |   +-- 02_figure_2.Rmd
+    ## |   +-- multiNicheNet_geo_gse_overlap.Rmd
+    ## |   \-- testing.Rmd
     ## +-- seurat_preprocessing
+    ## |   +-- 01_geo_seurat_preprocessing.Rmd
     ## |   +-- 01_vine_seurat_preprocessing.Rmd
-    ## |   +-- 02_geo_seurat_preprocessing.Rmd
+    ## |   +-- 02_gse_seurat_preprocessing.Rmd
     ## |   \-- 03_vinecortex_seurat_preprocessing.Rmd
-    ## \-- shortest_path
-    ##     +-- 01_ppi_input_generation.Rmd
-    ##     +-- 02_excitatory_ppi_construction.R
-    ##     +-- 02_excitatory_ppi_construction.sh
-    ##     +-- 03_inhibitory_ppi_construction.R
-    ##     +-- 03_inhibitory_ppi_construction.sh
-    ##     +-- 04_shortest_path_input_generation.Rmd
-    ##     +-- 05_shortest_path.R
-    ##     \-- 05_shortest_path.sh
+    ## +-- shortest_path
+    ## |   +-- 01_ppi_input_generation.Rmd
+    ## |   +-- 02_excitatory_ppi_construction.R
+    ## |   +-- 02_excitatory_ppi_construction.sh
+    ## |   +-- 03_inhibitory_ppi_construction.R
+    ## |   +-- 03_inhibitory_ppi_construction.sh
+    ## |   +-- 04_shortest_path_input_generation.Rmd
+    ## |   +-- 05_shortest_path.R
+    ## |   \-- 05_shortest_path.sh
+    ## \-- soupX
+    ##     \-- 01_ambientRNA_removal.Rmd
 
 ## Authors
 
