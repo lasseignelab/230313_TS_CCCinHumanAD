@@ -388,3 +388,117 @@ lint(filename = here(
   "03_nichenet_prioritization_plots.Rmd"
 ))
 ```
+
+
+####### MultiNicheNet plotting code -- NEEDS EDITING #######
+# Visualization
+```{r}
+prioritized_tbl_oi_all = get_top_n_lr_pairs(multinichenet_output$prioritization_tables, 50, rank_per_group = FALSE)
+
+prioritized_tbl_oi = multinichenet_output$prioritization_tables$group_prioritization_tbl %>%
+  filter(id %in% prioritized_tbl_oi_all$id) %>%
+  distinct(id, sender, receiver, ligand, receptor, group) %>% left_join(prioritized_tbl_oi_all)
+prioritized_tbl_oi$prioritization_score[is.na(prioritized_tbl_oi$prioritization_score)] = 0
+
+senders_receivers = union(prioritized_tbl_oi$sender %>% unique(), prioritized_tbl_oi$receiver %>% unique()) %>% sort()
+
+colors_sender = RColorBrewer::brewer.pal(n = length(senders_receivers), name = 'Spectral') %>% magrittr::set_names(senders_receivers)
+colors_receiver = RColorBrewer::brewer.pal(n = length(senders_receivers), name = 'Spectral') %>% magrittr::set_names(senders_receivers)
+
+circos_list = make_circos_group_comparison(prioritized_tbl_oi, colors_sender, colors_receiver)
+```
+
+# Visualize interactions in AD
+```{r}
+group_oi <- "AD"
+
+prioritized_tbl_oi_M_50 = get_top_n_lr_pairs(multinichenet_output$prioritization_tables, 50, groups_oi = group_oi)
+
+plot_oi = make_sample_lr_prod_activity_plots(multinichenet_output$prioritization_tables, prioritized_tbl_oi_M_50)
+png("plot_oi_ad.png", width = 1000, height = 800)
+plot_oi
+dev.off()
+
+
+
+prioritized_tbl_oi_M_50 = get_top_n_lr_pairs(multinichenet_output$prioritization_tables, 50, groups_oi = group_oi, receivers_oi = "Excitatory.Neurons")
+
+plot_oi = make_sample_lr_prod_activity_plots(multinichenet_output$prioritization_tables, prioritized_tbl_oi_M_50)
+png("plot_oi_ad_ex.png", width = 1000, height = 800)
+plot_oi
+dev.off()
+
+prioritized_tbl_oi_M_50 = get_top_n_lr_pairs(multinichenet_output$prioritization_tables, 50, groups_oi = group_oi, receivers_oi = "Inhibitory.Neurons")
+
+plot_oi = make_sample_lr_prod_activity_plots(multinichenet_output$prioritization_tables, prioritized_tbl_oi_M_50)
+png("plot_oi_ad_in.png", width = 1000, height = 800)
+plot_oi
+dev.off()
+
+
+# correct senders and receievrs
+prioritized_tbl_oi_M_50 = get_top_n_lr_pairs(multinichenet_output$prioritization_tables, 50, groups_oi = group_oi, receivers_oi = c("Inhibitory.Neurons", "Excitatory.Neurons"), senders_oi = c("Astrocytes", "Oligodendrocytes", "Microglia", "OPCs"))
+
+plot_oi = make_sample_lr_prod_activity_plots(multinichenet_output$prioritization_tables, prioritized_tbl_oi_M_50)
+png("plot_oi_ad_all.png", width = 1000, height = 800)
+plot_oi
+dev.off()
+```
+
+# Visualization of ligand activity
+```{r}
+group_oi = "AD"
+receiver_oi = "Excitatory.Neurons"
+prioritized_tbl_oi_M_10 = get_top_n_lr_pairs(multinichenet_output$prioritization_tables, 10, groups_oi = group_oi, receivers_oi = receiver_oi)
+
+combined_plot = make_ligand_activity_target_plot(group_oi, receiver_oi, prioritized_tbl_oi_M_10, multinichenet_output$prioritization_tables, multinichenet_output$ligand_activities_targets_DEgenes, contrast_tbl, multinichenet_output$grouping_tbl, multinichenet_output$celltype_info, ligand_target_matrix, plot_legend = FALSE)
+pdf("combined_plot_ex.pdf", width = 20, height = 10)
+combined_plot
+dev.off()
+
+receiver_oi = "Inhibitory.Neurons"
+prioritized_tbl_oi_M_10 = get_top_n_lr_pairs(multinichenet_output$prioritization_tables, 10, groups_oi = group_oi, receivers_oi = receiver_oi)
+
+combined_plot = make_ligand_activity_target_plot(group_oi, receiver_oi, prioritized_tbl_oi_M_10, multinichenet_output$prioritization_tables, multinichenet_output$ligand_activities_targets_DEgenes, contrast_tbl, multinichenet_output$grouping_tbl, multinichenet_output$celltype_info, ligand_target_matrix, plot_legend = FALSE)
+pdf("combined_plot_in.pdf", width = 20, height = 10)
+combined_plot
+dev.off()
+```
+
+# Visualization of expr-correlated target genes of ligand-receptor pairs
+```{r}
+group_oi = "AD"
+receiver_oi = "Excitatory.Neurons"
+
+lr_target_prior_cor_filtered = multinichenet_output$lr_target_prior_cor %>%
+  inner_join(ligand_activities_targets_DEgenes$ligand_activities %>%
+               distinct(ligand, target, direction_regulation, contrast)) %>%
+  inner_join(contrast_tbl) %>%
+  filter(group == group_oi, receiver == receiver_oi)
+
+lr_target_prior_cor_filtered_up = lr_target_prior_cor_filtered %>%
+  filter(direction_regulation == "up") %>%
+  filter( (rank_of_target < top_n_target) & (pearson > 0.50 | spearman > 0.50))
+
+lr_target_prior_cor_filtered_down = lr_target_prior_cor_filtered %>%
+  filter(direction_regulation == "down") %>%
+  filter( (rank_of_target < top_n_target) & (pearson < -0.50 | spearman < -0.50)) # downregulation -- negative correlation
+
+lr_target_prior_cor_filtered = bind_rows(lr_target_prior_cor_filtered_up, lr_target_prior_cor_filtered_down)
+
+prioritized_tbl_oi = get_top_n_lr_pairs(prioritization_tables, 50, groups_oi = group_oi, receivers_oi = receiver_oi)
+
+lr_target_prior_cor_heatmap = make_lr_target_prior_cor_heatmap(lr_target_prior_cor_filtered_up %>% filter(receiver == receiver_oi & id %in% prioritized_tbl_oi$id), add_grid = TRUE)
+
+
+lr_target_prior_cor_heatmap2 = make_lr_target_prior_cor_heatmap(lr_target_prior_cor_filtered_down %>% filter(receiver == receiver_oi & id %in% prioritized_tbl_oi$id), add_grid = TRUE)
+
+
+#png("up_exprs_ligand_act_heatmap.png", width = 1000, height = 800)
+lr_target_prior_cor_heatmap
+#dev.off()
+
+#png("down_exprs_ligand_act_heatmap.png", width = 1000, height = 800)
+lr_target_prior_cor_heatmap2
+#dev.off()
+```

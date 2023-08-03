@@ -10,7 +10,7 @@ __Goal__: Generating all of the required inputs and txt files for generating PPI
 __Reproducibility__:
 * GitHub: lasseignelab/230313_TS_CCCinHumanAD
 * Docker: tsoelter/rstudio_ccc_ad
-    * Version: 1.0.1
+    * Version: 1.0.3
 * HPC: Yes
   * Resources: long partition (150hrs), 6 CPUs, 65GB per CPU
   

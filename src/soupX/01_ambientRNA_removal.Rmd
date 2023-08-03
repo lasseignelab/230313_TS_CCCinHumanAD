@@ -70,7 +70,7 @@ remove_ambientRNA(
   plots = here(
     "results",
     "intermediate_outputs",
-    "gse157827",
+    "gse",
     "soupX/"
   )
 )

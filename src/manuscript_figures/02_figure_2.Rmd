@@ -39,9 +39,13 @@ suppressPackageStartupMessages({
 })
 ```
 
-# Load multinichenet data
+# Load data
 ```{r}
+# MultiNicheNet output
 output <- readRDS(here("data", "ccc", "geo_multinichenet_output.rds"))
+
+# Jaccard Similarity Index  
+
 ```
 
 # Figure 1A
@@ -211,42 +215,243 @@ jaccard_targets %>%
   ggtitle("Targets")
 ```
 
-
-
-alluvial code for later
+# Compile figure 2
 ```{r}
-####  ####  ####
-receiver_oi <- "Inhibitory.Neurons"
-senders_oi <- c("Astrocytes", "Microglia", "OPCs", "Oligodendrocytes")
-
-lrt_df <- multinichenet_output$lr_target_prior_cor %>% 
-  filter(receiver %in% receiver_oi) %>%
-  filter(sender %in% senders_oi) %>%
-  select(c("sender", "receiver", "ligand", "receptor", "target"))
-
-library(ggplot2)
-library(ggalluvial)
+library(ggpubr)
+bottom <- ggarrange(panel_D,
+                  panel_E,
+                  panel_F, 
+                  ncol = 3,
+                  common.legend = T)
+bottom
 
 
-ggplot(lrt_df, aes(axis1 = ligand, axis2 = receptor, axis3 = target)) +
-  geom_alluvium(aes(fill = sender), aes.bind = "flows")
+fig2 <- plot_grid(panel_A,
+                  panel_B,
+                  panel_C,
+                  panel_D,
+                  panel_E,
+                  panel_F,
+                  labels = c("A", "B", "C", "D", "E", "F"),
+                  ncol = 3)
+
+png(here("results", "figures", "figure2.png"), width = 1200, height = 600)
+fig2
+dev.off()
+```
+
+
+```{r}
+output <- readRDS(here("data", "ccc", "geo_multinichenet_output.rds"))
+
+```
+
+
+## overview of interactions in geo 
+```{r}
+top_n_target <- 250
+
+# total
+contrast_tbl <- tibble(contrast = c("AD-CTRL", "CTRL-AD"),
+                       group = c("AD", "CTRL"))
+
+group_oi = "AD"
+
+total <- output$lr_target_prior_cor %>%
+  inner_join(output$ligand_activities_targets_DEgenes$ligand_activities %>%
+               distinct(ligand, target, direction_regulation, contrast)) %>%
+  inner_join(contrast_tbl)  %>%
+  filter(group == group_oi)
+
+total_filt <- total %>%
+  select("id_target", "sender") 
+
+total_num <- total_filt %>%
+  group_by(sender) %>%
+  summarize(interactions = n_distinct(id_target)) %>%
+  mutate(type = print("total"))
+
+ggplot(total_num, aes(x = sender, y = interactions)) +
+  geom_bar(stat = "identity") +
+  xlab("Sender") +
+  ylab("Number of Unique Interactions")
+
+
+receiver_oi = c("Excitatory.Neurons", "Inhibitory.Neurons")
+sender_oi <- c("Astrocytes", "Microglia", "OPCs", "Oligodendrocytes")
+
+oi <- output$lr_target_prior_cor %>%
+  inner_join(output$ligand_activities_targets_DEgenes$ligand_activities %>%
+               distinct(ligand, target, direction_regulation, contrast)) %>%
+  inner_join(contrast_tbl) %>%
+  filter(group == group_oi, receiver %in% receiver_oi, sender %in% sender_oi)
+
+oi_filt <- oi %>%
+  select("id_target", "sender")
+
+oi_num <- oi_filt %>%
+  group_by(sender) %>%
+  summarize(interactions = n_distinct(id_target)) %>%
+  mutate(type = print("oi"))
+
+ggplot(oi_num, aes(x = sender, y = interactions)) +
+  geom_bar(stat = "identity") +
+  xlab("Sender") +
+  ylab("Number of Unique Interactions")
+
+
+lr_target_prior_cor_filtered = output$lr_target_prior_cor %>%
+  inner_join(output$ligand_activities_targets_DEgenes$ligand_activities %>%
+               distinct(ligand, target, direction_regulation, contrast)) %>%
+  inner_join(contrast_tbl) %>%
+  filter(group == group_oi, receiver %in% receiver_oi, sender %in% sender_oi)
+
+lr_target_prior_cor_filtered_up = lr_target_prior_cor_filtered %>%
+  filter(direction_regulation == "up") %>%
+  filter( (rank_of_target < top_n_target) & (pearson > 0.50 | spearman > 0.50))
+
+lr_target_prior_cor_filtered_down = lr_target_prior_cor_filtered %>%
+  filter(direction_regulation == "down") %>%
+  filter( (rank_of_target < top_n_target) & (pearson < -0.50 | spearman < -0.50))
+
+prior <- bind_rows(lr_target_prior_cor_filtered_up, lr_target_prior_cor_filtered_down)
+
+prior_filt <- prior %>%
+  select("id_target", "sender")
+
+prior_num <- prior_filt %>%
+  group_by(sender) %>%
+  summarize(interactions = n_distinct(id_target)) %>%
+  mutate(type = print("prior"))
+
+ggplot(prior_num, aes(x = sender, y = interactions)) +
+  geom_bar(stat = "identity") +
+  xlab("Sender") +
+  ylab("Number of Unique Interactions")
+
+## combine into 1
+combined_df <- bind_rows(
+  total = total_num,
+  senders_oi = oi_num,
+  senders_oi_prior = prior_num
+)
+
+# Create a stacked barplot
+ggplot(combined_df, aes(x = reorder(type, -interactions), y = interactions, fill = sender)) +
+  geom_bar(stat = "identity", position = "stack") +
+  xlab("Cell Types") +
+  ylab("Number of Unique Interactions") +
+  #ggtitle("Number of Unique Genes in Each Condition for Different Contexts") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_discrete(name = "Context") +
+  theme_bw() +
+  geom_text(aes(label = interactions), position = "stack", vjust = 2)
+
+combined_df <- bind_rows(
+  #total = total_num,
+  senders_oi = oi_num,
+  senders_oi_prior = prior_num
+)
+
+ggplot(combined_df, aes(x = reorder(type, -interactions), y = interactions, fill = sender)) +
+  geom_bar(stat = "identity", position = "stack") +
+  xlab("Cell Types") +
+  ylab("Number of Unique Interactions") +
+  #ggtitle("Number of Unique Genes in Each Condition for Different Contexts") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_discrete(name = "Sender") +
+  theme_bw()+
+  geom_text(aes(label = interactions), position = "stack", vjust = 2) +
+  scale_fill_manual(values = c(`Astrocytes` = "cornflowerblue",
+                               `Microglia` = "orchid3",
+                               `Oligodendrocytes` = "royalblue4",
+                               `OPCs` = "mediumpurple1"))
+
+
+ggplot(prior_num, aes(x = sender, y = interactions, fill = sender)) +
+  geom_bar(stat = "identity", position = "stack") +
+  xlab("Cell Types") +
+  ylab("Number of Unique Interactions") +
+  #ggtitle("Number of Unique Genes in Each Condition for Different Contexts") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_discrete(name = "Sender") +
+  theme_bw()+
+  geom_text(aes(label = interactions), position = "stack", vjust = 2) +
+  scale_fill_manual(values = c(`Astrocytes` = "cornflowerblue",
+                               `Microglia` = "orchid3",
+                               `Oligodendrocytes` = "royalblue4",
+                               `OPCs` = "mediumpurple1"))
+
+
+
+prior_filt2 <- prior %>%
+  select("id_target", "sender", "receiver")
+
+prior_filt2$receiver <- ifelse(
+  prior_filt2$receiver == "Inhibitory.Neurons",
+  "Inhibitory Neurons",
+  "Excitatory Neurons")
+
+prior_num2 <- prior_filt2 %>%
+  group_by(sender, receiver) %>%
+  summarize(interactions = n_distinct(id_target)) %>%
+  mutate(type = print("prior"))
+
+ggplot(prior_num2, aes(x = sender, y = interactions, fill = receiver)) +
+  geom_bar(stat = "identity", position = "stack") +
+  xlab("Sender Cell Types") +
+  ylab("Number of Interactions") +
+  #ggtitle("Number of Unique Genes in Each Condition for Different Contexts") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_discrete(name = "Receiver") +
+  theme_bw()+
+  geom_text(aes(label = interactions), position = "stack", vjust = 2) +
+  scale_fill_manual(values = c(`Excitatory Neurons` = "slateblue3",
+                               `Inhibitory Neurons` = "darkslategray3")) +
+  labs(fill = "Receiver") +
+  theme(legend.text = element_text(face = "bold")) +
+  theme(axis.text = element_text(face = "bold")) +
+  theme(axis.title = element_text(face = "bold"))
+```
 
 
 
 
-lrt_df <- multinichenet_output$prioritization_tables$group_prioritization_tbl %>% 
-  filter(group == "AD") %>%
-  filter(receiver %in% receiver_oi) %>%
-  filter(sender %in% senders_oi) %>%
-  select(c("sender", "receiver", "ligand", "receptor", "id"))
 
-t_df <- multinichenet_output$lr_target_prior_cor %>%
-  select(c("id", "target"))
 
-overlap <- inner_join(lrt_df, t_df, by = "id")
+```{r}
+top_n_target <- 250
 
-ggplot(overlap, aes(axis1 = ligand, axis2 = receptor, axis3 = target)) +
-  geom_alluvium(aes(fill = sender), aes.bind = "flows")
+group_oi = "AD"
+receiver_oi = c("Excitatory.Neurons", "Inhibitory.Neurons")
+sender_oi <- c("Astrocytes", "Microglia", "OPCs", "Oligodendrocytes")
+
+contrast_tbl <- tibble(contrast = c("AD-CTRL", "CTRL-AD"),
+                       group = c("AD", "CTRL"))
+
+lr_target_prior_cor_filtered = output$lr_target_prior_cor %>%
+  inner_join(output$ligand_activities_targets_DEgenes$ligand_activities %>%
+               distinct(ligand, target, direction_regulation, contrast)) %>%
+  inner_join(contrast_tbl) %>%
+  filter(group == group_oi, receiver %in% receiver_oi, sender %in% sender_oi)
+
+lr_target_prior_cor_filtered_up = lr_target_prior_cor_filtered %>%
+  filter(direction_regulation == "up") %>%
+  filter( (rank_of_target < top_n_target) & (pearson > 0.50 | spearman > 0.50))
+
+lr_target_prior_cor_filtered_down = lr_target_prior_cor_filtered %>%
+  filter(direction_regulation == "down") %>%
+  filter( (rank_of_target < top_n_target) & (pearson < -0.50 | spearman < -0.50))
+
+lr_target_prior_cor_filtered = bind_rows(lr_target_prior_cor_filtered_up, lr_target_prior_cor_filtered_down)
+
+
+```
+
+
+### Supplemental Figures ###
+```{r}
+
 ```
 
 
