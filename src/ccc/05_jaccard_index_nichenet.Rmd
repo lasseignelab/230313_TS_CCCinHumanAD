@@ -39,9 +39,13 @@ ptm <- proc.time()
 # Setting seed
 set.seed(42)
 
+# Setting locale
+options(encoding = "UTF-8")
+
 # Load packages
 suppressPackageStartupMessages({
   library(tidyverse)
+  library(ggcorrplot)
   library(here)
   library(styler)
   library(lintr)
@@ -55,32 +59,43 @@ source(here("src", "functions_CCCinAD_tms.R"))
 output <- readRDS(here("data", "ccc", "geo_multinichenet_output.rds"))
 ```
 
-# Create Inputs
+# Set filtering parameters
 ```{r}
+# Number of targets to be used
 top_n_target <- 250
 
-group_oi = "AD"
-receiver_oi = c("Excitatory.Neurons", "Inhibitory.Neurons")
+# Condition of interest
+group_oi <- "AD"
+
+# Receiver cell types of interest
+receiver_oi <- c("Excitatory.Neurons", "Inhibitory.Neurons")
+
+# Sender cell types of interest
 sender_oi <- c("Astrocytes", "Microglia", "OPCs", "Oligodendrocytes")
 
+# Table of comparisons of interest
 contrast_tbl <- tibble(contrast = c("AD-CTRL", "CTRL-AD"),
                        group = c("AD", "CTRL"))
+```
 
-lr_target_prior_cor_filtered = output$lr_target_prior_cor %>%
+# Filter MultiNicheNet output
+```{r}
+lr_target_prior_cor_filtered <- output$lr_target_prior_cor %>%
   inner_join(output$ligand_activities_targets_DEgenes$ligand_activities %>%
                distinct(ligand, target, direction_regulation, contrast)) %>%
   inner_join(contrast_tbl) %>%
   filter(group == group_oi, receiver %in% receiver_oi, sender %in% sender_oi)
 
-lr_target_prior_cor_filtered_up = lr_target_prior_cor_filtered %>%
+lr_target_prior_cor_filtered_up <- lr_target_prior_cor_filtered %>%
   filter(direction_regulation == "up") %>%
-  filter( (rank_of_target < top_n_target) & (pearson > 0.50 | spearman > 0.50))
+  filter((rank_of_target < top_n_target) & (pearson > 0.50 | spearman > 0.50))
 
-lr_target_prior_cor_filtered_down = lr_target_prior_cor_filtered %>%
+lr_target_prior_cor_filtered_down <- lr_target_prior_cor_filtered %>%
   filter(direction_regulation == "down") %>%
-  filter( (rank_of_target < top_n_target) & (pearson < -0.50 | spearman < -0.50))
+  filter((rank_of_target < top_n_target) & (pearson < -0.50 | spearman < -0.50))
 
-lr_target_prior_cor_filtered = bind_rows(lr_target_prior_cor_filtered_up, lr_target_prior_cor_filtered_down)
+lr_target_prior_cor_filtered <- bind_rows(lr_target_prior_cor_filtered_up,
+                                          lr_target_prior_cor_filtered_down)
 
 # Create new column with ligand-receptor-target only info
 lr_target_prior_cor_filtered$ligand_receptor_target <- gsub("(_[^_]+_)(.*?)(_[^_]+_)",
@@ -103,6 +118,8 @@ lr_target_prior_cor_filtered$receiver <- ifelse(
 # Check receivers were renamed and number
 table(lr_target_prior_cor_filtered$receiver) # Ex 263 In 313
 ```
+
+
 
 # Calculate Jaccard Index
 ```{r}
