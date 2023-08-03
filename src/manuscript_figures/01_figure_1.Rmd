@@ -47,13 +47,13 @@ geo_object <- readRDS(here(
 ```{r}
 colors <- c(
   `Oligodendrocytes` = "royalblue4",
-  `Microglia` = "darkolivegreen4",
+  `Microglia` = "orchid3",
   `OPCs` = "mediumpurple1",
   `Astrocytes` = "cornflowerblue",
   `Excitatory Neurons` = "slateblue3",
   `Inhibitory Neurons` = "darkslategray3",
   `Pericytes` = "deepskyblue3",
-  `Endothelial cells` = "orchid3")
+  `Endothelial cells` = "darkolivegreen4")
 ```
 
 # Figure 1B
