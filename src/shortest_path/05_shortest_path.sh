@@ -10,7 +10,7 @@
 #SBATCH --partition=short
 #SBATCH --output=%x_%A_%a.out
 #SBATCH --error=%x_%A_%a.err
-#SBATCH --array=0-15
+#SBATCH --array=0-7
 
 ########################################
 ### PUT YOUR COMMANDS BELOW THIS BOX ###
