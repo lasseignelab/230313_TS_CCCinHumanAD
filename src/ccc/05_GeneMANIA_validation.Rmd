@@ -1,0 +1,29 @@
+---
+title: "05_GeneMANIA_validation"
+author: "Tabea M. Soelter"
+date: '2023-08-08'
+output: html_document
+---
+
+# Start-up
+```{r}
+library(tidyverse)
+library(igraph)
+library(here)
+```
+
+# load data
+```{r}
+prior <- read_delim(here(
+  "data",
+  "ccc",
+  "gene_mania_prior",
+  "COMBINED.DEFAULT_NETWORKS.BP_COMBINING.txt"))
+
+meta <- read_delim(here(
+  "data",
+  "ccc",
+  "gene_mania_prior",
+  "COMBINATION_WEIGHTS.DEFAULT_NETWORKS.BP_COMBINING.txt"))
+```
+

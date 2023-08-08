@@ -16,7 +16,7 @@ __Reproducibility__:
   
 __Data__: 
 *Seurat objects*
-* Name: geo_processed_seurat.rds, vine_processed_seurat.rds, vine_cortex_processed_seurat.rds
+* Name: geo_processed_seurat.rds, gse_processed_seurat.rds
 * Location: /data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/
 
 *AD-risk genes*
@@ -68,18 +68,6 @@ gse_object <- readRDS(here(
   "gse_processed_seurat.rds"
 ))
 
-vine_object <- readRDS(here(
-  "data",
-  "seurat_preprocessing",
-  "vine_processed_seurat.rds"
-))
-
-vine_cortex_object <- readRDS(here(
-  "data",
-  "seurat_preprocessing",
-  "vinecortex_processed_seurat.rds"
-))
-
 # AD-risk gene list
 ad_gene_list <- read.csv(
   here(
@@ -111,9 +99,7 @@ ppi <- STRINGdb$new(
 # create list of all Seurat objects
 object_list <- tibble::lst(
   geo_object,
-  gse_object,
-  vine_object,
-  vine_cortex_object
+  gse_object
 )
 
 # loop generation 2 necessary inputs for each Seurat object and saves them
@@ -149,8 +135,6 @@ for (name in names(object_list)) {
 __Output of above for loop__
 Warning:  we couldn't map to STRING 42% of your identifiers
 Warning:  we couldn't map to STRING 44% of your identifiers
-Warning:  we couldn't map to STRING 39% of your identifiers
-Warning:  we couldn't map to STRING 37% of your identifiers
 
 # Txt input file generation
 * I created txt files with the paths to the objects needed in all PPI and shortest path array jobs. 
