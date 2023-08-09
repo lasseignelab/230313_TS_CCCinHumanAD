@@ -10,9 +10,9 @@ __Goal__: Generating shortest path required txt file input.
 __Reproducibility__:
 * GitHub: lasseignelab/230313_TS_CCCinHumanAD
 * Docker: tsoelter/rstudio_ccc_ad
-    * Version: 1.0.1
+    * Version: 1.0.3
 * HPC: Yes
-  * Resources: long partition (150hrs), 6 CPUs, 65GB per CPU
+  * Resources: long partition (150hrs), 10 CPUs, 65GB per CPU
 
 __Analysis Plan__:
 * Load necessary packages 
