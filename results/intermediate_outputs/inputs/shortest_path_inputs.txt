@@ -1,0 +1,8 @@
+/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/shortest_path/geo_AD_ex_igraph.rds
+/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/shortest_path/geo_AD_in_igraph.rds
+/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/shortest_path/geo_CTRL_ex_igraph.rds
+/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/shortest_path/geo_CTRL_in_igraph.rds
+/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/shortest_path/gse_AD_ex_igraph.rds
+/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/shortest_path/gse_AD_in_igraph.rds
+/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/shortest_path/gse_CTRL_ex_igraph.rds
+/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/shortest_path/gse_CTRL_in_igraph.rds
