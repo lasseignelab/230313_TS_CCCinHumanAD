@@ -45,7 +45,60 @@ suppressPackageStartupMessages({
 output <- readRDS(here("data", "ccc", "geo_multinichenet_output.rds"))
 
 # Jaccard Similarity Index  
+saveRDS(
+  jaccard_results_ligands,
+  here(
+    "results",
+    "intermediate_outputs",
+    "geo",
+    "ccc",
+    "jaccard_ligands_senders.rds"
+  )
+)
 
+saveRDS(
+  jaccard_results_receptors,
+  here(
+    "results",
+    "intermediate_outputs",
+    "geo",
+    "ccc",
+    "jaccard_receptors_senders.rds"
+  )
+)
+
+saveRDS(
+  jaccard_results_targets,
+  here(
+    "results",
+    "intermediate_outputs",
+    "geo",
+    "ccc",
+    "jaccard_targets_senders.rds"
+  )
+)
+
+saveRDS(
+  jaccard_receptors,
+  here(
+    "results",
+    "intermediate_outputs",
+    "geo",
+    "ccc",
+    "jaccard_receptors_receivers.rds"
+  )
+)
+
+saveRDS(
+  jaccard_targets,
+  here(
+    "results",
+    "intermediate_outputs",
+    "geo",
+    "ccc",
+    "jaccard_targets_receivers.rds"
+  )
+)
 ```
 
 # Figure 1A
@@ -218,12 +271,24 @@ jaccard_targets %>%
 # Compile figure 2
 ```{r}
 library(ggpubr)
-bottom <- ggarrange(panel_D,
-                  panel_E,
-                  panel_F, 
+library(grid)
+bottom <- ggarrange(panel_C,
+                  panel_D,
+                  panel_E, 
                   ncol = 3,
-                  common.legend = T)
-bottom
+                  common.legend = T,
+                  legend = "right",
+                  labels = c("C", "D", "E"))
+
+
+top <- plot_grid(panel_A,
+                 panel_B,
+                 labels = c("A", "B"))
+
+
+fig2 <- plot_grid(top,
+                  bottom,
+                  ncol = 1)
 
 
 fig2 <- plot_grid(panel_A,
@@ -235,7 +300,7 @@ fig2 <- plot_grid(panel_A,
                   labels = c("A", "B", "C", "D", "E", "F"),
                   ncol = 3)
 
-png(here("results", "figures", "figure2.png"), width = 1200, height = 600)
+png(here("results", "figures", "figure2.png"), width = 1000, height = 600)
 fig2
 dev.off()
 ```
@@ -245,6 +310,21 @@ dev.off()
 output <- readRDS(here("data", "ccc", "geo_multinichenet_output.rds"))
 
 ```
+
+# colors
+```{r}
+colors <- c(
+  `Oligodendrocytes` = "royalblue4",
+  `Microglia` = "orchid3",
+  `OPCs` = "mediumpurple1",
+  `Astrocytes` = "cornflowerblue",
+  `Excitatory Neurons` = "slateblue3",
+  `Inhibitory Neurons` = "darkslategray3",
+  `Pericytes` = "deepskyblue3",
+  `Endothelial cells` = "darkolivegreen4")
+```
+
+
 
 
 ## overview of interactions in geo 
@@ -271,10 +351,26 @@ total_num <- total_filt %>%
   summarize(interactions = n_distinct(id_target)) %>%
   mutate(type = print("total"))
 
-ggplot(total_num, aes(x = sender, y = interactions)) +
+ggplot(total_num, aes(x = sender, y = interactions, fill = sender)) +
   geom_bar(stat = "identity") +
   xlab("Sender") +
-  ylab("Number of Unique Interactions")
+  ylab("Number of Unique Interactions") +
+  theme_bw() +
+  geom_text(aes(label = interactions), position = "stack", vjust = 2) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(legend.text = element_text(face = "bold")) +
+  theme(axis.text = element_text(face = "bold")) +
+  theme(axis.title = element_text(face = "bold"),
+        legend.title = element_text(face = "bold")) +
+  scale_fill_manual(values = c(`Oligodendrocytes` = "royalblue4",
+                               `Microglia` = "orchid3",
+                               `OPCs` = "mediumpurple1",
+                               `Astrocytes` = "cornflowerblue",
+                               `Excitatory.Neurons` = "slateblue3",
+                               `Inhibitory.Neurons` = "darkslategray3",
+                               `Pericytes` = "deepskyblue3",
+                               `Endothelial.cells` = "darkolivegreen4"),
+                    name = "Sender") 
 
 
 receiver_oi = c("Excitatory.Neurons", "Inhibitory.Neurons")
@@ -294,10 +390,22 @@ oi_num <- oi_filt %>%
   summarize(interactions = n_distinct(id_target)) %>%
   mutate(type = print("oi"))
 
-ggplot(oi_num, aes(x = sender, y = interactions)) +
+ggplot(oi_num, aes(x = sender, y = interactions, fill = sender)) +
   geom_bar(stat = "identity") +
   xlab("Sender") +
-  ylab("Number of Unique Interactions")
+  ylab("Number of Unique Interactions") +
+  theme_bw() +
+  geom_text(aes(label = interactions), position = "stack", vjust = 2) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(legend.text = element_text(face = "bold")) +
+  theme(axis.text = element_text(face = "bold")) +
+  theme(axis.title = element_text(face = "bold"),
+        legend.title = element_text(face = "bold")) +
+  scale_fill_manual(values = c(`Oligodendrocytes` = "royalblue4",
+                               `Microglia` = "orchid3",
+                               `OPCs` = "mediumpurple1",
+                               `Astrocytes` = "cornflowerblue"),
+                    name = "Sender") 
 
 
 lr_target_prior_cor_filtered = output$lr_target_prior_cor %>%
@@ -399,7 +507,7 @@ prior_num2 <- prior_filt2 %>%
 
 ggplot(prior_num2, aes(x = sender, y = interactions, fill = receiver)) +
   geom_bar(stat = "identity", position = "stack") +
-  xlab("Sender Cell Types") +
+  xlab("Sender") +
   ylab("Number of Interactions") +
   #ggtitle("Number of Unique Genes in Each Condition for Different Contexts") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
@@ -411,7 +519,8 @@ ggplot(prior_num2, aes(x = sender, y = interactions, fill = receiver)) +
   labs(fill = "Receiver") +
   theme(legend.text = element_text(face = "bold")) +
   theme(axis.text = element_text(face = "bold")) +
-  theme(axis.title = element_text(face = "bold"))
+  theme(axis.title = element_text(face = "bold"),
+        legend.title = element_text(face = "bold"))
 ```
 
 
@@ -451,7 +560,310 @@ lr_target_prior_cor_filtered = bind_rows(lr_target_prior_cor_filtered_up, lr_tar
 
 ### Supplemental Figures ###
 ```{r}
+panelA <-
+ggplot(total_num, aes(x = sender, y = interactions, fill = sender)) +
+  geom_bar(stat = "identity") +
+  xlab("Sender") +
+  ylab("Number of Unique Interactions") +
+  theme_bw() +
+  geom_text(aes(label = interactions), position = "stack", vjust = 2) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(legend.text = element_text(face = "bold")) +
+  theme(axis.text = element_text(face = "bold")) +
+  theme(axis.title = element_text(face = "bold"),
+        legend.title = element_text(face = "bold")) +
+  scale_fill_manual(values = c(`Oligodendrocytes` = "royalblue4",
+                               `Microglia` = "orchid3",
+                               `OPCs` = "mediumpurple1",
+                               `Astrocytes` = "cornflowerblue",
+                               `Excitatory.Neurons` = "slateblue3",
+                               `Inhibitory.Neurons` = "darkslategray3",
+                               `Pericytes` = "deepskyblue3",
+                               `Endothelial.cells` = "darkolivegreen4"),
+                    name = "Sender") 
 
+panelB <-
+ggplot(oi_num, aes(x = sender, y = interactions, fill = sender)) +
+  geom_bar(stat = "identity") +
+  xlab("Sender") +
+  ylab("Number of Unique Interactions") +
+  theme_bw() +
+  geom_text(aes(label = interactions), position = "stack", vjust = 2) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(legend.text = element_text(face = "bold")) +
+  theme(axis.text = element_text(face = "bold")) +
+  theme(axis.title = element_text(face = "bold"),
+        legend.title = element_text(face = "bold")) +
+  scale_fill_manual(values = c(`Oligodendrocytes` = "royalblue4",
+                               `Microglia` = "orchid3",
+                               `OPCs` = "mediumpurple1",
+                               `Astrocytes` = "cornflowerblue"),
+                    name = "Sender") 
+
+panelC <-
+ggplot(prior_num, aes(x = sender, y = interactions, fill = sender)) +
+  geom_bar(stat = "identity", position = "stack") +
+  xlab("Cell Types") +
+  ylab("Number of Unique Interactions") +
+  scale_fill_discrete(name = "Sender") +
+  theme_bw()+
+  geom_text(aes(label = interactions), position = "stack", vjust = 2) +
+  scale_fill_manual(values = c(`Astrocytes` = "cornflowerblue",
+                               `Microglia` = "orchid3",
+                               `Oligodendrocytes` = "royalblue4",
+                               `OPCs` = "mediumpurple1")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(legend.text = element_text(face = "bold")) +
+  theme(axis.text = element_text(face = "bold")) +
+  theme(axis.title = element_text(face = "bold"),
+        legend.title = element_text(face = "bold")) 
+
+supp_fig2 <- plot_grid(panelA,
+                       panelB,
+                       panelC,
+                       labels = c("A", "B", "C"),
+                       ncol = 3)
+
+png(here("results", "figures", "supp_figure2.png"), width = 1200, height = 600)
+supp_fig2
+dev.off()
 ```
 
+###### JI plotting prep and plotting code #######
 
+# plotting
+```{r}
+colors <- c(
+  "lightblue",
+  "royalblue",
+  "darkred",
+  "darksalmon",
+  "goldenrod1")
+
+jaccard_ligands_df <- data.frame(cell_types = names(jaccard_results_ligands),
+                                 jaccard_index = unlist(jaccard_results_ligands),
+                                 stringsAsFactors = FALSE)
+
+jaccard_ligands_df <- jaccard_ligands_df %>%
+  separate(cell_types,
+           into = c(
+             "receiver",
+             "celltype1",
+             "celltype2"),
+           sep = "_")
+
+jaccard_ligands_df <- jaccard_ligands_df %>%
+  spread(key = celltype2,
+         value = jaccard_index)
+# prep ex neuron input
+jaccard_ligands_ex <- jaccard_ligands_df %>%
+  filter(receiver == "Excitatory Neurons")
+
+jaccard_ex_mat <- as.matrix(jaccard_ligands_ex[-c(1:2)])
+rownames(jaccard_ex_mat) <- jaccard_ligands_ex[[2]]
+
+jaccard_ligands_in <- jaccard_ligands_df %>%
+  filter(receiver == "Inhibitory Neurons")
+
+jaccard_in_mat <- as.matrix(jaccard_ligands_in[-c(1:2)])
+rownames(jaccard_in_mat) <- jaccard_ligands_in[[2]]
+
+corrplot::corrplot(jaccard_ex_mat, method = "circle", is.corr = FALSE, type = "lower", diag = FALSE)
+corrplot::corrplot(jaccard_in_mat, method = "circle", is.corr = FALSE, type = "lower", diag = FALSE)
+
+jaccard_ex_mat[lower.tri(jaccard_ex_mat)] <- jaccard_in_mat[lower.tri(jaccard_in_mat)]
+
+ggcorrplot(jaccard_ex_mat, outline.color = "white", lab = TRUE) +
+  scale_fill_gradientn(limits = c(0, 1),
+                       breaks = seq(0, 1, by = 0.2),
+                       colors = colors,
+                       name = "JI") +
+  theme_bw() +
+  theme(axis.title.x = element_text(size = 12, face = "bold"),
+        axis.title.y = element_text(angle = 90, size = 12, face = "bold"),
+        axis.text = element_text(size = 10, face = "bold"),
+        plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+        legend.text = element_text(face = "bold"),
+        legend.title = element_text(face = "bold"),
+        panel.grid.major = element_blank()) +
+  labs(x = "Excitatory Neurons", y = "Inhibitory Neurons") +
+  ggtitle("Ligands")
+
+#### removing labels to combine
+panel_C <- ggcorrplot(jaccard_ex_mat, outline.color = "white", lab = TRUE) +
+  scale_fill_gradientn(limits = c(0, 1),
+                       breaks = seq(0, 1, by = 0.2),
+                       colors = colors,
+                       name = "JI") +
+  theme_bw() +
+  theme(axis.title.x = element_text(size = 12, face = "bold"),
+        axis.title.y = element_text(angle = 90, size = 12, face = "bold"),
+        axis.text = element_text(size = 10, face = "bold"),
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+        legend.text = element_text(face = "bold"),
+        legend.title = element_text(face = "bold"),
+        panel.grid.major = element_blank()) +
+  labs(x = "Excitatory Neurons", y = "Inhibitory Neurons") +
+  ggtitle("Ligands")
+```
+
+receptors
+```{r}
+jaccard_receptors_df <- data.frame(cell_types = names(jaccard_results_receptors),
+                                 jaccard_index = unlist(jaccard_results_receptors),
+                                 stringsAsFactors = FALSE)
+
+jaccard_receptors_df <- jaccard_receptors_df %>%
+  separate(cell_types,
+           into = c(
+             "receiver",
+             "celltype1",
+             "celltype2"),
+           sep = "_")
+
+jaccard_receptors_df <- jaccard_receptors_df %>%
+  spread(key = celltype2,
+         value = jaccard_index)
+# prep ex neuron input
+jaccard_receptors_ex <- jaccard_receptors_df %>%
+  filter(receiver == "Excitatory Neurons")
+
+jaccard_ex_mat <- as.matrix(jaccard_receptors_ex[-c(1:2)])
+rownames(jaccard_ex_mat) <- jaccard_receptors_ex[[2]]
+
+jaccard_receptors_in <- jaccard_receptors_df %>%
+  filter(receiver == "Inhibitory Neurons")
+
+jaccard_in_mat <- as.matrix(jaccard_receptors_in[-c(1:2)])
+rownames(jaccard_in_mat) <- jaccard_receptors_in[[2]]
+
+corrplot::corrplot(jaccard_ex_mat, method = "circle", is.corr = FALSE, type = "lower", diag = FALSE)
+corrplot::corrplot(jaccard_in_mat, method = "circle", is.corr = FALSE, type = "lower", diag = FALSE)
+
+jaccard_ex_mat[lower.tri(jaccard_ex_mat)] <- jaccard_in_mat[lower.tri(jaccard_in_mat)]
+
+ggcorrplot(jaccard_ex_mat, outline.color = "white", lab = TRUE) +
+  scale_fill_gradientn(limits = c(0, 1),
+                       breaks = seq(0, 1, by = 0.2),
+                       colors = colors,
+                       name = "JI") +
+  theme_bw() +
+  theme(axis.title.x = element_text(size = 12, face = "bold"),
+        axis.title.y = element_text(angle = 90, size = 12, face = "bold"),
+        axis.text = element_text(size = 10, face = "bold"),
+        plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+        legend.text = element_text(face = "bold"),
+        legend.title = element_text(face = "bold"),
+        panel.grid.major = element_blank()) +
+  labs(x = "Excitatory Neurons", y = "Inhibitory Neurons") +
+  ggtitle("Receptors")
+
+#### remove some labels for combining plots
+panel_D <- ggcorrplot(jaccard_ex_mat, outline.color = "white", lab = TRUE) +
+  scale_fill_gradientn(limits = c(0, 1),
+                       breaks = seq(0, 1, by = 0.2),
+                       colors = colors,
+                       name = "JI") +
+  theme_bw() +
+  theme(axis.title.x = element_text(size = 12, face = "bold"),
+        axis.title.y = element_text(angle = 90, size = 12, face = "bold"),
+        axis.text = element_text(size = 10, face = "bold"),
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+        legend.text = element_text(face = "bold"),
+        legend.title = element_text(face = "bold"),
+        panel.grid.major = element_blank()) +
+  labs(x = "Excitatory Neurons", y = "Inhibitory Neurons") +
+  ggtitle("Receptors")
+```
+
+targets
+```{r}
+jaccard_targets_df <- data.frame(cell_types = names(jaccard_results_targets),
+                                 jaccard_index = unlist(jaccard_results_targets),
+                                 stringsAsFactors = FALSE)
+
+jaccard_targets_df <- jaccard_targets_df %>%
+  separate(cell_types,
+           into = c(
+             "receiver",
+             "celltype1",
+             "celltype2"),
+           sep = "_")
+
+jaccard_targets_df <- jaccard_targets_df %>%
+  spread(key = celltype2,
+         value = jaccard_index)
+# prep ex neuron input
+jaccard_targets_ex <- jaccard_targets_df %>%
+  filter(receiver == "Excitatory Neurons")
+
+jaccard_ex_mat <- as.matrix(jaccard_targets_ex[-c(1:2)])
+rownames(jaccard_ex_mat) <- jaccard_targets_ex[[2]]
+
+jaccard_targets_in <- jaccard_targets_df %>%
+  filter(receiver == "Inhibitory Neurons")
+
+jaccard_in_mat <- as.matrix(jaccard_targets_in[-c(1:2)])
+rownames(jaccard_in_mat) <- jaccard_targets_in[[2]]
+
+corrplot::corrplot(jaccard_ex_mat, method = "circle", is.corr = FALSE, type = "lower", diag = FALSE)
+
+corrplot::corrplot(jaccard_in_mat, method = "circle", is.corr = FALSE, type = "upper", diag = FALSE)
+
+jaccard_ex_mat[lower.tri(jaccard_ex_mat)] <- jaccard_in_mat[lower.tri(jaccard_in_mat)]
+
+ggcorrplot(jaccard_ex_mat, outline.color = "white", lab = TRUE) +
+  scale_fill_gradientn(limits = c(0, 1),
+                       breaks = seq(0, 1, by = 0.2),
+                       colors = colors,
+                       name = "JI") +
+  theme_bw() +
+  theme(axis.title.x = element_text(size = 12, face = "bold"),
+        axis.title.y = element_text(angle = 90, size = 12, face = "bold"),
+        axis.text = element_text(size = 10, face = "bold"),
+        plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+        legend.text = element_text(face = "bold"),
+        legend.title = element_text(face = "bold"),
+        panel.grid.major = element_blank()) +
+  labs(x = "Excitatory Neurons", y = "Inhibitory Neurons") +
+  ggtitle("Targets")
+
+### remove some labels to combine with other plots
+panel_E <- ggcorrplot(jaccard_ex_mat, outline.color = "white", lab = TRUE) +
+  scale_fill_gradientn(limits = c(0, 1),
+                       breaks = seq(0, 1, by = 0.2),
+                       colors = colors,
+                       name = "JI") +
+  theme_bw() +
+  theme(axis.title.x = element_text(size = 12, face = "bold"),
+        axis.title.y = element_text(angle = 90, size = 12, face = "bold"),
+        axis.text = element_text(size = 10, face = "bold"),
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+        legend.text = element_text(face = "bold"),
+        legend.title = element_text(face = "bold"),
+        panel.grid.major = element_blank()) +
+  labs(x = "Excitatory Neurons", y = "Inhibitory Neurons") +
+  ggtitle("Targets")
+
+panel_B <- jaccard_all %>%
+  ggplot() +
+    geom_linerange(aes(x = reorder(sender, desc(sender)), ymin = 0, ymax = jaccard_index, colour = type), 
+                   position = position_dodge(width = 0.2), size = 1)+
+    geom_point(aes(x = reorder(sender, desc(sender)), y = jaccard_index, colour = type),
+               position = position_dodge(width = 0.2), size = 2)+
+    coord_flip() +
+  scale_color_manual(values = c("Receptors" = "salmon", "Targets" = "tomato4"), name = "Type") +
+  theme_bw() +
+  labs(x = "Sender", y = "JI") +
+  ylim(0, 0.5) +
+  theme(axis.title.x = element_text(size = 12, face = "bold"),
+        axis.title.y = element_text(size = 12, face = "bold"),
+        axis.text = element_text(size = 10, face = "bold"),
+        plot.title = element_text(size = 13, face = "bold", hjust = 0.5),
+        legend.text = element_text(face = "bold"),
+        legend.title = element_text(face = "bold"))
+```
