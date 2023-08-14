@@ -249,7 +249,7 @@ find_markers <- function(object, resolution, identities, value){
   # iterating through all unidentified clusters ----------
   for (i in identities) {
     # find marker genes ----------
-    markers <- FindMarkers(object, ident.1 = i, max.cells.per.ident = 100, logfc.threhold = 0.25, only.pos = TRUE)
+    markers <- FindMarkers(object, ident.1 = i, max.cells.per.ident = 100, logfc.threshold = 0.25, only.pos = TRUE)
     # print out which cluster was completed ----------
     print(paste0("Markers for cluster ", i))
     # filter markers by specified value and adjusted p-value ----------
