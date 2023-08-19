@@ -18,13 +18,15 @@ library(igraph)
 library(Seurat)
 print("packages loaded")
 
-## load my functions
-source("/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/src/functions_CCCinAD_tms.R")
-print("functions loaded")
-
 ## enable usage of args
 args <- R.utils::commandArgs(trailingOnly = TRUE)
 print("enabled args usage")
+
+wd <- args[4]
+
+## load my functions
+source(paste0(wd, "/src/functions_CCCinAD_tms.R"))
+print("functions loaded")
 
 ## get dataset name
 name <- sub("_processed_seurat.rds.*", "", basename(args[1]))
@@ -51,8 +53,10 @@ ppi_tmp <- readRDS(args[3])
 print("loaded tmp ppi")
 
 # AD-risk gene list compiled by VHO
-ad_gene_list <- read.csv("/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/ccc/ad_gene_list.csv",
-                         header = FALSE)
+ad_gene_list <- read.csv(
+  "/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/ccc/ad_gene_list.csv",
+  header = FALSE
+)
 print("loaded AD-risk gene list")
 
 ## Create igraph objects
@@ -78,8 +82,18 @@ print("split objects")
 
 # save objects
 print("saving objects")
-saveRDS(AD_igraph, file = paste0("/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/shortest_path/", name, "_AD_ex_igraph.rds"))
-saveRDS(CTRL_igraph, file = paste0("/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/shortest_path/", name, "_CTRL_ex_igraph.rds"))
+#check if data/shortest_path exists, create if not
+if (!dir.exists(paste0(wd, "/data/shortest_path/"))) {
+  dir.create(paste0(wd, "/data/shortest_path/")) 
+} 
+saveRDS(
+  AD_igraph,
+  file = paste0(wd, "/data/shortest_path/", name, "_AD_ex_igraph.rds")
+)
+saveRDS(
+  CTRL_igraph,
+  file = paste0(wd, "/data/shortest_path/", name, "_CTRL_ex_igraph.rds")
+)
 
 # session info
 sessionInfo()
