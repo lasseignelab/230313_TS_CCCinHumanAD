@@ -20,11 +20,11 @@
 module load Singularity/3.5.2-GCC-5.4.0-2.26
 
 # set variables
-wd="/data/user/tsoelter/projects/230313_TS_CCCinHumanAD"
-src="/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/src/shortest_path"
+wd="$USER_DATA/projects/230313_TS_CCCinHumanAD"
+src="$USER_DATA/projects/230313_TS_CCCinHumanAD/src/shortest_path"
 
 export SINGULARITYENV_PASSWORD='pass'
-export SINGULARITYENV_USER='tsoelter'
+export SINGULARITYENV_USER='$USER'
 
 # sample list of seurat objects
 SAMPLE_LIST="${wd}/results/intermediate_outputs/inputs/ppi_construction_gex_inputs.txt"
@@ -42,4 +42,4 @@ SAMPLE_ARRAY3=(`cat ${SAMPLE_LIST3}`)
 INPUT3=`echo ${SAMPLE_ARRAY3[$SLURM_ARRAY_TASK_ID]}`
 
 # execute docker
-singularity exec --cleanenv --containall -B ${wd} ${wd}/bin/docker/rstudio_ccc_ad_1.0.1.sif Rscript --vanilla ${src}/02_excitatory_ppi_construction.R ${INPUT} ${INPUT2} ${INPUT3} 
+singularity exec --cleanenv --containall -B ${wd} -B /data/project/lasseigne_lab/ ${wd}/bin/docker/rstudio_ccc_ad_1.0.1.sif Rscript --vanilla ${src}/02_excitatory_ppi_construction.R ${INPUT} ${INPUT2} ${INPUT3} ${wd}
