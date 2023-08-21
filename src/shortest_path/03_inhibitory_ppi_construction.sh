@@ -27,17 +27,17 @@ export SINGULARITYENV_PASSWORD='pass'
 export SINGULARITYENV_USER='$USER'
 
 # sample list of seurat objects
-SAMPLE_LIST="${wd}/results/tcResults/intermediate_outputs/inputs/ppi_construction_gex_inputs.txt"
+SAMPLE_LIST="${wd}/results/intermediate_outputs/inputs/ppi_construction_gex_inputs.txt"
 SAMPLE_ARRAY=(`cat ${SAMPLE_LIST}`)
 INPUT=`echo ${SAMPLE_ARRAY[$SLURM_ARRAY_TASK_ID]}`
 
 # sample list of mapped gene inputs
-SAMPLE_LIST2="${wd}/results/tcResults/intermediate_outputs/inputs/ppi_construction_gene_inputs.txt"
+SAMPLE_LIST2="${wd}/results/intermediate_outputs/inputs/ppi_construction_gene_inputs.txt"
 SAMPLE_ARRAY2=(`cat ${SAMPLE_LIST2}`)
 INPUT2=`echo ${SAMPLE_ARRAY2[$SLURM_ARRAY_TASK_ID]}`
 
 # sample list of tmp ppi objects
-SAMPLE_LIST3="${wd}/results/tcResults/intermediate_outputs/inputs/ppi_construction_ppi_inputs.txt"
+SAMPLE_LIST3="${wd}/results/intermediate_outputs/inputs/ppi_construction_ppi_inputs.txt"
 SAMPLE_ARRAY3=(`cat ${SAMPLE_LIST3}`)
 INPUT3=`echo ${SAMPLE_ARRAY3[$SLURM_ARRAY_TASK_ID]}`
 

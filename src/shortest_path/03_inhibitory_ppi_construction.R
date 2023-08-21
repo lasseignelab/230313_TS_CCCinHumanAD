@@ -55,8 +55,8 @@ ppi_tmp <- readRDS(args[3])
 print("loaded tmp ppi")
 
 # AD-risk gene list compiled by VHO
-ad_gene_list <- read.csv(
-  "/data/project/lasseigne_lab/TabeaSoelter/230313_TS_CCCinHumanAD_data/ccc/ad_gene_list.csv",
+ad_gene_list <- read.csv(paste0(
+  wd, "/data/ccc/ad_gene_list.csv"),
   header = FALSE
 )
 print("loaded AD-risk gene list")
