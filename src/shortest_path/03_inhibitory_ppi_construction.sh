@@ -2,7 +2,7 @@
 
 #SBATCH --job-name=ppi_contruction
 #SBATCH --mail-type=ALL
-#SBATCH --mail-user=tsoelter@uab.edu
+#SBATCH --mail-user=tchowton@uab.edu
 #SBATCH --ntasks=1
 #SBATCH --mem-per-cpu=65000
 #SBATCH --nodes=1
@@ -20,26 +20,26 @@
 module load Singularity/3.5.2-GCC-5.4.0-2.26
 
 # set variables
-wd="/data/user/tsoelter/projects/230313_TS_CCCinHumanAD"
-src="/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/src/shortest_path"
+wd="$USER_DATA/codeReview/230313_TS_CCCinHumanAD"
+src="$USER_DATA/codeReview/230313_TS_CCCinHumanAD/src/shortest_path"
 
 export SINGULARITYENV_PASSWORD='pass'
-export SINGULARITYENV_USER='tsoelter'
+export SINGULARITYENV_USER='$USER'
 
 # sample list of seurat objects
-SAMPLE_LIST="${wd}/results/intermediate_outputs/inputs/ppi_construction_gex_inputs.txt"
+SAMPLE_LIST="${wd}/results/tcResults/intermediate_outputs/inputs/ppi_construction_gex_inputs.txt"
 SAMPLE_ARRAY=(`cat ${SAMPLE_LIST}`)
 INPUT=`echo ${SAMPLE_ARRAY[$SLURM_ARRAY_TASK_ID]}`
 
 # sample list of mapped gene inputs
-SAMPLE_LIST2="${wd}/results/intermediate_outputs/inputs/ppi_construction_gene_inputs.txt"
+SAMPLE_LIST2="${wd}/results/tcResults/intermediate_outputs/inputs/ppi_construction_gene_inputs.txt"
 SAMPLE_ARRAY2=(`cat ${SAMPLE_LIST2}`)
 INPUT2=`echo ${SAMPLE_ARRAY2[$SLURM_ARRAY_TASK_ID]}`
 
 # sample list of tmp ppi objects
-SAMPLE_LIST3="${wd}/results/intermediate_outputs/inputs/ppi_construction_ppi_inputs.txt"
+SAMPLE_LIST3="${wd}/results/tcResults/intermediate_outputs/inputs/ppi_construction_ppi_inputs.txt"
 SAMPLE_ARRAY3=(`cat ${SAMPLE_LIST3}`)
 INPUT3=`echo ${SAMPLE_ARRAY3[$SLURM_ARRAY_TASK_ID]}`
 
 # execute docker
-singularity exec --cleanenv --containall -B ${wd} ${wd}/bin/docker/rstudio_ccc_ad_1.0.1.sif Rscript --vanilla ${src}/03_inhibitory_ppi_construction.R ${INPUT} ${INPUT2} ${INPUT3} 
+singularity exec --cleanenv --containall -B ${wd} -B /data/project/lasseigne_lab/ ${wd}/bin/docker/rstudio_ccc_ad_1.0.1.sif Rscript --vanilla ${src}/03_inhibitory_ppi_construction.R ${INPUT} ${INPUT2} ${INPUT3} ${wd} 
