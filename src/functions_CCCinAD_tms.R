@@ -249,7 +249,7 @@ find_markers <- function(object, resolution, identities, value){
   # iterating through all unidentified clusters ----------
   for (i in identities) {
     # find marker genes ----------
-    markers <- FindMarkers(object, ident.1 = i, max.cells.per.ident = 100, logfc.threhold = 0.25, only.pos = TRUE)
+    markers <- FindMarkers(object, ident.1 = i, max.cells.per.ident = 100, logfc.threshold = 0.25, only.pos = TRUE)
     # print out which cluster was completed ----------
     print(paste0("Markers for cluster ", i))
     # filter markers by specified value and adjusted p-value ----------
@@ -634,11 +634,11 @@ filter_nichenet <- function(object) {
   
   lr_target_prior_cor_filtered_up <- lr_target_prior_cor_filtered %>%
     filter(direction_regulation == "up") %>%
-    filter((rank_of_target < top_n_target) & (pearson > 0.50 | spearman > 0.50))
+    filter((rank_of_target < top_n_target) & (pearson > 0.33 | spearman > 0.33))
   
   lr_target_prior_cor_filtered_down <- lr_target_prior_cor_filtered %>%
     filter(direction_regulation == "down") %>%
-    filter((rank_of_target < top_n_target) & (pearson < -0.50 | spearman < -0.50))
+    filter((rank_of_target < top_n_target) & (pearson < -0.33 | spearman < -0.33))
   
   lr_target_prior_cor_filtered <- bind_rows(lr_target_prior_cor_filtered_up,
                                             lr_target_prior_cor_filtered_down)
