@@ -30,7 +30,7 @@ __Analysis Plan__:
 * Prepare for TF activity analysis
   * Create 1 matrix which has DEGs from both datasets
 * Differential TF activity analysis using Multivariate Linear Model (MLM)
-* Save plot
+* Save plot and output
   
 # Load packages
 ```{r}
@@ -222,6 +222,25 @@ tf_activity_heatmap
 png(here("results", "final_outputs", "comparison", "tf_activity_heatmap.png"))
 tf_activity_heatmap
 dev.off()
+```
+
+# save TF activity outputs
+```{r}
+saveRDS(
+  tf_acts_in,
+  here("results",
+       "final_outputs",
+       "comparison",
+       "differential_tf_activity_all.rds")
+)
+
+saveRDS(
+  tf_acts_filt,
+  here("results",
+       "final_outputs",
+       "comparison",
+       "differential_tf_activity_filt.rds")
+)
 ```
 
 # Session info
