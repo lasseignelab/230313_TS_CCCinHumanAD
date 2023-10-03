@@ -2,7 +2,7 @@
 
 #SBATCH --job-name=ppi_contruction
 #SBATCH --mail-type=ALL
-#SBATCH --mail-user=tchowton@uab.edu
+#SBATCH --mail-user=tsoelter@uab.edu
 #SBATCH --ntasks=1
 #SBATCH --mem-per-cpu=65000
 #SBATCH --nodes=1
@@ -20,8 +20,8 @@
 module load Singularity/3.5.2-GCC-5.4.0-2.26
 
 # set variables
-wd="$USER_DATA/codeReview/230313_TS_CCCinHumanAD"
-src="$USER_DATA/codeReview/230313_TS_CCCinHumanAD/src/shortest_path"
+wd="$USER_DATA/projects/230313_TS_CCCinHumanAD"
+src="$USER_DATA/projects/230313_TS_CCCinHumanAD/src/shortest_path"
 
 export SINGULARITYENV_PASSWORD='pass'
 export SINGULARITYENV_USER='$USER'
