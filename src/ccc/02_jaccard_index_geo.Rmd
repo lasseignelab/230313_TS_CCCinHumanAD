@@ -1,5 +1,5 @@
 ---
-title: "04_jaccard_index_nichenet"
+title: "02_jaccard_index_geo"
 author: "Tabea M. Soelter"
 date: '2023-07-07'
 output: html_document
@@ -93,7 +93,7 @@ lrt_cor_filtered$receiver <- ifelse(
 )
 
 # Check receivers were renamed and number
-table(lrt_cor_filtered$receiver) # Ex 263 In 313
+table(lrt_cor_filtered$receiver) # Ex 582 In 752
 ```
 
 # Calculate JI (Between senders)
@@ -419,13 +419,13 @@ fptm <- proc.time() - ptm
 style_file(here(
   "src",
   "ccc",
-  "04_jaccard_index_nichenet.Rmd"
+  "02_jaccard_index_geo.Rmd"
 ))
 
 # lintr
 lint(filename = here(
   "src",
   "ccc",
-  "04_jaccard_index_nichenet.Rmd"
+  "02_jaccard_index_geo.Rmd"
 ))
 ```
