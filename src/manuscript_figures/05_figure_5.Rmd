@@ -1,0 +1,87 @@
+---
+title: "figure5"
+author: "Tabea M. Soelter"
+date: '2023-09-29'
+output: html_document
+---
+
+Compiling figure 5
+- Panel A code is currently in trying_bunch_things.Rmd
+- Panel B code is currently in tf_activity.Rmd
+- Panel C code is currently in pathway_activity.Rmd
+
+#Panel A
+```{r}
+panelA <-
+  Heatmap(mat,
+                col = cols,
+                top_annotation = anno,
+                left_annotation = row_anno,
+                show_column_names = FALSE,
+                show_row_dend = FALSE,
+                show_column_dend = FALSE,
+                cluster_columns = TRUE,
+                cluster_rows = TRUE,
+        row_names_gp = gpar(col = row_colors))
+```
+
+#Panel B
+```{r}
+panelB <- 
+  Heatmap(t(mat),
+        col = cols,
+        top_annotation = anno,
+        show_column_names = FALSE,
+        show_row_dend = FALSE,
+        show_column_dend = FALSE,
+        cluster_columns = TRUE,
+        cluster_rows = TRUE)
+```
+
+#Panel C
+```{r}
+panelC <-
+Heatmap(t(acts_mat),
+        col = cols,
+        top_annotation = anno,
+        show_column_names = FALSE,
+        show_row_dend = FALSE,
+        show_column_dend = FALSE,
+        cluster_columns = TRUE,
+        cluster_rows = TRUE)
+```
+
+# combine
+```{r}
+library(cowplot)
+library(ggpubr)
+
+h1 <-  grid.grabExpr(draw(panelA,
+                          heatmap_legend_side = "bottom",
+                          annotation_legend_side = "bottom"))
+h2 <-  grid.grabExpr(draw(panelB,
+                          heatmap_legend_side = "bottom",
+                          annotation_legend_side = "bottom"))
+h3 <- grid.grabExpr(draw(panelC,
+                          heatmap_legend_side = "bottom",
+                          annotation_legend_side = "bottom"))
+
+fig5 <-
+plot_grid(h1,
+          h2,
+          h3,
+          ncol = 3,
+          labels = c("A", "B", "C"))
+
+fig5 <-
+ggarrange(h1,
+          h2,
+          h3,
+          ncol = 3,
+          labels = c("A", "B", "C"),
+          hjust = 1)
+
+fig5
+```
+
+

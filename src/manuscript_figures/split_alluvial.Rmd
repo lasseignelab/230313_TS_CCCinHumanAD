@@ -1,0 +1,348 @@
+---
+title: "split_alluvial"
+author: "Tabea M. Soelter"
+date: '2023-08-17'
+output: html_document
+---
+
+# colors
+```{r}
+colors <- c(
+  `Oligodendrocytes` = "royalblue4",
+  `Microglia` = "orchid3",
+  `OPCs` = "mediumpurple1",
+  `Astrocytes` = "cornflowerblue",
+  `Excitatory Neurons` = "slateblue3",
+  `Inhibitory Neurons` = "darkslategray3",
+  `Pericytes` = "deepskyblue3",
+  `Endothelial cells` = "darkolivegreen4")
+```
+
+```{r}
+# load in multinichenet outputs from  gse
+output <- readRDS(here("data", "ccc", "gse_multinichenet_output.rds"))
+
+# pull out ligands, receptors, and targets from the cor outputs 
+
+# prep gse multinichenet output for comparison
+top_n_target <- 250
+
+group_oi = "AD"
+receiver_oi = c("Excitatory.Neurons", "Inhibitory.Neurons")
+sender_oi <- c("Astrocytes", "Microglia", "OPCs", "Oligodendrocytes")
+
+contrast_tbl <- tibble(contrast = c("AD-CTRL", "CTRL-AD"),
+                       group = c("AD", "CTRL"))
+
+lr_target_prior_cor_filtered = output$lr_target_prior_cor %>%
+  inner_join(output$ligand_activities_targets_DEgenes$ligand_activities %>%
+               distinct(ligand, target, direction_regulation, contrast)) %>%
+  inner_join(contrast_tbl) %>%
+  filter(group == group_oi, receiver %in% receiver_oi, sender %in% sender_oi)
+
+lr_target_prior_cor_filtered_up = lr_target_prior_cor_filtered %>%
+  filter(direction_regulation == "up") %>%
+  filter( (rank_of_target < top_n_target) & (pearson > 0.33 | spearman > 0.33))
+
+lr_target_prior_cor_filtered_down = lr_target_prior_cor_filtered %>%
+  filter(direction_regulation == "down") %>%
+  filter( (rank_of_target < top_n_target) & (pearson < -0.33 | spearman < -0.33))
+
+lr_target_prior_cor_filtered = bind_rows(lr_target_prior_cor_filtered_up, lr_target_prior_cor_filtered_down)
+
+# Create new column with ligand-receptor-target only info
+lr_target_prior_cor_filtered$ligand_receptor_target <- gsub("(_[^_]+_)(.*?)(_[^_]+_)",
+                                                            "\\1\\4",
+                                                            lr_target_prior_cor_filtered$id_target,
+                                                            perl = TRUE)
+
+# Create new column with ligand-receptor only info
+lr_target_prior_cor_filtered$ligand_receptor <- gsub("^([^_]*_[^_]*).*",
+                                                     "\\1",
+                                                     lr_target_prior_cor_filtered$id,
+                                                     perl = TRUE)
+
+# Rename receiver cell types
+lr_target_prior_cor_filtered$receiver <- ifelse(
+  lr_target_prior_cor_filtered$receiver == "Inhibitory.Neurons",
+  "Inhibitory Neurons",
+  "Excitatory Neurons")
+
+# Check receivers were renamed and number
+table(lr_target_prior_cor_filtered$receiver) # 192 378
+
+lr_target_prior_cor_filtered_gse <- lr_target_prior_cor_filtered
+```
+
+# prep geo object
+```{r}
+output <- readRDS(here("data", "ccc", "geo_multinichenet_output.rds"))
+
+top_n_target <- 250
+
+group_oi = "AD"
+receiver_oi = c("Excitatory.Neurons", "Inhibitory.Neurons")
+sender_oi <- c("Astrocytes", "Microglia", "OPCs", "Oligodendrocytes")
+
+contrast_tbl <- tibble(contrast = c("AD-CTRL", "CTRL-AD"),
+                       group = c("AD", "CTRL"))
+
+lr_target_prior_cor_filtered = output$lr_target_prior_cor %>%
+  inner_join(output$ligand_activities_targets_DEgenes$ligand_activities %>%
+               distinct(ligand, target, direction_regulation, contrast)) %>%
+  inner_join(contrast_tbl) %>%
+  filter(group == group_oi, receiver %in% receiver_oi, sender %in% sender_oi)
+
+lr_target_prior_cor_filtered_up = lr_target_prior_cor_filtered %>%
+  filter(direction_regulation == "up") %>%
+  filter( (rank_of_target < top_n_target) & (pearson > 0.33 | spearman > 0.33))
+
+lr_target_prior_cor_filtered_down = lr_target_prior_cor_filtered %>%
+  filter(direction_regulation == "down") %>%
+  filter( (rank_of_target < top_n_target) & (pearson < -0.33 | spearman < -0.33))
+
+lr_target_prior_cor_filtered = bind_rows(lr_target_prior_cor_filtered_up, lr_target_prior_cor_filtered_down)
+
+# Create new column with ligand-receptor-target only info
+lr_target_prior_cor_filtered$ligand_receptor_target <- gsub("(_[^_]+_)(.*?)(_[^_]+_)",
+                                                            "\\1\\4",
+                                                            lr_target_prior_cor_filtered$id_target,
+                                                            perl = TRUE)
+
+# Create new column with ligand-receptor only info
+lr_target_prior_cor_filtered$ligand_receptor <- gsub("^([^_]*_[^_]*).*",
+                                                     "\\1",
+                                                     lr_target_prior_cor_filtered$id,
+                                                     perl = TRUE)
+
+# Rename receiver cell types
+lr_target_prior_cor_filtered$receiver <- ifelse(
+  lr_target_prior_cor_filtered$receiver == "Inhibitory.Neurons",
+  "Inhibitory Neurons",
+  "Excitatory Neurons")
+
+# Check receivers were renamed and number
+table(lr_target_prior_cor_filtered$receiver) # 263 313
+
+lr_target_prior_cor_filtered_geo <- lr_target_prior_cor_filtered
+```
+
+# see overlaps
+```{r}
+geo_ligands <- lr_target_prior_cor_filtered_geo$ligand %>% unique()
+
+gse_ligands <- lr_target_prior_cor_filtered_gse$ligand %>% unique()
+
+i1 <- intersect(geo_ligands, gse_ligands)
+
+length(i1)
+
+geo_receptors <- lr_target_prior_cor_filtered_geo$receptor %>% unique()
+
+gse_receptors <- lr_target_prior_cor_filtered_gse$receptor %>% unique()
+
+i2 <- intersect(geo_receptors, gse_receptors)
+
+length(i2)
+
+geo_targets <- lr_target_prior_cor_filtered_geo$target %>% unique()
+
+gse_targets <- lr_target_prior_cor_filtered_gse$target %>% unique()
+
+i3 <- intersect(geo_targets, gse_targets)
+
+length(i3)
+
+
+#### 
+
+geo_id <- lr_target_prior_cor_filtered_geo$id %>% unique()
+
+gse_id <- lr_target_prior_cor_filtered_gse$id %>% unique()
+
+i4 <- intersect(geo_id, gse_id)
+
+length(i4)
+
+####
+geo_id_target <- lr_target_prior_cor_filtered_geo$id_target %>% unique()
+
+gse_id_target <- lr_target_prior_cor_filtered_gse$id_target %>% unique()
+
+i5 <- intersect(geo_id_target, gse_id_target)
+
+length(i5)
+
+n <- max(length(geo_id), length(gse_id))
+length(geo_id) <- n
+length(gse_id) <- n
+
+bound <- data.frame(geo_id, gse_id)
+
+bound_ls <- as.list(bound)
+
+bound_lst <- lapply(bound_ls, function(x) x[!is.na(x)])
+
+
+library(UpSetR)
+upset(fromList(bound_lst),
+              sets = c("geo_id", "gse_id"),
+              order.by = "freq")
+```
+
+# prep alluvial of overlapping L-R
+- include overlapping L-Rs and all their targets for each sender
+```{r}
+geo_ccc <- lr_target_prior_cor_filtered_geo %>%
+  dplyr::select(sender, receiver, ligand, target, receptor, id) %>%
+  filter(id %in% i4) %>%
+  mutate(origin = "geo")
+
+gse_ccc <- lr_target_prior_cor_filtered_gse %>%
+  dplyr::select(sender, receiver, ligand, target, receptor, id) %>%
+  filter(id %in% i4) %>%
+  mutate(origin = "gse")
+
+ccc_combined <- rbind(geo_ccc, gse_ccc) %>%
+  select(sender, receiver, ligand, receptor, id) %>%
+  unique()
+
+# OPCs
+ccc_opc <- ccc_combined %>%
+  filter(sender == "OPCs")
+
+ccc_opc$ligand <- factor(ccc_opc$ligand, levels = as.character(unique(ccc_opc$ligand)))
+ccc_opc$receptor <- factor(ccc_opc$receptor, levels = as.character(unique(ccc_opc$receptor)))
+
+ccc_opc$ligand <- reorder(ccc_opc$ligand, desc(ccc_opc$receiver))
+ccc_opc$receptor <- reorder(ccc_opc$receptor, desc(ccc_opc$receiver))
+
+opc <-
+ggplot(ccc_opc, aes(axis1 = ligand, axis2 = receptor), label = stratum) +
+  scale_x_discrete(limits = c("Ligand", "Receptor")) + 
+  xlab("Type") +
+  geom_alluvium() +
+  stat_alluvium(lode.guidance = "frontback") +
+  geom_stratum(aes(fill = receiver)) +
+  #geom_label(stat = "stratum", fill = "white", aes(label = after_stat(stratum))) +
+  geom_flow(aes(fill = receiver), stat = "alluvium", color = "black") +
+  scale_fill_manual(values = colors) +
+  geom_text(stat = "stratum", aes(label = after_stat(stratum)), fontface = "bold") +
+  scale_x_discrete(limits = c("Ligand", "Receptor")) +
+  theme_void() +
+  theme(axis.text.x = element_text(vjust = 2, face = "bold", size = 12),
+        legend.position = c(0.9, 0.5),
+        legend.margin = margin(0, 0, 0, 0),
+        legend.text = element_text(face = "bold", size = 12),
+        legend.title = element_text(face = "bold", size = 14),
+        plot.title = element_text(face = "bold", hjust = 0.5, size = 14)) +
+  guides(fill = guide_legend(title = "Receiver")) +
+  ggtitle("OPCs")
+
+# Astrocytes
+ccc_astro <- ccc_combined %>%
+  filter(sender == "Astrocytes")
+
+ccc_astro$ligand <- factor(ccc_astro$ligand, levels = as.character(unique(ccc_astro$ligand)))
+ccc_astro$receptor <- factor(ccc_astro$receptor, levels = as.character(unique(ccc_astro$receptor)))
+
+ccc_astro$ligand <- reorder(ccc_astro$ligand, desc(ccc_astro$receiver))
+ccc_astro$receptor <- reorder(ccc_astro$receptor, desc(ccc_astro$receiver))
+
+astro <-
+ggplot(ccc_astro, aes(axis1 = ligand, axis2 = receptor), label = stratum) +
+  scale_x_discrete(limits = c("Ligand", "Receptor")) + 
+  xlab("Type") +
+  geom_alluvium() +
+  stat_alluvium(lode.guidance = "frontback") +
+  geom_stratum(aes(fill = receiver)) +
+  #geom_label(stat = "stratum", fill = "white", aes(label = after_stat(stratum))) +
+  geom_flow(aes(fill = receiver), stat = "alluvium", color = "black") +
+  scale_fill_manual(values = colors) +
+  geom_text(stat = "stratum", aes(label = after_stat(stratum)), fontface = "bold") +
+  scale_x_discrete(limits = c("Ligand", "Receptor")) +
+  theme_void() +
+  theme(axis.text.x = element_text(vjust = 2, face = "bold", size = 12),
+        legend.position = c(0.9, 0.5),
+        legend.margin = margin(0, 0, 0, 0),
+        legend.text = element_text(face = "bold", size = 12),
+        legend.title = element_text(face = "bold", size = 14),
+        plot.title = element_text(face = "bold", hjust = 0.5, size = 14)) +
+  guides(fill = guide_legend(title = "Receiver")) +
+  ggtitle("Astrocytes")
+
+# Microglia
+ccc_micro <- ccc_combined %>%
+  filter(sender == "Microglia")
+
+ccc_micro$ligand <- factor(ccc_micro$ligand, levels = as.character(unique(ccc_micro$ligand)))
+ccc_micro$receptor <- factor(ccc_micro$receptor, levels = as.character(unique(ccc_micro$receptor)))
+
+ccc_micro$ligand <- reorder(ccc_micro$ligand, desc(ccc_micro$receiver))
+ccc_micro$receptor <- reorder(ccc_micro$receptor, desc(ccc_micro$receiver))
+
+micro <-
+ggplot(ccc_micro, aes(axis1 = ligand, axis2 = receptor), label = stratum) +
+  scale_x_discrete(limits = c("Ligand", "Receptor")) + 
+  xlab("Type") +
+  geom_alluvium() +
+  stat_alluvium(lode.guidance = "frontback") +
+  geom_stratum(aes(fill = receiver)) +
+  #geom_label(stat = "stratum", fill = "white", aes(label = after_stat(stratum))) +
+  geom_flow(aes(fill = receiver), stat = "alluvium", color = "black") +
+  scale_fill_manual(values = colors) +
+  geom_text(stat = "stratum", aes(label = after_stat(stratum)), fontface = "bold") +
+  scale_x_discrete(limits = c("Ligand", "Receptor")) +
+  theme_void() +
+  theme(axis.text.x = element_text(vjust = 2, face = "bold", size = 12),
+        legend.position = c(0.9, 0.5),
+        legend.margin = margin(0, 0, 0, 0),
+        legend.text = element_text(face = "bold", size = 12),
+        legend.title = element_text(face = "bold", size = 14),
+        plot.title = element_text(face = "bold", hjust = 0.5, size = 14)) +
+  guides(fill = guide_legend(title = "Receiver")) +
+  ggtitle("Microglia")
+
+# Oligodendrocytes
+ccc_oligo <- ccc_combined %>%
+  filter(sender == "Oligodendrocytes")
+
+ccc_oligo$ligand <- factor(ccc_oligo$ligand, levels = as.character(unique(ccc_oligo$ligand)))
+ccc_oligo$receptor <- factor(ccc_oligo$receptor, levels = as.character(unique(ccc_oligo$receptor)))
+
+ccc_oligo$ligand <- reorder(ccc_oligo$ligand, desc(ccc_oligo$receiver))
+ccc_oligo$receptor <- reorder(ccc_oligo$receptor, desc(ccc_oligo$receiver))
+
+oligo <-
+ggplot(ccc_oligo, aes(axis1 = ligand, axis2 = receptor), label = stratum) +
+  scale_x_discrete(limits = c("Ligand", "Receptor")) + 
+  xlab("Type") +
+  geom_alluvium() +
+  stat_alluvium(lode.guidance = "frontback") +
+  geom_stratum(aes(fill = receiver)) +
+  #geom_label(stat = "stratum", fill = "white", aes(label = after_stat(stratum))) +
+  geom_flow(aes(fill = receiver), stat = "alluvium", color = "black") +
+  scale_fill_manual(values = colors) +
+  geom_text(stat = "stratum", aes(label = after_stat(stratum)), fontface = "bold") +
+  scale_x_discrete(limits = c("Ligand", "Receptor")) +
+  theme_void() +
+  theme(axis.text.x = element_text(vjust = 2, face = "bold", size = 12),
+        legend.position = c(0.9, 0.5),
+        legend.margin = margin(0, 0, 0, 0),
+        legend.text = element_text(face = "bold", size = 12),
+        legend.title = element_text(face = "bold", size = 14),
+        plot.title = element_text(face = "bold", hjust = 0.5, size = 14)) +
+  guides(fill = guide_legend(title = "Receiver")) +
+  ggtitle("Oligodendrocytes")
+
+opc
+astro
+micro
+oligo
+```
+
+
+
+
+
+

@@ -33,6 +33,7 @@ suppressPackageStartupMessages({
   library(reshape2)
   library(patchwork)
   library(cowplot)
+  library(ggcorrplot)
   library(here)
   library(styler)
   library(lintr)
@@ -45,9 +46,7 @@ suppressPackageStartupMessages({
 output <- readRDS(here("data", "ccc", "geo_multinichenet_output.rds"))
 
 # Jaccard Similarity Index  
-saveRDS(
-  jaccard_results_ligands,
-  here(
+jaccard_results_ligands <- readRDS(here(
     "results",
     "intermediate_outputs",
     "geo",
@@ -56,9 +55,7 @@ saveRDS(
   )
 )
 
-saveRDS(
-  jaccard_results_receptors,
-  here(
+jaccard_results_receptors <- readRDS(here(
     "results",
     "intermediate_outputs",
     "geo",
@@ -67,9 +64,7 @@ saveRDS(
   )
 )
 
-saveRDS(
-  jaccard_results_targets,
-  here(
+jaccard_results_targets <- readRDS(here(
     "results",
     "intermediate_outputs",
     "geo",
@@ -78,9 +73,7 @@ saveRDS(
   )
 )
 
-saveRDS(
-  jaccard_receptors,
-  here(
+jaccard_receptors <- readRDS(here(
     "results",
     "intermediate_outputs",
     "geo",
@@ -89,9 +82,7 @@ saveRDS(
   )
 )
 
-saveRDS(
-  jaccard_targets,
-  here(
+jaccard_targets <- readRDS(here(
     "results",
     "intermediate_outputs",
     "geo",
@@ -110,12 +101,12 @@ ggcorrplot(jaccard_ex_mat) +
                        colors = colors,
                        name = "Jaccard Index") +
   theme_bw() +
-  theme(axis.title.x = element_text(size = 12, face = "bold"),
-        axis.title.y = element_text(angle = 90, size = 12, face = "bold"),
-        axis.text = element_text(size = 10, face = "bold"),
-        plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
-        legend.text = element_text(face = "bold"),
-        legend.title = element_text(face = "bold"),
+  theme(axis.title.x = element_text(size = 14, face = "bold"),
+        axis.title.y = element_text(angle = 90, size = 14, face = "bold"),
+        axis.text = element_text(size = 12, face = "bold"),
+        plot.title = element_text(size = 15, face = "bold", hjust = 0.5),
+        legend.text = element_text(face = "bold", size = 12),
+        legend.title = element_text(face = "bold", size = 14),
         panel.grid.major = element_blank()) +
   labs(x = "Excitatory Neurons", y = "Inhibitory Neurons") +
   ggtitle("Ligands")
@@ -291,16 +282,7 @@ fig2 <- plot_grid(top,
                   ncol = 1)
 
 
-fig2 <- plot_grid(panel_A,
-                  panel_B,
-                  panel_C,
-                  panel_D,
-                  panel_E,
-                  panel_F,
-                  labels = c("A", "B", "C", "D", "E", "F"),
-                  ncol = 3)
-
-png(here("results", "figures", "figure2.png"), width = 1000, height = 600)
+png(here("results", "figures", "figure2.png"), width = 375, height = 250, units = 'mm', res = 300)
 fig2
 dev.off()
 ```
@@ -416,11 +398,11 @@ lr_target_prior_cor_filtered = output$lr_target_prior_cor %>%
 
 lr_target_prior_cor_filtered_up = lr_target_prior_cor_filtered %>%
   filter(direction_regulation == "up") %>%
-  filter( (rank_of_target < top_n_target) & (pearson > 0.50 | spearman > 0.50))
+  filter( (rank_of_target < top_n_target) & (pearson > 0.33 | spearman > 0.33))
 
 lr_target_prior_cor_filtered_down = lr_target_prior_cor_filtered %>%
   filter(direction_regulation == "down") %>%
-  filter( (rank_of_target < top_n_target) & (pearson < -0.50 | spearman < -0.50))
+  filter( (rank_of_target < top_n_target) & (pearson < -0.33 | spearman < -0.33))
 
 prior <- bind_rows(lr_target_prior_cor_filtered_up, lr_target_prior_cor_filtered_down)
 
@@ -521,6 +503,24 @@ ggplot(prior_num2, aes(x = sender, y = interactions, fill = receiver)) +
   theme(axis.text = element_text(face = "bold")) +
   theme(axis.title = element_text(face = "bold"),
         legend.title = element_text(face = "bold"))
+
+panel_A <- ggplot(prior_num2, aes(x = sender, y = interactions, fill = receiver)) +
+  geom_bar(stat = "identity", position = "stack") +
+  xlab("Sender") +
+  ylab("Number of Interactions") +
+  #ggtitle("Number of Unique Genes in Each Condition for Different Contexts") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_discrete(name = "Receiver") +
+  theme_bw()+
+  geom_text(aes(label = interactions), position = "stack", vjust = 2, fontface = "bold") +
+  scale_fill_manual(values = c(`Excitatory Neurons` = "slateblue3",
+                               `Inhibitory Neurons` = "darkslategray3")) +
+  labs(fill = "Receiver") +
+  theme(legend.text = element_text(face = "bold")) +
+  theme(axis.text = element_text(face = "bold", size = 12)) +
+  theme(axis.title = element_text(face = "bold", size = 14),
+        legend.title = element_text(face = "bold", size = 12),
+        text = element_text(face = "bold"))
 ```
 
 
@@ -546,11 +546,11 @@ lr_target_prior_cor_filtered = output$lr_target_prior_cor %>%
 
 lr_target_prior_cor_filtered_up = lr_target_prior_cor_filtered %>%
   filter(direction_regulation == "up") %>%
-  filter( (rank_of_target < top_n_target) & (pearson > 0.50 | spearman > 0.50))
+  filter( (rank_of_target < top_n_target) & (pearson > 0.33 | spearman > 0.33))
 
 lr_target_prior_cor_filtered_down = lr_target_prior_cor_filtered %>%
   filter(direction_regulation == "down") %>%
-  filter( (rank_of_target < top_n_target) & (pearson < -0.50 | spearman < -0.50))
+  filter( (rank_of_target < top_n_target) & (pearson < -0.33 | spearman < -0.33))
 
 lr_target_prior_cor_filtered = bind_rows(lr_target_prior_cor_filtered_up, lr_target_prior_cor_filtered_down)
 
@@ -560,26 +560,35 @@ lr_target_prior_cor_filtered = bind_rows(lr_target_prior_cor_filtered_up, lr_tar
 
 ### Supplemental Figures ###
 ```{r}
+total_num$sender <- ifelse(
+  total_num$sender == "Inhibitory.Neurons",
+  "Inhibitory Neurons",
+  ifelse(total_num$sender == "Excitatory.Neurons",
+  "Excitatory Neurons",
+  ifelse(total_num$sender == "Endothelial.cells",
+  "Endothelial cells", total_num$sender)))
+
+
 panelA <-
 ggplot(total_num, aes(x = sender, y = interactions, fill = sender)) +
   geom_bar(stat = "identity") +
   xlab("Sender") +
   ylab("Number of Unique Interactions") +
   theme_bw() +
-  geom_text(aes(label = interactions), position = "stack", vjust = 2) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  theme(legend.text = element_text(face = "bold")) +
-  theme(axis.text = element_text(face = "bold")) +
-  theme(axis.title = element_text(face = "bold"),
-        legend.title = element_text(face = "bold")) +
+  geom_text(aes(label = interactions), position = "stack", vjust = 2, fontface = "bold") + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 12)) +
+  theme(legend.text = element_text(face = "bold", size = 12)) +
+  theme(axis.text = element_text(face = "bold", size = 12)) +
+  theme(axis.title = element_text(face = "bold", size = 14),
+        legend.title = element_text(face = "bold", size = 14)) +
   scale_fill_manual(values = c(`Oligodendrocytes` = "royalblue4",
                                `Microglia` = "orchid3",
                                `OPCs` = "mediumpurple1",
                                `Astrocytes` = "cornflowerblue",
-                               `Excitatory.Neurons` = "slateblue3",
-                               `Inhibitory.Neurons` = "darkslategray3",
+                               `Excitatory Neurons` = "slateblue3",
+                               `Inhibitory Neurons` = "darkslategray3",
                                `Pericytes` = "deepskyblue3",
-                               `Endothelial.cells` = "darkolivegreen4"),
+                               `Endothelial cells` = "darkolivegreen4"),
                     name = "Sender") 
 
 panelB <-
@@ -588,12 +597,12 @@ ggplot(oi_num, aes(x = sender, y = interactions, fill = sender)) +
   xlab("Sender") +
   ylab("Number of Unique Interactions") +
   theme_bw() +
-  geom_text(aes(label = interactions), position = "stack", vjust = 2) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  theme(legend.text = element_text(face = "bold")) +
-  theme(axis.text = element_text(face = "bold")) +
-  theme(axis.title = element_text(face = "bold"),
-        legend.title = element_text(face = "bold")) +
+  geom_text(aes(label = interactions), position = "stack", vjust = 2, fontface = "bold") + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 12)) +
+  theme(legend.text = element_text(face = "bold", size = 12)) +
+  theme(axis.text = element_text(face = "bold", size = 12)) +
+  theme(axis.title = element_text(face = "bold", size = 14),
+        legend.title = element_text(face = "bold", size = 14)) +
   scale_fill_manual(values = c(`Oligodendrocytes` = "royalblue4",
                                `Microglia` = "orchid3",
                                `OPCs` = "mediumpurple1",
@@ -603,21 +612,21 @@ ggplot(oi_num, aes(x = sender, y = interactions, fill = sender)) +
 panelC <-
 ggplot(prior_num, aes(x = sender, y = interactions, fill = sender)) +
   geom_bar(stat = "identity", position = "stack") +
-  xlab("Cell Types") +
+  xlab("Sender") +
   ylab("Number of Unique Interactions") +
   scale_fill_discrete(name = "Sender") +
   theme_bw()+
-  geom_text(aes(label = interactions), position = "stack", vjust = 2) +
+  geom_text(aes(label = interactions), position = "stack", vjust = 2, fontface = "bold") +
   scale_fill_manual(values = c(`Astrocytes` = "cornflowerblue",
                                `Microglia` = "orchid3",
                                `Oligodendrocytes` = "royalblue4",
                                `OPCs` = "mediumpurple1")) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  theme(legend.text = element_text(face = "bold")) +
-  theme(axis.text = element_text(face = "bold")) +
-  theme(axis.title = element_text(face = "bold"),
-        legend.title = element_text(face = "bold")) 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 12)) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 12)) +
+  theme(legend.text = element_text(face = "bold", size = 12)) +
+  theme(axis.text = element_text(face = "bold", size = 12)) +
+  theme(axis.title = element_text(face = "bold", size = 14),
+        legend.title = element_text(face = "bold", size = 14)) 
 
 supp_fig2 <- plot_grid(panelA,
                        panelB,
@@ -625,7 +634,7 @@ supp_fig2 <- plot_grid(panelA,
                        labels = c("A", "B", "C"),
                        ncol = 3)
 
-png(here("results", "figures", "supp_figure2.png"), width = 1200, height = 600)
+png(here("results", "figures", "supp_figure2.png"), width = 500, height = 200, units = 'mm', res = 300)
 supp_fig2
 dev.off()
 ```
@@ -680,9 +689,9 @@ ggcorrplot(jaccard_ex_mat, outline.color = "white", lab = TRUE) +
                        colors = colors,
                        name = "JI") +
   theme_bw() +
-  theme(axis.title.x = element_text(size = 12, face = "bold"),
-        axis.title.y = element_text(angle = 90, size = 12, face = "bold"),
-        axis.text = element_text(size = 10, face = "bold"),
+  theme(axis.title.x = element_text(size = 14, face = "bold"),
+        axis.title.y = element_text(angle = 90, size = 14, face = "bold"),
+        axis.text = element_text(size = 12, face = "bold"),
         plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
         legend.text = element_text(face = "bold"),
         legend.title = element_text(face = "bold"),
@@ -691,15 +700,15 @@ ggcorrplot(jaccard_ex_mat, outline.color = "white", lab = TRUE) +
   ggtitle("Ligands")
 
 #### removing labels to combine
-panel_C <- ggcorrplot(jaccard_ex_mat, outline.color = "white", lab = TRUE) +
+panel_C <- ggcorrplot(jaccard_ex_mat, outline.color = "white", lab = TRUE, lab_size = 5) +
   scale_fill_gradientn(limits = c(0, 1),
                        breaks = seq(0, 1, by = 0.2),
                        colors = colors,
                        name = "JI") +
   theme_bw() +
-  theme(axis.title.x = element_text(size = 12, face = "bold"),
-        axis.title.y = element_text(angle = 90, size = 12, face = "bold"),
-        axis.text = element_text(size = 10, face = "bold"),
+  theme(axis.title.x = element_text(size = 14, face = "bold"),
+        axis.title.y = element_text(angle = 90, size = 14, face = "bold"),
+        axis.text = element_text(size = 12, face = "bold"),
         axis.text.x = element_text(angle = 45, hjust = 1),
         plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
         legend.text = element_text(face = "bold"),
@@ -761,15 +770,15 @@ ggcorrplot(jaccard_ex_mat, outline.color = "white", lab = TRUE) +
   ggtitle("Receptors")
 
 #### remove some labels for combining plots
-panel_D <- ggcorrplot(jaccard_ex_mat, outline.color = "white", lab = TRUE) +
+panel_D <- ggcorrplot(jaccard_ex_mat, outline.color = "white", lab = TRUE, lab_size = 5) +
   scale_fill_gradientn(limits = c(0, 1),
                        breaks = seq(0, 1, by = 0.2),
                        colors = colors,
                        name = "JI") +
   theme_bw() +
-  theme(axis.title.x = element_text(size = 12, face = "bold"),
-        axis.title.y = element_text(angle = 90, size = 12, face = "bold"),
-        axis.text = element_text(size = 10, face = "bold"),
+  theme(axis.title.x = element_text(size = 14, face = "bold"),
+        axis.title.y = element_text(angle = 90, size = 14, face = "bold"),
+        axis.text = element_text(size = 12, face = "bold"),
         axis.text.x = element_text(angle = 45, hjust = 1),
         plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
         legend.text = element_text(face = "bold"),
@@ -832,22 +841,30 @@ ggcorrplot(jaccard_ex_mat, outline.color = "white", lab = TRUE) +
   ggtitle("Targets")
 
 ### remove some labels to combine with other plots
-panel_E <- ggcorrplot(jaccard_ex_mat, outline.color = "white", lab = TRUE) +
+panel_E <- ggcorrplot(jaccard_ex_mat, outline.color = "white", lab = TRUE, lab_size = 5) +
   scale_fill_gradientn(limits = c(0, 1),
                        breaks = seq(0, 1, by = 0.2),
                        colors = colors,
                        name = "JI") +
   theme_bw() +
-  theme(axis.title.x = element_text(size = 12, face = "bold"),
-        axis.title.y = element_text(angle = 90, size = 12, face = "bold"),
-        axis.text = element_text(size = 10, face = "bold"),
+  theme(axis.title.x = element_text(size = 14, face = "bold"),
+        axis.title.y = element_text(angle = 90, size = 14, face = "bold"),
+        axis.text = element_text(size = 12, face = "bold"),
         axis.text.x = element_text(angle = 45, hjust = 1),
         plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
-        legend.text = element_text(face = "bold"),
-        legend.title = element_text(face = "bold"),
+        legend.text = element_text(face = "bold", size = 12),
+        legend.title = element_text(face = "bold", size = 14),
         panel.grid.major = element_blank()) +
   labs(x = "Excitatory Neurons", y = "Inhibitory Neurons") +
   ggtitle("Targets")
+
+
+jaccard_receptors$type <- "Receptors"
+jaccard_targets$type <- "Targets"
+
+jaccard_all <- rbind(jaccard_receptors, jaccard_targets)
+
+
 
 panel_B <- jaccard_all %>%
   ggplot() +
@@ -860,10 +877,10 @@ panel_B <- jaccard_all %>%
   theme_bw() +
   labs(x = "Sender", y = "JI") +
   ylim(0, 0.5) +
-  theme(axis.title.x = element_text(size = 12, face = "bold"),
-        axis.title.y = element_text(size = 12, face = "bold"),
-        axis.text = element_text(size = 10, face = "bold"),
+  theme(axis.title.x = element_text(size = 14, face = "bold"),
+        axis.title.y = element_text(size = 14, face = "bold"),
+        axis.text = element_text(size = 12, face = "bold"),
         plot.title = element_text(size = 13, face = "bold", hjust = 0.5),
-        legend.text = element_text(face = "bold"),
-        legend.title = element_text(face = "bold"))
+        legend.text = element_text(face = "bold", size = 12),
+        legend.title = element_text(face = "bold", size = 14))
 ```
