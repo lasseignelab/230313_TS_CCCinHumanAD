@@ -518,34 +518,61 @@ normalize <- function(x, na.rm = TRUE) {
 
 ## compile_gex
 # A function to read in a Seurat object, filter it by receiver cell type and condition, as well as pull GEx values. GEx values are then summed and normalized.
+#compile_gex <- function(object, receiver, condition, genes_ppi){
+#  target_all <- subset(object, 
+#                       idents = receiver)
+#  target_cond <- subset(target_all, 
+#                        subset = orig.ident == condition)
+#  counts_ppi <- FetchData(target_cond, 
+#                          slot = "data", 
+#                          vars = genes_ppi)
+#  counts_m <- as.data.frame(colMeans(counts_ppi))
+#  counts_norm <- normalize(counts_m)
+#  return(counts_norm)
+#}
+
 compile_gex <- function(object, receiver, condition, genes_ppi){
   target_all <- subset(object, 
                        idents = receiver)
   target_cond <- subset(target_all, 
                         subset = orig.ident == condition)
   counts_ppi <- FetchData(target_cond, 
-                          slot = "counts", 
+                          slot = "data", 
                           vars = genes_ppi)
-  counts_m <- as.data.frame(colMeans(counts_ppi))
-  counts_norm <- normalize(counts_m)
+  counts_norm <- as.data.frame(colMeans(counts_ppi))
   return(counts_norm)
 }
 
 ## calculate_weights
 # A function to calculate edge weights for PPI based on GEx and STRINGdb score.
+#calculate_weights <- function(x, counts){
+#  z <- x[1]
+#  z_count <- counts %>% filter(row.names(counts) %in% z) %>% as.numeric()
+#  y <- x[2]
+#  y_count <- counts %>% filter(row.names(counts) %in% y) %>% as.numeric()
+#  edge_weight <- (z_count + y_count)*(as.numeric(x[4]))
+#  return(edge_weight)
+#}
+
 calculate_weights <- function(x, counts){
   z <- x[1]
   z_count <- counts %>% filter(row.names(counts) %in% z) %>% as.numeric()
   y <- x[2]
   y_count <- counts %>% filter(row.names(counts) %in% y) %>% as.numeric()
-  edge_weight <- (z_count + y_count)*(as.numeric(x[4]))
+  max_weight <- max(z_count * y_count)
+  edge_weight <- ((z_count * y_count)/max_weight)*(as.numeric(x[4]))
   return(edge_weight)
 }
 
 ## inverse_weights
 # A function to inverse weights from Djikstra's shortest path algorithm and calculation
+#inverse_weights <- function(df){
+#  edge_weight_t <- max(df[5]) - df[5] + 1 
+#  return(edge_weight_t)
+#} 
+
 inverse_weights <- function(df){
-  edge_weight_t <- max(df[5]) - df[5] + 1 
+  edge_weight_t <- 1 - df[5] 
   return(edge_weight_t)
 } 
 
@@ -768,6 +795,332 @@ calculate_jaccard2 <- function(df, senders, receivers, type) {
   
   return(jaccard_results)
 }
+
+## make_sce
+# A function which requires a list of Seurat objects in order to create single cell experiment objects. It also appends the necessary metadata for pseudo-bulking by cell type and sample.
+make_sce <- function(object_list) {
+  sce_objects <- tibble::lst()
+  for(name in names(object_list)) {
+    object <- object_list[[name]]
+    # raw data
+    counts <- object@assays$RNA@counts
+    # metadata
+    metadata <- object@meta.data
+    # add sample_id column as class 'factor'
+    metadata$sample_id <- metadata$sample %>% as.factor()
+    # add condition information
+    metadata$group_id <- metadata$orig.ident
+    metadata$group_id <- relevel(metadata$group_id, "CTRL")
+    # add cell type information
+    metadata$cluster_id <- factor(object@active.ident)
+    # make sce object
+    sce <- SingleCellExperiment(assays = list(counts = counts), colData = metadata)
+    
+    new_name <- gsub("processed_seurat", "sce", name) 
+    sce_objects[new_name] <- list(sce)}
+  
+  return(sce_objects)
+}
+
+## pseudobulk
+# A wrapper function which generates pseudo-bulked data from single cell experiment objects by cell type. The code was adapted form the HBC pseudobulk tutorial.
+pseudobulk <- function(object_list) {
+  counts_ls_list <- tibble::lst()
+  for(name in names(object_list)) {
+    print(name)
+    sce <- object_list[[name]]
+    # prepare for pseudo-bulking
+    cluster_names <- levels(colData(sce)$cluster_id)
+    print(length(cluster_names))
+    sample_names <- levels(colData(sce)$sample_id)
+    print(length(sample_names))
+    groups <- colData(sce)[, c("cluster_id", "sample_id")]
+    aggr_counts <- aggregate.Matrix(t(counts(sce)), 
+                                    groupings = groups, fun = "sum")
+    aggr_counts <- t(aggr_counts)
+    # Loop over cell types and extract counts (pseudo-bulk)
+    counts_ls <- list()
+    for (i in 1:length(cluster_names)) {
+      column_idx <- which(tstrsplit(colnames(aggr_counts), "_")[[1]] == cluster_names[i])
+      counts_ls[[i]] <- aggr_counts[, column_idx]
+      names(counts_ls)[i] <- cluster_names[i]
+    }
+    # save counts_ls with dataset name
+    new_name <- gsub("sce", "counts_ls", name) 
+    counts_ls_list[new_name] <- list(counts_ls)}
+  
+  return(counts_ls_list)
+}
+
+## cts_metadata
+# A wrapper function to create cell-type-specific metadata for the previously pseudo-bulked count data. This code was adapted from the HBC pseudobulk tutorials.
+cts_metadata <- function(object_list, counts_list) {
+  metadata_ls_list <- tibble::lst()
+  for(name in names(object_list)) {
+    print(name)
+    sce <- object_list[[name]]
+    metadata <- colData(sce) %>% 
+      as.data.frame() %>% 
+      dplyr::select(group_id, sample_id)
+    metadata <- metadata[!duplicated(metadata), ]
+    print(dim(metadata))
+    rownames(metadata) <- metadata$sample_id
+    t <- table(colData(sce)$sample_id,
+               colData(sce)$cluster_id)
+    match_name <- gsub("sce", "counts_ls", name)
+    counts_ls <- counts_list[[match_name]]
+    
+    metadata_ls <- list()
+    
+    for (i in 1:length(counts_ls)) {
+      df <- data.frame(cluster_sample_id = colnames(counts_ls[[i]]))
+      df$cluster_id <- tstrsplit(df$cluster_sample_id, "_")[[1]]
+      df$sample_id  <- tstrsplit(df$cluster_sample_id, "_")[[2]]
+      idx <- which(colnames(t) == unique(df$cluster_id))
+      cell_counts <- t[, idx]
+      cell_counts <- cell_counts[cell_counts > 0]
+      sample_order <- match(df$sample_id, names(cell_counts))
+      cell_counts <- cell_counts[sample_order]
+      df$cell_count <- cell_counts
+      df <- plyr::join(df, metadata, 
+                       by = intersect(names(df), names(metadata)))
+      rownames(df) <- df$cluster_sample_id
+      metadata_ls[[i]] <- df
+      names(metadata_ls)[i] <- unique(df$cluster_id)
+    }
+    # save counts_ls with dataset name
+    new_name <- gsub("sce", "metadata_ls", name) 
+    metadata_ls_list[new_name] <- list(metadata_ls)
+  }
+  return(metadata_ls_list)
+}
+
+## deseq2_dea
+# A wrapper function which does DEA using DESeq2 for pseudo-bulked single cell data. It automatically saves both significant and all DEGs in a 'pseudobulk' directory at the specified path. This code is originally form the HBC training guide, but was heavily adapted.
+deseq2_dea <- function(cell_types, counts_ls, metadata_ls, group_oi, B, padj_cutoff = 0.05, path) {
+  cell_type <- cell_types[1]
+  print(cell_type)
+  ifelse(!dir.exists(here(paste0(path, "pseudobulk/"))),
+         dir.create(here(paste0(path, "pseudobulk/"))),
+         print("Info: pseudobulk directory already exists"))
+  idx <- which(names(counts_ls) == cell_type)
+  cluster_counts <- counts_ls[[idx]]
+  cluster_metadata <- metadata_ls[[idx]]
+  dds <- DESeqDataSetFromMatrix(cluster_counts, 
+                                colData = cluster_metadata, 
+                                design = ~ group_id)
+  dds <- DESeq(dds)
+  contrast <- paste(c("group_id", group_oi, "vs", B), collapse = "_")
+  res <- results(dds, name = contrast, alpha = 0.05)
+  res <- lfcShrink(dds, coef = contrast, res = res, type = "normal")
+  res_tbl <- res %>%
+    data.frame() %>%
+    rownames_to_column(var = "gene") %>%
+    as_tibble()
+  # save all results
+  write.csv(res_tbl,
+            here(paste0(path, "pseudobulk/", cell_type, "_", contrast, "_all_genes.csv")),
+            quote = FALSE, 
+            row.names = FALSE)
+  
+  # save sig results
+  sig_res <- dplyr::filter(res_tbl, padj < padj_cutoff) %>%
+    dplyr::arrange(padj)
+  
+  write.csv(sig_res,
+            here(paste0(path, "pseudobulk/", cell_type, "_", contrast, "_signif_genes.csv")),
+            quote = FALSE, 
+            row.names = FALSE)
+}
+
+## filter_multinichenet
+# A function which filters multinichenet outputs
+filter_multinichenet <- function(object_list, sender_oi, receiver_oi, contrast_tbl, top_n_target = 250){
+  filtered_objects <- tibble::lst()
+  for(name in names(object_list)) {
+    multinichenet_output <- object_list[[name]]
+    
+    
+    lr_target_prior_cor_filtered <- multinichenet_output$prioritization_tables$group_prioritization_tbl$group %>%
+      unique() %>%
+      lapply(function(group_oi) {
+        print(group_oi)
+        lr_target_prior_cor_filtered <- multinichenet_output$lr_target_prior_cor %>%
+          inner_join(multinichenet_output$ligand_activities_targets_DEgenes$ligand_activities %>%
+                       distinct(ligand, target, direction_regulation, contrast)) %>%
+          inner_join(contrast_tbl) %>%
+          filter(group == group_oi)
+        lr_target_prior_cor_filtered_up <- lr_target_prior_cor_filtered %>%
+          filter(direction_regulation == "up") %>%
+          filter((rank_of_target < top_n_target) & (pearson > 0.33 | spearman > 0.33))
+        lr_target_prior_cor_filtered_down <- lr_target_prior_cor_filtered %>%
+          filter(direction_regulation == "down") %>%
+          filter((rank_of_target < top_n_target) & (pearson < -0.33 | spearman < -0.33))
+        lr_target_prior_cor_filtered <- bind_rows(lr_target_prior_cor_filtered_up,
+                                                  lr_target_prior_cor_filtered_down)}) %>%
+      bind_rows()
+    
+    lr_target_prior_cor_filtered <- lr_target_prior_cor_filtered %>%
+      filter(sender %in% sender_oi,
+             receiver %in% receiver_oi)
+    
+    new_name <- gsub("multinichenet_output", "lr_target_prior_cor_filtered", name)
+    filtered_objects[new_name] <- list(lr_target_prior_cor_filtered)
+  }
+  return(filtered_objects)
+}
+
+## signaling_igraph
+# A function that plots and saves signaling GRNs for each LRT pair in multiple datasets, while also returning igraph objects for downstream analysis.
+signaling_igraph <- function(lrt_filtered_list, overlap, ccc_combined, ligand_tf_matrix, weighted_networks,
+                             lr_network, sig_network, gr_network, plots) {
+  igraph_objects_list <- tibble::lst()
+  for(name in names(lrt_filtered_list)) {
+    lrt_filtered <- lrt_filtered_list[[name]]
+    dataset <- gsub("_lr_target_prior_cor_filtered", "", name)
+    
+    igraph_objects <- tibble::lst()
+    for (i in overlap) {
+      ccc_combined_sub <- ccc_combined[ccc_combined$id_target == i,]
+      ligand_oi <- ccc_combined_sub$ligand
+      receptor_oi <- ccc_combined_sub$receptor
+      sender_oi <- ccc_combined_sub$sender
+      receiver_oi <- ccc_combined_sub$receiver
+      id <- ccc_combined_sub$id_target
+      print(id)
+      
+      targets_all <- lrt_filtered %>% 
+        filter(ligand == ligand_oi &
+                 receiver == receiver_oi &
+                 sender == sender_oi &
+                 receptor == receptor_oi) %>%
+        pull(target) %>%
+        unique()
+      
+      active_signaling_network <-
+        nichenetr::get_ligand_signaling_path_with_receptor(
+          ligand_tf_matrix = ligand_tf_matrix,
+          ligands_all = ligand_oi,
+          receptors_all = receptor_oi,
+          targets_all = targets_all,
+          weighted_networks = weighted_networks,
+          top_n_regulators = 2)
+      
+      
+      data_source_network <- nichenetr::infer_supporting_datasources(
+        signaling_graph_list = active_signaling_network,
+        lr_network = lr_network,
+        sig_network = sig_network,
+        gr_network = gr_network)
+      
+      
+      active_signaling_network_min_max <- active_signaling_network
+      active_signaling_network_min_max$sig <- active_signaling_network_min_max$sig %>%
+        mutate(weight = ((weight-min(weight))/(max(weight)-min(weight))) + 0.75)
+      active_signaling_network_min_max$gr <- active_signaling_network_min_max$gr %>%
+        mutate(weight = ((weight-min(weight))/(max(weight)-min(weight))) + 0.75)
+      
+      
+      colors <- c("ligand" = "purple",
+                  "receptor" = "orange",
+                  "target" = "royalblue",
+                  "mediator" = "grey60")
+      
+      ggraph_signaling_path <- suppressWarnings(
+        make_ggraph_signaling_path(active_signaling_network_min_max,
+                                   colors,
+                                   ligand_oi,
+                                   receptor_oi,
+                                   targets_all))
+      
+      png(here(paste0(plots, dataset, "/multinichenet_grn/", id, ".png")))
+      plot <- ggraph_signaling_path$plot
+      print(plot)
+      dev.off()
+      
+      active_signaling_network_min_max$sig$type <- "ppi"
+      active_signaling_network_min_max$gr$type <- "grn"
+      
+      df <- rbind(active_signaling_network_min_max$sig,
+                  active_signaling_network_min_max$gr)
+      
+      igraph <- graph_from_data_frame(df, directed = TRUE)
+      E(igraph)$weight <- df$weight
+      
+      igraph_objects[[id]] <- igraph
+    }
+    new_name <- gsub("lr_target_prior_cor_filtered", "igraph_objects", name)
+    igraph_objects_list[new_name] <- list(igraph_objects)
+  }
+  return(igraph_objects_list)
+}
+
+## analyze_network
+# A function to analyze network properties, especially between receptors and targets of interest. Adapted from Jordan H. Whitlock.
+analyze_network <- function(igraph_object, receptor, target, name){
+  # calculate network properties
+  diameter <- diameter(igraph_object)
+  edge_number <- length(E(igraph_object))
+  
+  # Calculate degree centrality for receptor
+  degree_centrality <- degree(igraph_object, v = receptor, mode = "out")
+  
+  # Calculate betweeness centrality for receptor
+  betweenness_centrality <- betweenness(igraph_object, v = receptor)
+  
+  # Calculate closeness centrality for receptor
+  closeness_centrality <- closeness(igraph_object, v = receptor)
+  
+  # all nodes attached to receptor
+  neighbors_receptor <- neighbors(igraph_object, v = receptor, mode = "out")
+  
+  # receptor to target shortest path
+  shortest_path <- shortest_paths(igraph_object,
+                                  from = receptor,
+                                  to = target,
+                                  output = "both")
+  
+  
+  
+  all_shortest_path <- all_shortest_paths(igraph_object,
+                                          from = receptor,
+                                          to = target,
+                                          mode = "out")
+  
+  dijkstra <- distances(igraph_object,
+                        algorithm = "dijkstra")
+  
+  
+  results <- list(id = name,
+                  diameter = diameter,
+                  edge_number = edge_number,
+                  degree_centrality = degree_centrality,
+                  betweenness_centrality = betweenness_centrality,
+                  closeness_centrality = closeness_centrality,
+                  neighbors_receptor = neighbors_receptor,
+                  shortest_path = shortest_path,
+                  all_shortest_path = all_shortest_path,
+                  dijkstra = dijkstra)
+  
+  return(results)
+}
+
+## network_topology
+# A wrapper function to allow for automatic application of the analyze_network function across multiple igraph objects.
+network_topology <- function(object_list) {
+  network_proporties_list <- list()
+  for (name in names(object_list)) {
+    igraph <- object_list[[name]]
+    string <- unlist(strsplit(name, "_"))
+    receptor <- string[2]
+    target <- string[5]
+    
+    network_proporties_list[[name]] <- analyze_network(igraph = igraph, receptor = receptor, target = target, name = name)
+  }
+  return(network_proporties_list)
+}
+
+
 
 
 
