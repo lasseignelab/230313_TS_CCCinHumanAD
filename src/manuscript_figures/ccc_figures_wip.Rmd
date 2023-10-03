@@ -1,0 +1,648 @@
+---
+title: "corr_distribution"
+author: "Tabea M. Soelter"
+date: '2023-08-15'
+output: html_document
+---
+# prep
+```{r}
+library(here)
+library(nichenetr)
+library(multinichenetr)
+library(tidyverse)
+library(ggalluvial)
+```
+
+# colors
+```{r}
+colors <- c(
+  `Oligodendrocytes` = "royalblue4",
+  `Microglia` = "orchid3",
+  `OPCs` = "mediumpurple1",
+  `Astrocytes` = "cornflowerblue",
+  `Excitatory Neurons` = "slateblue3",
+  `Inhibitory Neurons` = "darkslategray3",
+  `Pericytes` = "deepskyblue3",
+  `Endothelial cells` = "darkolivegreen4")
+```
+
+```{r}
+# load in multinichenet outputs from  gse
+output <- readRDS(here("data", "ccc", "gse_multinichenet_output.rds"))
+
+# pull out ligands, receptors, and targets from the cor outputs 
+
+# prep gse multinichenet output for comparison
+top_n_target <- 250
+
+group_oi = "AD"
+receiver_oi = c("Excitatory.Neurons", "Inhibitory.Neurons")
+sender_oi <- c("Astrocytes", "Microglia", "OPCs", "Oligodendrocytes")
+
+contrast_tbl <- tibble(contrast = c("AD-CTRL", "CTRL-AD"),
+                       group = c("AD", "CTRL"))
+
+lr_target_prior_cor_filtered = output$lr_target_prior_cor %>%
+  inner_join(output$ligand_activities_targets_DEgenes$ligand_activities %>%
+               distinct(ligand, target, direction_regulation, contrast)) %>%
+  inner_join(contrast_tbl) %>%
+  filter(group == group_oi, receiver %in% receiver_oi, sender %in% sender_oi)
+
+lr_target_prior_cor_filtered_up = lr_target_prior_cor_filtered %>%
+  filter(direction_regulation == "up") %>%
+  filter( (rank_of_target < top_n_target) & (pearson > 0.33 | spearman > 0.33))
+
+lr_target_prior_cor_filtered_down = lr_target_prior_cor_filtered %>%
+  filter(direction_regulation == "down") %>%
+  filter( (rank_of_target < top_n_target) & (pearson < -0.33 | spearman < -0.33))
+
+lr_target_prior_cor_filtered = bind_rows(lr_target_prior_cor_filtered_up, lr_target_prior_cor_filtered_down)
+
+# Create new column with ligand-receptor-target only info
+lr_target_prior_cor_filtered$ligand_receptor_target <- gsub("(_[^_]+_)(.*?)(_[^_]+_)",
+                                                            "\\1\\4",
+                                                            lr_target_prior_cor_filtered$id_target,
+                                                            perl = TRUE)
+
+# Create new column with ligand-receptor only info
+lr_target_prior_cor_filtered$ligand_receptor <- gsub("^([^_]*_[^_]*).*",
+                                                     "\\1",
+                                                     lr_target_prior_cor_filtered$id,
+                                                     perl = TRUE)
+
+# Rename receiver cell types
+lr_target_prior_cor_filtered$receiver <- ifelse(
+  lr_target_prior_cor_filtered$receiver == "Inhibitory.Neurons",
+  "Inhibitory Neurons",
+  "Excitatory Neurons")
+
+# Check receivers were renamed and number
+table(lr_target_prior_cor_filtered$receiver) # 192 378
+
+lr_target_prior_cor_filtered_gse <- lr_target_prior_cor_filtered
+```
+
+# prep geo object
+```{r}
+output <- readRDS(here("data", "ccc", "geo_multinichenet_output.rds"))
+
+top_n_target <- 250
+
+group_oi = "AD"
+receiver_oi = c("Excitatory.Neurons", "Inhibitory.Neurons")
+sender_oi <- c("Astrocytes", "Microglia", "OPCs", "Oligodendrocytes")
+
+contrast_tbl <- tibble(contrast = c("AD-CTRL", "CTRL-AD"),
+                       group = c("AD", "CTRL"))
+
+lr_target_prior_cor_filtered = output$lr_target_prior_cor %>%
+  inner_join(output$ligand_activities_targets_DEgenes$ligand_activities %>%
+               distinct(ligand, target, direction_regulation, contrast)) %>%
+  inner_join(contrast_tbl) %>%
+  filter(group == group_oi, receiver %in% receiver_oi, sender %in% sender_oi)
+
+lr_target_prior_cor_filtered_up = lr_target_prior_cor_filtered %>%
+  filter(direction_regulation == "up") %>%
+  filter( (rank_of_target < top_n_target) & (pearson > 0.33 | spearman > 0.33))
+
+lr_target_prior_cor_filtered_down = lr_target_prior_cor_filtered %>%
+  filter(direction_regulation == "down") %>%
+  filter( (rank_of_target < top_n_target) & (pearson < -0.33 | spearman < -0.33))
+
+lr_target_prior_cor_filtered = bind_rows(lr_target_prior_cor_filtered_up, lr_target_prior_cor_filtered_down)
+
+# Create new column with ligand-receptor-target only info
+lr_target_prior_cor_filtered$ligand_receptor_target <- gsub("(_[^_]+_)(.*?)(_[^_]+_)",
+                                                            "\\1\\4",
+                                                            lr_target_prior_cor_filtered$id_target,
+                                                            perl = TRUE)
+
+# Create new column with ligand-receptor only info
+lr_target_prior_cor_filtered$ligand_receptor <- gsub("^([^_]*_[^_]*).*",
+                                                     "\\1",
+                                                     lr_target_prior_cor_filtered$id,
+                                                     perl = TRUE)
+
+# Rename receiver cell types
+lr_target_prior_cor_filtered$receiver <- ifelse(
+  lr_target_prior_cor_filtered$receiver == "Inhibitory.Neurons",
+  "Inhibitory Neurons",
+  "Excitatory Neurons")
+
+# Check receivers were renamed and number
+table(lr_target_prior_cor_filtered$receiver) # 263 313
+
+lr_target_prior_cor_filtered_geo <- lr_target_prior_cor_filtered
+```
+
+# see overlaps
+```{r}
+geo_ligands <- lr_target_prior_cor_filtered_geo$ligand %>% unique()
+
+gse_ligands <- lr_target_prior_cor_filtered_gse$ligand %>% unique()
+
+i1 <- intersect(geo_ligands, gse_ligands)
+
+length(i1)
+
+geo_receptors <- lr_target_prior_cor_filtered_geo$receptor %>% unique()
+
+gse_receptors <- lr_target_prior_cor_filtered_gse$receptor %>% unique()
+
+i2 <- intersect(geo_receptors, gse_receptors)
+
+length(i2)
+
+geo_targets <- lr_target_prior_cor_filtered_geo$target %>% unique()
+
+gse_targets <- lr_target_prior_cor_filtered_gse$target %>% unique()
+
+i3 <- intersect(geo_targets, gse_targets)
+
+length(i3)
+
+
+#### 
+
+geo_id <- lr_target_prior_cor_filtered_geo$id %>% unique()
+
+gse_id <- lr_target_prior_cor_filtered_gse$id %>% unique()
+
+i4 <- intersect(geo_id, gse_id)
+
+length(i4)
+
+####
+geo_id_target <- lr_target_prior_cor_filtered_geo$id_target %>% unique()
+
+gse_id_target <- lr_target_prior_cor_filtered_gse$id_target %>% unique()
+
+i5 <- intersect(geo_id_target, gse_id_target)
+
+length(i5)
+
+n <- max(length(geo_id), length(gse_id))
+length(geo_id) <- n
+length(gse_id) <- n
+
+bound <- data.frame(geo_id, gse_id)
+
+bound_ls <- as.list(bound)
+
+bound_lst <- lapply(bound_ls, function(x) x[!is.na(x)])
+
+
+library(UpSetR)
+upset(fromList(bound_lst),
+              sets = c("geo_id", "gse_id"),
+              order.by = "freq")
+```
+
+# Alluvial plot of overlapping L-R pairs
+```{r}
+geo_ccc <- lr_target_prior_cor_filtered_geo %>%
+  dplyr::select(sender, receiver, ligand, target, receptor, id) %>%
+  filter(id %in% i4) %>%
+  mutate(origin = "geo")
+
+gse_ccc <- lr_target_prior_cor_filtered_gse %>%
+  dplyr::select(sender, receiver, ligand, target, receptor, id) %>%
+  filter(id %in% i4) %>%
+  mutate(origin = "gse")
+
+ccc_combined <- rbind(geo_ccc, gse_ccc) %>%
+  select(sender, receiver, ligand, receptor, id) %>%
+  unique()
+
+ccc_combined1 <- ccc_combined
+ccc_combined1$ligand <- factor(ccc_combined1$ligand, levels = as.character(unique(ccc_combined1$ligand)))
+ccc_combined1$receptor <- factor(ccc_combined1$receptor, levels = as.character(unique(ccc_combined1$receptor)))
+
+ccc_combined1 <- ccc_combined1 %>% arrange(receiver)
+lr <-
+ggplot(ccc_combined1, aes(axis1 = ligand, axis2 = receptor), label = stratum) +
+  scale_x_discrete(limits = c("Ligand", "Receptor")) + 
+  xlab("Type") +
+  geom_alluvium() +
+  stat_alluvium(lode.guidance = "frontback") +
+  geom_stratum(aes(fill = sender)) +
+  #geom_label(stat = "stratum", fill = "white", aes(label = after_stat(stratum))) +
+  geom_flow(aes(fill = sender), stat = "alluvium", color = "black") +
+  scale_fill_manual(values = colors) +
+  geom_text(stat = "stratum", aes(label = after_stat(stratum)), fontface = "bold") +
+  scale_x_discrete(limits = c("Ligand", "Receptor")) +
+  theme_void() +
+  theme(axis.text.x = element_text(vjust = 2, face = "bold"),
+        legend.position = c(0.9, 0.5),
+        legend.margin = margin(0, 0, 0, 0),
+        legend.text = element_text(face = "bold"),
+        legend.title = element_text(face = "bold")) +
+  guides(fill = guide_legend(title = "Sender"))
+
+lr
+
+ccc_combined2 <- ccc_combined1
+ccc_combined2$receptor <- reorder(ccc_combined2$receptor, desc(ccc_combined2$receiver))
+ccc_combined2$ligand <- reorder(ccc_combined2$ligand, desc(ccc_combined2$sender))
+
+#testing adding receiver cell type indicator
+ggplot(ccc_combined2, aes(axis1 = ligand, axis2 = receptor), label = stratum) +
+  scale_x_discrete(limits = c("Ligand", "Receptor")) + 
+  xlab("Type") +
+  geom_alluvium() +
+  stat_alluvium(lode.guidance = "frontback") +
+  geom_stratum(aes(fill = receiver)) +
+  #geom_label(stat = "stratum", fill = "white", aes(label = after_stat(stratum))) +
+  geom_flow(aes(fill = receiver), stat = "alluvium", color = "black") +
+  scale_fill_manual(values = colors) +
+  geom_text(stat = "stratum", aes(label = after_stat(stratum)), fontface = "bold") +
+  scale_x_discrete(limits = c("Ligand", "Receptor")) +
+  theme_void() +
+  theme(axis.text.x = element_text(vjust = 2, face = "bold"),
+        legend.position = c(0.9, 0.5),
+        legend.margin = margin(0, 0, 0, 0),
+        legend.text = element_text(face = "bold"),
+        legend.title = element_text(face = "bold")) +
+  guides(fill = guide_legend(title = "Receiver"))
+
+ccc_combined3 <- ccc_combined1
+ccc_combined3$ligand <- reorder(ccc_combined3$ligand, desc(ccc_combined3$sender))
+ccc_combined3$receptor <- reorder(ccc_combined3$receptor, desc(ccc_combined3$sender))
+
+
+ggplot(ccc_combined3, aes(axis1 = ligand, axis2 = receptor), label = stratum) +
+  scale_x_discrete(limits = c("Ligand", "Receptor")) + 
+  xlab("Type") +
+  geom_alluvium() +
+  stat_alluvium(lode.guidance = "frontback") +
+  geom_stratum(aes(fill = receiver)) +
+  #geom_label(stat = "stratum", fill = "white", aes(label = after_stat(stratum))) +
+  geom_flow(aes(fill = receiver), stat = "alluvium", color = "black") +
+  scale_fill_manual(values = colors) +
+  geom_text(stat = "stratum", aes(label = after_stat(stratum)), fontface = "bold") +
+  scale_x_discrete(limits = c("Ligand", "Receptor")) +
+  theme_void() +
+  theme(axis.text.x = element_text(vjust = 2, face = "bold"),
+        legend.position = c(0.9, 0.5),
+        legend.margin = margin(0, 0, 0, 0),
+        legend.text = element_text(face = "bold"),
+        legend.title = element_text(face = "bold")) +
+  guides(fill = guide_legend(title = "Receiver"))
+lr <-
+ggplot(ccc_combined3, aes(axis1 = ligand, axis2 = receptor), label = stratum) +
+  scale_x_discrete(limits = c("Ligand", "Receptor")) + 
+  xlab("Type") +
+  geom_alluvium() +
+  stat_alluvium(lode.guidance = "frontback") +
+  geom_stratum(aes(fill = sender)) +
+  #geom_label(stat = "stratum", fill = "white", aes(label = after_stat(stratum))) +
+  geom_flow(aes(fill = sender), stat = "alluvium", color = "black") +
+  scale_fill_manual(values = colors) +
+  geom_text(stat = "stratum", aes(label = after_stat(stratum)), fontface = "bold", fontsize = 12) +
+  scale_x_discrete(limits = c("Ligand", "Receptor")) +
+  theme_void() +
+  theme(axis.text.x = element_text(vjust = 2, face = "bold", size = 12),
+        legend.position = c(0.9, 0.5),
+        #legend.margin = margin(0, 0, 0, 0),
+        legend.text = element_text(face = "bold", size = 12),
+        legend.title = element_text(face = "bold", size = 14)) +
+  guides(fill = guide_legend(title = "Sender"))
+
+png(here("results", "figures", "supp_figure4.png"), height = 200, width = 250, units = 'mm', res = 300)
+lr
+dev.off()
+```
+
+# Alluvial plot of overlapping L-R-T
+```{r}
+geo_ccc <- lr_target_prior_cor_filtered_geo %>%
+  dplyr::select(sender, receiver, ligand, target, receptor, id_target) %>%
+  filter(id_target %in% i5) %>%
+  mutate(origin = "geo")
+
+gse_ccc <- lr_target_prior_cor_filtered_gse %>%
+  dplyr::select(sender, receiver, ligand, target, receptor, id_target) %>%
+  filter(id_target %in% i5) %>%
+  mutate(origin = "gse")
+
+ccc_combined <- rbind(geo_ccc, gse_ccc) %>%
+  select(sender, receiver, ligand, receptor, target) %>%
+  unique()
+
+ccc_combined1 <- ccc_combined
+ccc_combined1$ligand <- factor(ccc_combined1$ligand, levels = as.character(unique(ccc_combined1$ligand)))
+ccc_combined1$receptor <- factor(ccc_combined1$receptor, levels = as.character(unique(ccc_combined1$receptor)))
+ccc_combined1$target <- factor(ccc_combined1$target, levels = as.character(unique(ccc_combined1$target)))
+
+#ccc_combined1 <- ccc_combined1 %>% arrange(sender)
+lrt <-
+ggplot(ccc_combined1, aes(axis1 = ligand, axis2 = receptor, axis3 = target), label = stratum) + 
+  xlab("Type") +
+  geom_alluvium() +
+  stat_alluvium(lode.guidance = "frontback") +
+  geom_stratum(aes(fill = sender)) +
+  #geom_label(stat = "stratum", fill = "white", aes(label = after_stat(stratum))) +
+  geom_flow(aes(fill = sender), stat = "alluvium", color = "black") +
+  scale_fill_manual(values = colors) +
+  geom_text(stat = "stratum", aes(label = after_stat(stratum)), fontface = "bold") +
+  scale_x_discrete(limits = c("Ligand", "Receptor", "Target")) +
+  theme_void() +
+  theme(axis.text.x = element_text(vjust = 2, face = "bold", size = 12),
+        legend.position = "bottom",
+        legend.margin = margin(0, 0, 0, 0),
+        legend.text = element_text(face = "bold", size = 12),
+        legend.title = element_text(face = "bold", size = 14)) +
+  guides(fill = guide_legend(title = "Sender"))
+
+lrt
+
+
+#png(here("lrt_alluvial.png"), height = 500, width = 1000)
+#lrt
+#dev.off()
+```
+
+# Stacked density plots of corr values across datasets
+```{r}
+# load in multinichenet outputs from  gse
+output <- readRDS(here("data", "ccc", "gse_multinichenet_output.rds"))
+
+# pull out ligands, receptors, and targets from the cor outputs 
+
+# prep gse multinichenet output for comparison
+top_n_target <- 250
+
+group_oi = "AD"
+receiver_oi = c("Excitatory.Neurons", "Inhibitory.Neurons")
+sender_oi <- c("Astrocytes", "Microglia", "OPCs", "Oligodendrocytes")
+
+contrast_tbl <- tibble(contrast = c("AD-CTRL", "CTRL-AD"),
+                       group = c("AD", "CTRL"))
+
+gse_lr_target_prior_cor_filtered = output$lr_target_prior_cor %>%
+  inner_join(output$ligand_activities_targets_DEgenes$ligand_activities %>%
+               distinct(ligand, target, direction_regulation, contrast)) %>%
+  inner_join(contrast_tbl) %>%
+  filter(group == group_oi, receiver %in% receiver_oi, sender %in% sender_oi)
+
+gse_filt <- gse_lr_target_prior_cor_filtered %>%
+  select(sender, receiver, pearson, spearman) %>%
+  mutate(data = "gse")
+
+
+# load in multinichenet outputs from  geo
+output <- readRDS(here("data", "ccc", "geo_multinichenet_output.rds"))
+
+geo_lr_target_prior_cor_filtered = output$lr_target_prior_cor %>%
+  inner_join(output$ligand_activities_targets_DEgenes$ligand_activities %>%
+               distinct(ligand, target, direction_regulation, contrast)) %>%
+  inner_join(contrast_tbl) %>%
+  filter(group == group_oi, receiver %in% receiver_oi, sender %in% sender_oi)
+
+geo_filt <- geo_lr_target_prior_cor_filtered %>%
+  select(sender, receiver, pearson, spearman) %>%
+  mutate(data = "geo")
+
+all <- rbind(gse_filt, geo_filt)
+
+# filter
+#gse
+lr_target_prior_cor_filtered_up = gse_lr_target_prior_cor_filtered %>%
+  filter(direction_regulation == "up") %>%
+  filter( (rank_of_target < top_n_target) & (pearson > 0.33 | spearman > 0.33))
+
+lr_target_prior_cor_filtered_down = gse_lr_target_prior_cor_filtered %>%
+  filter(direction_regulation == "down") %>%
+  filter( (rank_of_target < top_n_target) & (pearson < -0.33 | spearman < -0.33))
+
+gse_lr_target_prior_cor_filtered = bind_rows(lr_target_prior_cor_filtered_up, lr_target_prior_cor_filtered_down)
+
+gse_filt2 <- gse_lr_target_prior_cor_filtered %>%
+  select(sender, receiver, pearson, spearman) %>%
+  mutate(data = "gse")
+
+# gse
+lr_target_prior_cor_filtered_up = geo_lr_target_prior_cor_filtered %>%
+  filter(direction_regulation == "up") %>%
+  filter( (rank_of_target < top_n_target) & (pearson > 0.33 | spearman > 0.33))
+
+lr_target_prior_cor_filtered_down = geo_lr_target_prior_cor_filtered %>%
+  filter(direction_regulation == "down") %>%
+  filter( (rank_of_target < top_n_target) & (pearson < -0.33 | spearman < -0.33))
+
+geo_lr_target_prior_cor_filtered = bind_rows(lr_target_prior_cor_filtered_up, lr_target_prior_cor_filtered_down)
+
+geo_filt2 <- geo_lr_target_prior_cor_filtered %>%
+  select(sender, receiver, pearson, spearman) %>%
+  mutate(data = "geo")
+
+all_filt <- rbind(gse_filt2, geo_filt2)
+
+# plot
+library(ggridges)
+pal <- alpha(c("Excitatory.Neurons" = "slateblue3", "Inhibitory.Neurons" = "darkslategray3"), 0.5)
+
+ggplot(all, aes(x = pearson, y = sender, fill = receiver)) +
+  geom_density_ridges() +
+  theme_ridges() +
+  scale_fill_manual(values = pal)
+
+
+ggplot(all, aes(x = spearman, y = sender, fill = receiver)) +
+  geom_density_ridges() +
+  theme_ridges() +
+  scale_fill_manual(values = pal)
+
+
+ggplot(all_filt, aes(x = pearson, y = sender, fill = receiver)) +
+  geom_density_ridges() +
+  theme_ridges() +
+  scale_fill_manual(values = pal)
+
+
+ggplot(all_filt, aes(x = spearman, y = sender, fill = receiver)) +
+  geom_density_ridges() +
+  theme_ridges() +
+  scale_fill_manual(values = pal)
+```
+
+# overlapping ligands and their ligand activity (heatmap)
+```{r}
+# gse
+gse_output <- readRDS(here("data", "ccc", "gse_multinichenet_output.rds"))
+
+gse_ligand_activity <- gse_output[["prioritization_tables"]][["ligand_activities_target_de_tbl"]] %>%
+  filter(ligand %in% i1) %>%
+  filter(contrast == "AD-CTRL", receiver %in% receiver_oi)
+
+# make sure this number = i1
+gse_ligand_activity$ligand %>% unique() %>% length() # 41 (it does)
+
+gse_ligand_activity_filt <- gse_ligand_activity %>%
+  ungroup() %>%
+  select(ligand, activity_scaled, receiver, direction_regulation) %>%
+  mutate(data = "gse")
+
+group_prior <- gse_output[["prioritization_tables"]][["group_prioritization_tbl"]] %>%
+  filter(contrast == "AD-CTRL") %>%
+  select(sender, receiver, activity_scaled, ligand, direction_regulation) %>%
+  filter(receiver %in% receiver_oi, sender %in% sender_oi) %>%
+  filter(ligand %in% i1) %>%
+  unique()
+
+
+
+
+
+
+
+
+
+
+# geo
+geo_output <- readRDS(here("data", "ccc", "geo_multinichenet_output.rds"))
+
+geo_ligand_activity <- geo_output[["prioritization_tables"]][["ligand_activities_target_de_tbl"]] %>%
+  filter(ligand %in% i1) %>%
+  filter(contrast == "AD-CTRL", receiver %in% receiver_oi)
+
+# make sure this number = i1
+geo_ligand_activity$ligand %>% unique() %>% length() # 41 (it does)
+
+geo_ligand_activity_filt <- geo_ligand_activity %>%
+  ungroup() %>%
+  select(ligand, activity_scaled, receiver) %>%
+  mutate(data = "geo")
+
+# combine gse and geo
+ligand_activity_all <- rbind(gse_ligand_activity_filt, geo_ligand_activity_filt) %>%
+  unique()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# plotting prep
+heatmap_matrix <- dcast(de_genes_filt, gene ~ receiver + dataset, value.var = "logFC") %>%
+  column_to_rownames("gene")
+
+heatmap_matrix[is.na(heatmap_matrix)] <- 0
+
+# prep anno
+meta <- as.data.frame(colnames(heatmap_matrix))
+rownames(meta) <- meta$`colnames(heatmap_matrix)`
+
+Receiver <- c("Excitatory.Neurons", "Excitatory.Neurons", "Inhibitory.Neurons", "Inhibitory.Neurons")
+Dataset <- c("geo", "gse", "geo", "gse")
+met <- cbind(Dataset, Receiver)
+rownames(met) <- rownames(meta)
+met <- as.data.frame(met)
+
+#anno <- HeatmapAnnotation(
+  #Receiver = c("Excitatory.Neurons", "Inhibitory.Neurons"),
+  #Dataset = c("geo", "gse"),
+  #col = list(Receiver = c("Excitatory.Neurons" = "slateblue3", "Inhibitory.Neurons" = "darkslategray3"))
+#)
+
+
+
+anno_cols <- list("Receiver" = c("Excitatory.Neurons" = "slateblue3", "Inhibitory.Neurons" = "darkslategray3"))
+
+anno <- HeatmapAnnotation(df = met, show_annotation_name = TRUE, col = anno_cols)
+
+heatmap_matrix <- heatmap_matrix[, rownames(meta), drop = FALSE]
+
+mat <- as.matrix(heatmap_matrix)
+
+h1 <- Heatmap(mat,
+        top_annotation = anno,
+        show_column_names = FALSE,
+        show_row_dend = FALSE,
+        show_column_dend = FALSE,
+        cluster_columns = FALSE)
+```
+
+# top ligands ligand activity (circos plot)
+```{r}
+prioritized_tbl_oi_all <- get_top_n_lr_pairs(geo_output$prioritization_tables, 50, rank_per_group = FALSE)
+
+prioritized_tbl_oi <- geo_output$prioritization_tables$group_prioritization_tbl %>%
+  filter(id %in% prioritized_tbl_oi_all$id) %>%
+  distinct(id, sender, receiver, ligand, receptor, group) %>% left_join(prioritized_tbl_oi_all)
+prioritized_tbl_oi$prioritization_score[is.na(prioritized_tbl_oi$prioritization_score)] = 0
+
+
+
+colors_sender <- c(`Oligodendrocytes` = "royalblue4",
+  `Microglia` = "orchid3",
+  `OPCs` = "mediumpurple1",
+  `Astrocytes` = "cornflowerblue")
+
+colors_receiver <- c(`Excitatory Neurons` = "slateblue3",
+  `Inhibitory Neurons` = "darkslategray3")
+
+
+prioritized_tbl_oi_AD <- get_top_n_lr_pairs(gse_output$prioritization_tables, 30, groups_oi = "AD", senders_oi = sender_oi, receivers_oi = receiver_oi)
+
+circos_AD = make_circos_one_group(prioritized_tbl_oi_AD, colors_sender, colors_receiver)
+```
+
+# chord diagram
+```{r}
+library(circlize)
+
+
+test <- prioritized_tbl_oi_AD %>%
+  ungroup() %>%
+  select(ligand, receptor, sender, receiver, prioritization_score) 
+
+
+chordDiagram(test, annotationTrack = c("name", "grid"))
+circos.track(test$ligand, test$receptor)
+
+
+colors2 <- c(
+  `Oligodendrocytes` = "royalblue4",
+  `Microglia` = "orchid3",
+  `OPCs` = "mediumpurple1",
+  `Astrocytes` = "cornflowerblue",
+  `Excitatory.Neurons` = "slateblue3",
+  `Inhibitory.Neurons` = "darkslategray3",
+  `Pericytes` = "deepskyblue3",
+  `Endothelial cells` = "darkolivegreen4")
+
+
+
+
+test1 <- test
+
+test1$receptor <- factor(test1$receptor, levels = unique(test1$receptor)[order(test1$receiver)])
+
+
+
+ggplot(test1, aes(axis1 = ligand, axis2 = receptor, order = receptor), label = stratum) + 
+  xlab("Type") +
+  geom_alluvium() +
+  stat_alluvium(lode.guidance = "backfront") +
+  geom_stratum(aes(fill = receiver)) +
+  #geom_label(stat = "stratum", fill = "white", aes(label = after_stat(stratum))) +
+  geom_flow(aes(fill = receiver), stat = "alluvium", color = "black") +
+  scale_fill_manual(values = colors2) +
+  geom_text(stat = "stratum", aes(label = after_stat(stratum))) +
+  scale_x_discrete(limits = c("Ligand", "Receptor")) +
+  theme_void() +
+  theme(axis.text.x = element_text(vjust = 2),
+        legend.position = c(0.95, 0.5),
+        legend.margin = margin(0, 0, 0, 0))
+```
+

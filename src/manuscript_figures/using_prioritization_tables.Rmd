@@ -1,0 +1,63 @@
+---
+title: "using_prioritization_tables"
+author: "Tabea M. Soelter"
+date: '2023-08-29'
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(multinichenetr)
+library(ggalluvial)
+library(here)
+```
+
+# Load data
+```{r}
+gse_output <- readRDS(here("data", "ccc", "gse_multinichenet_output.rds"))
+
+geo_output <- readRDS(here("data", "ccc", "geo_multinichenet_output.rds"))
+```
+
+# filter data
+- using group prioritization df
+```{r}
+
+gse_prioritized <- gse_output$prioritization_tables$group_prioritization_tbl %>%
+  filter(group == "AD",
+         sender %in% c("Astrocytes", "Microglia", "Oligodendrocytes", "OPCs"),
+         receiver %in% c("Excitatory.Neurons", "Inhibitory.Neurons")) %>%
+  select(contrast, group, sender, receiver, ligand, receptor, lfc_receptor, lfc_ligand, p_val_receptor, p_val_ligand, activity_scaled, id)
+
+
+geo_prioritized <- geo_output$prioritization_tables$group_prioritization_tbl %>%
+  filter(group == "AD",
+         sender %in% c("Astrocytes", "Microglia", "Oligodendrocytes", "OPCs"),
+         receiver %in% c("Excitatory.Neurons", "Inhibitory.Neurons"))
+
+ids <- intersect(gse_prioritized$id, geo_prioritized$id) %>% unique()
+
+gse_prioritized_targets <- gse_output$prioritization_tables$ligand_activities_target_de_tbl %>%
+  filter(contrast == "AD-CTRL",
+         receiver %in% c("Excitatory.Neurons", "Inhibitory.Neurons")) %>%
+  select(receiver, ligand, activity_scaled, target, logFC, ligand_target_weight, p_val)
+
+test <- inner_join(gse_prioritized, gse_prioritized_targets, by = c("receiver", "ligand", "activity_scaled")) %>% unique()
+
+gse_lr <- gse_prioritized %>%
+  filter(p_val_ligand < 0.05, p_val_receptor < 0.05) %>%
+  select(id) %>%
+  unique()
+
+geo_lr <- geo_prioritized %>%
+  filter(p_val_ligand < 0.05, p_val_receptor < 0.05) %>%
+  select(id) %>%
+  unique()
+
+overlap <- intersect(gse_lr$id, geo_lr$id)
+```
+
+
+
+
+

@@ -201,10 +201,10 @@ fig1 <- plot_grid(UMAP_1,
                   UMAP_2,
                   violin,
                   barplot,
-                  labels = c("B", "D", "C", "E"),
+                  labels = c("A", "C", "B", "D"),
                   rel_heights = c(1, 2))
 
-png(here("results", "figures", "figure1.png"), width = 1000, height = 1000)
+png(here("results", "figures", "figure1.png"), width = 300, height = 300, units = 'mm', res = 300)
 fig1
 dev.off()
 ```
