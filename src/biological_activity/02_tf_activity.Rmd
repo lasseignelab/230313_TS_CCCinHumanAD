@@ -1,0 +1,301 @@
+---
+title: "02_tf_activity"
+author: "Tabea M. Soelter"
+date: '2023-09-27'
+output: html_document
+---
+**Transcription factor activity analysis using decoupleR**
+
+__Goal__: Infer TF activity from pseudo-bulked DGE analyses. The TFs I am investigating are signaling mediators of LRTs that overlap across independent datasets.
+
+__Reproducibility__: 
+* GitHub: lasseignelab/230313_TS_CCCinHumanAD
+* Docker: tsoelter/rstudio_ccc_ad
+    * Version: 1.0.5
+* HPC: Yes
+  * Resources: long partition (150hrs), 6 CPUs, 65GB per CPU
+
+__Data__:
+*DESeq2 outputs*
+* Name: Inhibitory Neurons_group_id_AD_vs_CTRL_all_genes.csv
+* Location: results/intermediate_outputs/geo/pseudobulk/ & results/intermediate_outputs/gse/pseudobulk/
+ 
+__Analysis Plan__:
+* Load necessary packages 
+* Load data
+  * DEGs from DESeq2
+  * Signaling mediators from MultiNicheNet
+* Download prior
+  * CollecTRI
+* Prepare for TF activity analysis
+  * Create 1 matrix which has DEGs from both datasets
+* Differential TF activity analysis using Multivariate Linear Model (MLM)
+* Save plot
+  
+# Load packages
+```{r}
+# Time tracking
+ptm <- proc.time()
+
+# Setting seed
+set.seed(42)
+
+# Setting locale
+options(encoding = "UTF-8")
+
+# Load packages
+suppressPackageStartupMessages({
+  library(decoupleR)
+  library(OmnipathR)
+  library(tidyverse)
+  library(ComplexHeatmap)
+  library(circlize)
+  library(here)
+  library(styler)
+  library(lintr)
+})
+
+source(here("src", "functions_CCCinAD_tms.R"))
+```
+
+# Load data
+```{r}
+# signaling mediators in inhibitory neurons
+in_mediators <- c(
+  "GSK3B", "IRAK1", "CD44", "ESR1", "JUN", "MYC", "SRC",
+  "STAT3", "TLR2", "SMAD3", "TP53", "CDK5", "NRP1", "PAK2",
+  "EP300", "AKT1", "KDR", "CTNNB1", "PLXNA3", "SMAD1", "MAP3K7",
+  "ERBB2", "DAPK1", "RAC1", "LRP8", "LRP1", "MAPK8", "APP",
+  "LCK", "PTK2", "STAT1", "STAT2", "SP1", "PTEN", "CCNB1",
+  "CCND1", "IFIT3", "IRF9", "NFIL3"
+)
+
+# DEGs in inhibitory neurons from DESeq2
+geo_degs_in <- read_csv(
+  here(
+    "results",
+    "intermediate_outputs",
+    "geo",
+    "pseudobulk",
+    "Inhibitory Neurons_group_id_AD_vs_CTRL_all_genes.csv"
+  )
+)
+
+gse_degs_in <- read_csv(
+  here(
+    "results",
+    "intermediate_outputs",
+    "gse",
+    "pseudobulk",
+    "Inhibitory Neurons_group_id_AD_vs_CTRL_all_genes.csv"
+  )
+)
+```
+
+# Access prior
+```{r}
+collectri <- get_collectri(organism = "human", split_complexes = FALSE)
+# Downloaded 64958 interactions
+# Downloaded 232 interactions
+```
+
+# Prepare data
+```{r}
+## dataset 1
+df1 <- geo_degs_in %>%
+  select(stat, gene) %>%
+  pivot_wider(
+    names_from = "gene",
+    values_from = "stat"
+  ) %>%
+  as.data.frame()
+
+# make dataset name the rowname
+rownames(df1) <- "geo"
+
+# replace NAs
+df1[is.na(df1)] <- 0
+
+# turn into matrix
+mat1 <- as.matrix(df1)
+
+## dataset 2
+df2 <- gse_degs_in %>%
+  select(stat, gene) %>%
+  pivot_wider(
+    names_from = "gene",
+    values_from = "stat"
+  ) %>%
+  as.data.frame()
+
+# make dataset name the rowname
+rownames(df2) <- "gse"
+
+# replace NAs
+df2[is.na(df2)] <- 0
+
+# turn into a matrix
+mat2 <- as.matrix(df2)
+
+## Combine datasets
+df <- merge(mat1, mat2, all = TRUE)
+
+# make sure no NAs remain, replace with 0 again
+df[is.na(df)] <- 0
+
+# turn into matrix
+df <- as.matrix(df)
+
+rownames(df) <- c("geo", "gse")
+```
+
+# TF activity analysis
+* We use genes that are differentially expressed (as determined by DESeq2), therefore any TF activity observed, is different between AD and CTRL.
+  * Since CTRL was our base, any changes are to be interpreted with respect to AD
+* We use the Multivariate Linear Model (MLM) from decoupleR
+```{r}
+# TF activity analysis
+tf_acts_in <- run_mlm(
+  mat = t(df),
+  network = collectri
+)
+
+# filter by mediators
+tf_acts_filt <- tf_acts_in %>%
+  filter(source %in% in_mediators)
+
+dim(tf_acts_filt) # 28 5
+```
+
+# Plot heatmap
+```{r}
+# prepare matrix for plotting
+mat <- tf_acts_filt %>%
+  select(source, condition, score) %>%
+  pivot_wider(
+    names_from = "source",
+    values_from = "score"
+  ) %>%
+  column_to_rownames(var = "condition") %>%
+  as.matrix()
+
+# prepare top annotation
+dataset <- c("geo", "gse")
+cell_type <- c("Inhibitory Neurons", "Inhibitory Neurons")
+meta <- cbind(dataset, cell_type) %>% as.data.frame()
+rownames(meta) <- c("geo", "gse")
+
+# Set annotation colors
+anno_cols <- list(
+  "cell_type" = c("Inhibitory Neurons" = "darkslategray3"),
+  "dataset" = c(
+    "geo" = "firebrick3",
+    "gse" = "goldenrod3"
+  )
+)
+
+# Make heatmap annotation (top)
+anno <- HeatmapAnnotation(
+  df = meta,
+  show_annotation_name = FALSE,
+  col = anno_cols
+)
+
+# Set heatmap colors and breaks
+cols <- colorRamp2(c(-2, 0, 2), c("blue", "white", "red"))
+
+tf_activity_heatmap <- Heatmap(t(mat),
+  col = cols,
+  top_annotation = anno,
+  show_column_names = FALSE,
+  show_row_dend = FALSE,
+  show_column_dend = FALSE,
+  cluster_columns = TRUE,
+  cluster_rows = TRUE
+)
+
+tf_activity_heatmap
+```
+
+# Save plot
+```{r}
+png(here("results", "final_outputs", "comparison", "tf_activity_heatmap.png"))
+tf_activity_heatmap
+dev.off()
+```
+
+# Session info
+```{r}
+sessionInfo() # see output below
+```
+R version 4.1.3 (2022-03-10)
+Platform: x86_64-pc-linux-gnu (64-bit)
+Running under: Ubuntu 20.04.6 LTS
+
+Matrix products: default
+BLAS/LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.8.so
+
+locale:
+[1] C
+
+attached base packages:
+[1] grid      stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+ [1] lintr_3.0.2           styler_1.9.1          here_1.0.1            circlize_0.4.15      
+ [5] ComplexHeatmap_2.10.0 lubridate_1.9.2       forcats_1.0.0         stringr_1.5.0        
+ [9] dplyr_1.1.3           purrr_1.0.2           readr_2.1.4           tidyr_1.3.0          
+[13] tibble_3.2.1          ggplot2_3.4.2         tidyverse_2.0.0       OmnipathR_3.9.8      
+[17] decoupleR_2.7.1      
+
+loaded via a namespace (and not attached):
+ [1] matrixStats_1.0.0   bit64_4.0.5         doParallel_1.0.17   RColorBrewer_1.1-3 
+ [5] progress_1.2.2      httr_1.4.7          rprojroot_2.0.3     R.cache_0.16.0     
+ [9] tools_4.1.3         backports_1.4.1     utf8_1.2.3          R6_2.5.1           
+[13] lazyeval_0.2.2      BiocGenerics_0.40.0 colorspace_2.1-0    GetoptLong_1.0.5   
+[17] withr_2.5.0         processx_3.8.1      tidyselect_1.2.0    prettyunits_1.2.0  
+[21] bit_4.0.5           curl_5.0.2          compiler_4.1.3      cli_3.6.1          
+[25] rvest_1.0.3         xml2_1.3.5          desc_1.4.2          scales_1.2.1       
+[29] checkmate_2.2.0     callr_3.7.3         rappdirs_0.3.3      digest_0.6.33      
+[33] R.utils_2.12.2      rmarkdown_2.25      pkgconfig_2.0.3     htmltools_0.5.6    
+[37] parallelly_1.36.0   fastmap_1.1.1       rlang_1.1.1         GlobalOptions_0.1.2
+[41] readxl_1.4.3        rstudioapi_0.14     shape_1.4.6         generics_0.1.3     
+[45] jsonlite_1.8.7      vroom_1.6.3         R.oo_1.25.0         magrittr_2.0.3     
+[49] Matrix_1.5-4        Rcpp_1.0.11         munsell_0.5.0       S4Vectors_0.32.4   
+[53] fansi_1.0.4         logger_0.2.2        lifecycle_1.0.3     R.methodsS3_1.8.2  
+[57] stringi_1.7.12      yaml_2.3.7          parallel_4.1.3      crayon_1.5.2       
+[61] lattice_0.20-45     hms_1.1.3           ps_1.7.5            knitr_1.44         
+[65] pillar_1.9.0        igraph_1.5.1        rjson_0.2.21        codetools_0.2-18   
+[69] stats4_4.1.3        glue_1.6.2          evaluate_0.21       rex_1.2.1          
+[73] remotes_2.4.2       selectr_0.4-2       png_0.1-8           vctrs_0.6.3        
+[77] tzdb_0.4.0          foreach_1.5.2       cellranger_1.1.0    gtable_0.3.3       
+[81] clue_0.3-64         xfun_0.40           cyclocomp_1.1.0     later_1.3.1        
+[85] iterators_1.0.14    IRanges_2.28.0      cluster_2.1.2       timechange_0.2.0
+
+# Time tracking
+```{r}
+fptm <- proc.time() - ptm
+
+# convert to minutes
+(fptm[3] / 60)
+
+# Time elapsed: 10 minutes
+```
+
+# Reproducibility
+```{r}
+# styler
+style_file(here(
+  "src",
+  "biological_activity",
+  "02_tf_activity.Rmd"
+))
+
+# lintr
+lint(filename = here(
+  "src",
+  "biological_activity",
+  "02_tf_activity.Rmd"
+))
+```
+
