@@ -1,7 +1,7 @@
 ---
-title: "04_jaccard_index_nichenet"
+title: "03_jaccard_index_gse"
 author: "Tabea M. Soelter"
-date: '2023-07-07'
+date: '2023-10-03'
 output: html_document
 ---
 **Calculating Jaccard Similarity Index (JI) for CCC genes across cell types**
@@ -15,7 +15,7 @@ __Reproducibility__:
   * Resources: long partition (150hrs), 8 CPUs, 65GB per CPU
 
 __Data__:
-* Name: geo_multinichenet_output.rds
+* Name: gse_multinichenet_output.rds
 * Location: /data/user/tsoelter/projects/tms_ccc/data/ccc/
 * Type: large list
 * Processed: Yes, output from MultiNicheNet
@@ -56,7 +56,7 @@ options(encoding = "UTF-8")
 
 # Load data
 ```{r}
-output <- readRDS(here("data", "ccc", "geo_multinichenet_output.rds"))
+output <- readRDS(here("data", "ccc", "gse_multinichenet_output.rds"))
 ```
 
 # Set filtering parameters
@@ -93,7 +93,7 @@ lrt_cor_filtered$receiver <- ifelse(
 )
 
 # Check receivers were renamed and number
-table(lrt_cor_filtered$receiver) # Ex 263 In 313
+table(lrt_cor_filtered$receiver) # Ex 582 In 752
 ```
 
 # Calculate JI (Between senders)
@@ -188,7 +188,7 @@ jaccard_all <- rbind(jaccard_receptors, jaccard_targets)
 png(here(
   "results",
   "intermediate_outputs",
-  "geo",
+  "gse",
   "ccc",
   "receptors_lollipop_neurons.png"
 ))
@@ -216,7 +216,7 @@ dev.off()
 png(here(
   "results",
   "intermediate_outputs",
-  "geo",
+  "gse",
   "ccc",
   "targets_lollipop_neurons.png"
 ))
@@ -241,7 +241,7 @@ jaccard_targets %>%
   ggtitle("Targets")
 dev.off()
 
-png(here("results", "final_outputs", "geo", "combined_lollipop_neurons.png"))
+png(here("results", "final_outputs", "gse", "combined_lollipop_neurons.png"))
 jaccard_all %>%
   ggplot() +
   geom_linerange(aes(x = sender, ymin = 0, ymax = jaccard_index, colour = type),
@@ -277,7 +277,7 @@ saveRDS(
   here(
     "results",
     "intermediate_outputs",
-    "geo",
+    "gse",
     "ccc",
     "jaccard_ligands_senders.rds"
   )
@@ -288,7 +288,7 @@ saveRDS(
   here(
     "results",
     "intermediate_outputs",
-    "geo",
+    "gse",
     "ccc",
     "jaccard_receptors_senders.rds"
   )
@@ -299,7 +299,7 @@ saveRDS(
   here(
     "results",
     "intermediate_outputs",
-    "geo",
+    "gse",
     "ccc",
     "jaccard_targets_senders.rds"
   )
@@ -310,7 +310,7 @@ saveRDS(
   here(
     "results",
     "intermediate_outputs",
-    "geo",
+    "gse",
     "ccc",
     "jaccard_receptors_receivers.rds"
   )
@@ -321,7 +321,7 @@ saveRDS(
   here(
     "results",
     "intermediate_outputs",
-    "geo",
+    "gse",
     "ccc",
     "jaccard_targets_receivers.rds"
   )
@@ -419,13 +419,13 @@ fptm <- proc.time() - ptm
 style_file(here(
   "src",
   "ccc",
-  "04_jaccard_index_nichenet.Rmd"
+  "03_jaccard_index_gse.Rmd"
 ))
 
 # lintr
 lint(filename = here(
   "src",
   "ccc",
-  "04_jaccard_index_nichenet.Rmd"
+  "03_jaccard_index_gse.Rmd"
 ))
 ```

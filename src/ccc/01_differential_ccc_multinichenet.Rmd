@@ -31,7 +31,7 @@ __Analysis Plan__:
   * Wrapper function
 * Save outputs
   
-# load packages
+# Load packages
 ```{r}
 # Time tracking
 ptm <- proc.time()
