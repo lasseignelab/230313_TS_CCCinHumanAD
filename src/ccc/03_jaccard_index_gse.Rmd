@@ -93,7 +93,7 @@ lrt_cor_filtered$receiver <- ifelse(
 )
 
 # Check receivers were renamed and number
-table(lrt_cor_filtered$receiver) # Ex 582 In 752
+table(lrt_cor_filtered$receiver) # Ex 192 In 378
 ```
 
 # Calculate JI (Between senders)
