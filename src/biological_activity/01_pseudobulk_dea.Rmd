@@ -48,6 +48,8 @@ suppressPackageStartupMessages({
   library(DESeq2)
   library(tidyverse)
   library(Seurat)
+  library(Matrix.utils)
+  library(data.table)
   library(here)
   library(styler)
   library(lintr)
