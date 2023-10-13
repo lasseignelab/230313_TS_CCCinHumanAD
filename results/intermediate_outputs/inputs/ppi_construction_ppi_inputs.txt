@@ -1,2 +1,0 @@
-/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/results/intermediate_outputs/inputs/geo_ppi_tmp.rds
-/data/user/tsoelter/projects/230313_TS_CCCinHumanAD/results/intermediate_outputs/inputs/gse_ppi_tmp.rds
