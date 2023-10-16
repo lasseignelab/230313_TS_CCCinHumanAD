@@ -650,7 +650,7 @@ CellTypeHeatmaps <- function(distMatrix, prioritized_targets, cell_type){
 }
 
 ## filter_nichenet
-# A function that will filter a multinichenet output by pearson and spearman correlation values above/below 0.5/-0.5
+# A function that will filter a multinichenet output by pearson and spearman correlation values above/below 0.33/-0.33
 filter_nichenet <- function(object) {
   # Filter correlated object by pearson and spearman correlations
   lr_target_prior_cor_filtered <- object$lr_target_prior_cor %>%
