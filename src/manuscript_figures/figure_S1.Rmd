@@ -1,0 +1,309 @@
+---
+title: "figure_S1"
+author: "Tabea M. Soelter"
+date: '2023-10-12'
+output: html_document
+---
+**Plotting Supplemental Figure 1**
+
+__Goal__: This is a script for generating supplemental figure 1 of my manuscript.
+  
+__Reproducibility__: 
+* GitHub: lasseignelab/230313_TS_CCCinHumanAD
+* Docker: tsoelter/rstudio_ccc_ad
+    * Version: 1.0.5
+* HPC: Yes
+  * Resources: long partition (150hrs), 6 CPUs, 85GB per CPU
+
+__Data__:
+*Seurat objects*
+* Name: gse_processed_seurat.rds
+* Location: data/seurat_preprocessing/
+ 
+__Analysis Plan__:
+* Load necessary packages 
+* Load data
+  * Seurat object
+* Plot individual panels
+  * A: UMAP w cell type assignments
+  * B: Violin plot with expression of marker genes
+  * C: UMAP split by condition
+  * D: Split barplot of cell type proportions
+* Compile figure
+* Save figure
+
+# Load packages
+```{r}
+# Time tracking
+ptm <- proc.time()
+
+# set seed
+set.seed(42)
+
+# load packages
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(Seurat)
+  library(circlize)
+  library(ComplexHeatmap)
+  library(RColorBrewer)
+  library(reshape2)
+  library(patchwork)
+  library(cowplot)
+  library(here)
+  library(styler)
+  library(lintr)
+})
+```
+
+# Load in object
+```{r}
+gse_object <- readRDS(here(
+  "data",
+  "seurat_preprocessing",
+  "gse_processed_seurat.rds"
+))
+```
+
+# Set color palette
+```{r}
+colors <- c(
+  `Oligodendrocytes` = "royalblue4",
+  `Microglia` = "orchid3",
+  `OPCs` = "mediumpurple1",
+  `Astrocytes` = "cornflowerblue",
+  `Excitatory Neurons` = "slateblue3",
+  `Inhibitory Neurons` = "darkslategray3",
+  `Pericytes` = "deepskyblue3",
+  `Endothelial cells` = "darkolivegreen4"
+)
+```
+
+# Figure S1A
+* UMAP of assigned cell types
+```{r}
+umap_1 <- DimPlot(gse_object,
+  cols = colors,
+  label = TRUE,
+  label.box = TRUE,
+  label.color = "white",
+  label.size = 4,
+  repel = TRUE
+) +
+  theme(legend.text = element_text(face = "bold")) +
+  theme(axis.text = element_text(face = "bold")) +
+  theme(axis.title = element_text(face = "bold")) +
+  NoLegend()
+
+umap_1
+```
+
+# Figure S1B
+* Violin plot of the marker gene expression of the assigned cell types
+```{r}
+markers <- c(
+  "MBP",
+  "ST18",
+  "QDPR",
+  "DOCK8",
+  "APBB1IP",
+  "ARHGAP15",
+  "PCDH15",
+  "PDGFRA",
+  "ADGRV1",
+  "AQP4",
+  "GFAP",
+  "RALYL",
+  "IL1RAPL2",
+  "NXPH1",
+  "GRIK1",
+  "PDGFRB",
+  "FLT1",
+  "VWF"
+)
+
+violin <- VlnPlot(gse_object,
+  markers,
+  stack = TRUE,
+  sort = FALSE,
+  flip = TRUE,
+  assay = "RNA",
+  fill.by = "ident",
+  cols = colors
+) +
+  labs(fill = "Cell Type") +
+  theme_minimal() +
+  theme(legend.position = "left") +
+  theme(axis.text.x = element_blank()) +
+  theme(axis.title.x = element_blank()) +
+  theme(panel.grid = element_blank()) +
+  theme(strip.text.y.right = element_text(angle = 0, face = "bold")) +
+  theme(legend.title = element_text(face = "bold")) +
+  theme(axis.title = element_text(face = "bold")) +
+  theme(axis.text = element_text(face = "bold")) +
+  theme(legend.text = element_text(face = "bold")) +
+  ylab("Marker Gene Expression")
+
+violin
+```
+
+# Figure S1C
+* UMAP split by condition
+```{r}
+umap_2 <- DimPlot(gse_object,
+  group.by = "orig.ident",
+  cols = "Paired",
+  shuffle = TRUE,
+  seed = 42
+) +
+  theme(legend.title = element_text(face = "bold")) +
+  labs(color = "Condition") +
+  theme(legend.text = element_text(face = "bold")) +
+  theme(axis.text = element_text(face = "bold")) +
+  theme(axis.title = element_text(face = "bold"))
+
+umap_2 <- umap_2 + ggtitle(NULL)
+
+umap_2
+```
+
+# Figure S1D
+* Stacked barplot of cell type proportion distribution across conditions
+```{r}
+df <- table(Idents(gse_object), gse_object$orig.ident) %>% as.data.frame()
+
+df$Var1 <- as.character(df$Var1)
+
+barplot <- ggplot(df, aes(x = fct_rev(Var1), y = Freq, fill = Var2)) +
+  theme_bw(base_size = 15) +
+  geom_col(position = "fill", width = 0.5) +
+  xlab("Cell Type") +
+  ylab("Proportion") +
+  scale_fill_manual(values = brewer.pal(12, "Paired")) +
+  theme(legend.title = element_text(face = "bold")) +
+  theme(axis.title = element_text(face = "bold")) +
+  theme(axis.text = element_text(face = "bold")) +
+  theme(legend.text = element_text(face = "bold")) +
+  coord_flip() +
+  labs(fill = "Condition")
+
+barplot
+```
+
+# Compile figure 1
+```{r}
+fig_s1 <- plot_grid(umap_1,
+  umap_2,
+  violin,
+  barplot,
+  labels = c("A", "C", "B", "D"),
+  rel_heights = c(1, 2)
+)
+
+png(here("results", "figures", "supp_figure1.png"),
+  width = 300,
+  height = 300,
+  units = "mm",
+  res = 300
+)
+fig_s1
+dev.off()
+```
+
+# Session info
+```{r}
+sessionInfo() # see output below
+```
+R version 4.1.3 (2022-03-10)
+Platform: x86_64-pc-linux-gnu (64-bit)
+Running under: Ubuntu 20.04.6 LTS
+
+Matrix products: default
+BLAS/LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.8.so
+
+locale:
+[1] C
+
+attached base packages:
+[1] grid      stats     graphics  grDevices utils     datasets  methods  
+[8] base     
+
+other attached packages:
+ [1] lintr_3.0.2           styler_1.9.1          here_1.0.1           
+ [4] cowplot_1.1.1         patchwork_1.1.2       reshape2_1.4.4       
+ [7] RColorBrewer_1.1-3    ComplexHeatmap_2.10.0 circlize_0.4.15      
+[10] SeuratObject_4.1.3    Seurat_4.3.0.9011     lubridate_1.9.2      
+[13] forcats_1.0.0         stringr_1.5.0         dplyr_1.1.3          
+[16] purrr_1.0.2           readr_2.1.4           tidyr_1.3.0          
+[19] tibble_3.2.1          ggplot2_3.4.2         tidyverse_2.0.0      
+
+loaded via a namespace (and not attached):
+  [1] plyr_1.8.8             igraph_1.5.1           lazyeval_0.2.2        
+  [4] sp_2.0-0               splines_4.1.3          listenv_0.9.0         
+  [7] scattermore_1.2        digest_0.6.33          foreach_1.5.2         
+ [10] htmltools_0.5.6        fansi_1.0.4            magrittr_2.0.3        
+ [13] tensor_1.5             cluster_2.1.2          doParallel_1.0.17     
+ [16] ROCR_1.0-11            remotes_2.4.2          tzdb_0.4.0            
+ [19] globals_0.16.2         matrixStats_1.0.0      R.utils_2.12.2        
+ [22] timechange_0.2.0       spatstat.sparse_3.0-2  colorspace_2.1-0      
+ [25] ggrepel_0.9.3          xfun_0.40              callr_3.7.3           
+ [28] crayon_1.5.2           jsonlite_1.8.7         progressr_0.13.0      
+ [31] spatstat.data_3.0-1    survival_3.3-1         zoo_1.8-12            
+ [34] iterators_1.0.14       glue_1.6.2             polyclip_1.10-4       
+ [37] gtable_0.3.3           leiden_0.4.3           GetoptLong_1.0.5      
+ [40] R.cache_0.16.0         future.apply_1.11.0    shape_1.4.6           
+ [43] BiocGenerics_0.40.0    abind_1.4-5            scales_1.2.1          
+ [46] spatstat.random_3.1-5  miniUI_0.1.1.1         Rcpp_1.0.11           
+ [49] viridisLite_0.4.2      xtable_1.8-4           clue_0.3-64           
+ [52] reticulate_1.30        stats4_4.1.3           htmlwidgets_1.6.2     
+ [55] rex_1.2.1              httr_1.4.7             ellipsis_0.3.2        
+ [58] ica_1.0-3              farver_2.1.1           pkgconfig_2.0.3       
+ [61] R.methodsS3_1.8.2      uwot_0.1.16            deldir_1.0-9          
+ [64] utf8_1.2.3             labeling_0.4.2         tidyselect_1.2.0      
+ [67] rlang_1.1.1            later_1.3.1            munsell_0.5.0         
+ [70] tools_4.1.3            cli_3.6.1              generics_0.1.3        
+ [73] ggridges_0.5.4         fastmap_1.1.1          goftest_1.2-3         
+ [76] processx_3.8.1         knitr_1.44             fitdistrplus_1.1-11   
+ [79] RANN_2.6.1             pbapply_1.7-2          future_1.33.0         
+ [82] nlme_3.1-155           mime_0.12              R.oo_1.25.0           
+ [85] xml2_1.3.5             compiler_4.1.3         rstudioapi_0.14       
+ [88] plotly_4.10.2          png_0.1-8              spatstat.utils_3.0-3  
+ [91] stringi_1.7.12         ps_1.7.5               cyclocomp_1.1.0       
+ [94] desc_1.4.2             lattice_0.20-45        Matrix_1.5-4          
+ [97] vctrs_0.6.3            pillar_1.9.0           lifecycle_1.0.3       
+[100] spatstat.geom_3.2-2    lmtest_0.9-40          GlobalOptions_0.1.2   
+[103] RcppAnnoy_0.0.21       data.table_1.14.8      irlba_2.3.5.1         
+[106] httpuv_1.6.11          R6_2.5.1               promises_1.2.0.1      
+[109] KernSmooth_2.23-20     gridExtra_2.3          IRanges_2.28.0        
+[112] parallelly_1.36.0      codetools_0.2-18       MASS_7.3-55           
+[115] rprojroot_2.0.3        rjson_0.2.21           withr_2.5.0           
+[118] sctransform_0.3.5.9006 S4Vectors_0.32.4       parallel_4.1.3        
+[121] hms_1.1.3              Rtsne_0.16             spatstat.explore_3.2-1
+[124] shiny_1.7.4.1
+
+# Time tracking
+```{r}
+fptm <- proc.time() - ptm
+
+# convert to minutes
+(fptm[3] / 60)
+
+# Time elapsed: < 5 minutes
+```
+
+# Reproducibility
+```{r}
+# styler
+style_file(here(
+  "src",
+  "manuscript_figures",
+  "figure_S1.Rmd"
+))
+
+# lintr
+lint(filename = here(
+  "src",
+  "manuscript_figures",
+  "figure_S1.Rmd"
+))
+```
