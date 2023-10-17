@@ -16,14 +16,14 @@ __Reproducibility__:
   * Resources: long partition (150hrs), 6 CPUs, 85GB per CPU
 
 __Data__:
-*Seurat objects*
-* Name: geo_processed_seurat.rds
-* Location: data/seurat_preprocessing/
+*MultiNicheNet output*
+* Name: geo_multinichenet_output.rds
+* Location: data/ccc/
  
 __Analysis Plan__:
 * Load necessary packages 
 * Load data
-  * Seurat object
+  * MultiNicheNet output
 * Plot individual panels
   * A: barplot of all interactions
   * B: barplot of interactions filtered by sender and receiver cell types
@@ -279,7 +279,7 @@ supp_fig2
 ```
 
 # Save figure
-```{r eval=FALSE, include=FALSE}
+```{r}
 png(here("results", "figures", "supp_figure2.png"),
   width = 500,
   height = 200,

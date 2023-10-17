@@ -239,7 +239,7 @@ dev.off()
 
 # Compile figure 2
 ```{r}
-fig1 <- plot_grid(umap_1,
+fig2 <- plot_grid(umap_1,
   umap_2,
   violin,
   barplot,
@@ -247,13 +247,13 @@ fig1 <- plot_grid(umap_1,
   rel_heights = c(1, 2)
 )
 
-png(here("results", "figures", "figure1.png"),
+png(here("results", "figures", "figure2.png"),
   width = 300,
   height = 300,
   units = "mm",
   res = 300
 )
-fig1
+fig2
 dev.off()
 ```
 
