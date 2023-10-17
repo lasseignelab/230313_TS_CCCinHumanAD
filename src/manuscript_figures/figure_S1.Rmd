@@ -190,7 +190,7 @@ barplot <- ggplot(df, aes(x = fct_rev(Var1), y = Freq, fill = Var2)) +
 barplot
 ```
 
-# Compile figure 1
+# Compile supp figure 1
 ```{r}
 fig_s1 <- plot_grid(umap_1,
   umap_2,

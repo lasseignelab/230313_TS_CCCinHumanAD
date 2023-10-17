@@ -1,0 +1,353 @@
+---
+title: "figure_S4"
+author: "Tabea M. Soelter"
+date: '2023-10-08'
+output: html_document
+---
+**Plotting Supplemental Figure 4**
+
+__Goal__: This is a script for generating supplemental figure 4 of my manuscript.
+  
+__Reproducibility__: 
+* GitHub: lasseignelab/230313_TS_CCCinHumanAD
+* Docker: tsoelter/rstudio_ccc_ad
+    * Version: 1.0.5
+* HPC: Yes
+  * Resources: long partition (150hrs), 6 CPUs, 85GB per CPU
+
+__Data__:
+*MultiNicheNet outputs*
+* Name: geo_multinichenet_output.rds, gse_multinichenet_output.rds
+* Location: data/ccc/
+ 
+__Analysis Plan__:
+* Load necessary packages 
+* Load data
+  * MultiNicheNet outputs
+* Plot individual panels
+  * A: Alluvial plot of overlapping LRs upregulated in AD colored by sender
+  * B: Alluvial plot of overlapping LRs upregulated in CTRL colored by sender
+* Compile figure
+* Save figure
+
+# Load packages
+```{r}
+# Time tracking
+ptm <- proc.time()
+
+# set seed
+set.seed(42)
+
+# load packages
+suppressPackageStartupMessages({
+  library(here)
+  library(tidyverse)
+  library(ggalluvial)
+  library(reshape2)
+  library(ComplexHeatmap)
+  library(ggpubr)
+  library(cowplot)
+  library(styler)
+  library(lintr)
+})
+
+source(here("src", "functions_CCCinAD_tms.R"))
+```
+
+# Load data
+```{r}
+gse_output <- readRDS(here("data", "ccc", "gse_multinichenet_output.rds"))
+geo_output <- readRDS(here("data", "ccc", "geo_multinichenet_output.rds"))
+```
+
+# Colors
+```{r}
+colors <- c(
+  `Oligodendrocytes` = "royalblue4",
+  `Microglia` = "orchid3",
+  `OPCs` = "mediumpurple1",
+  `Astrocytes` = "cornflowerblue",
+  `Excitatory Neurons` = "slateblue3",
+  `Inhibitory Neurons` = "darkslategray3",
+  `Pericytes` = "deepskyblue3",
+  `Endothelial cells` = "darkolivegreen4"
+)
+```
+
+# Set filtring criteria
+```{r}
+top_n_target <- 250
+
+receiver_oi <- c("Excitatory.Neurons", "Inhibitory.Neurons")
+sender_oi <- c("Astrocytes", "Microglia", "OPCs", "Oligodendrocytes")
+
+contrast_tbl <- tibble(
+  contrast = c("AD-CTRL", "CTRL-AD"),
+  group = c("AD", "CTRL")
+)
+```
+
+# Panel A
+* Filter MultiNicheNet outputs by cell types of interests and condition
+```{r}
+group_oi <- "AD"
+
+lr_target_prior_cor_filtered_gse <- filter_nichenet(gse_output)
+
+lr_target_prior_cor_filtered_geo <- filter_nichenet(geo_output)
+```
+
+* Overlapping LRs in AD
+```{r}
+geo_id <- lr_target_prior_cor_filtered_geo$id %>% unique()
+
+gse_id <- lr_target_prior_cor_filtered_gse$id %>% unique()
+
+overlap <- intersect(geo_id, gse_id)
+
+length(overlap)
+```
+
+* combine filtered objects
+```{r}
+geo_ccc <- lr_target_prior_cor_filtered_geo %>%
+  dplyr::select(sender, receiver, ligand, target, receptor, id) %>%
+  filter(id %in% overlap) %>%
+  mutate(origin = "geo")
+
+gse_ccc <- lr_target_prior_cor_filtered_gse %>%
+  dplyr::select(sender, receiver, ligand, target, receptor, id) %>%
+  filter(id %in% overlap) %>%
+  mutate(origin = "gse")
+
+ccc_combined <- rbind(geo_ccc, gse_ccc) %>%
+  select(sender, receiver, ligand, receptor, id) %>%
+  unique()
+```
+
+* plot AD LR alluvial
+```{r}
+ccc_combined$ligand <- reorder(
+  ccc_combined$ligand,
+  desc(ccc_combined$sender)
+)
+ccc_combined$receptor <- reorder(
+  ccc_combined$receptor,
+  desc(ccc_combined$sender)
+)
+
+lr_ad <- ggplot(ccc_combined,
+  aes(axis1 = ligand, axis2 = receptor),
+  label = stratum
+) +
+  scale_x_discrete(limits = c("Ligand", "Receptor")) +
+  xlab("Type") +
+  geom_alluvium() +
+  stat_alluvium(lode.guidance = "frontback") +
+  geom_stratum(aes(fill = sender)) +
+  geom_label(
+    stat = "stratum",
+    fill = "white",
+    aes(label = after_stat(stratum))
+  ) +
+  geom_flow(aes(fill = sender), stat = "alluvium", color = "black") +
+  scale_fill_manual(values = colors) +
+  geom_text(
+    stat = "stratum",
+    aes(label = after_stat(stratum)),
+    fontface = "bold",
+    fontsize = 12
+  ) +
+  scale_x_discrete(limits = c("Ligand", "Receptor")) +
+  theme_void() +
+  theme(
+    axis.text.x = element_text(vjust = 2, face = "bold", size = 12),
+    legend.position = c(0.9, 0.5),
+    legend.text = element_text(face = "bold", size = 12),
+    legend.title = element_text(face = "bold", size = 14)
+  ) +
+  guides(fill = guide_legend(title = "Sender"))
+
+lr_ad
+```
+
+# Panel B
+* Filter MultiNicheNet outputs by cell types of interests and condition
+```{r}
+group_oi <- "CTRL"
+
+lr_target_prior_cor_filtered_gse <- filter_nichenet(gse_output)
+
+lr_target_prior_cor_filtered_geo <- filter_nichenet(geo_output)
+```
+
+* Overlapping LRs in CTRL
+```{r}
+geo_id <- lr_target_prior_cor_filtered_geo$id %>% unique()
+
+gse_id <- lr_target_prior_cor_filtered_gse$id %>% unique()
+
+overlap <- intersect(geo_id, gse_id)
+
+length(overlap)
+```
+
+* combine filtered objects
+```{r}
+geo_ccc <- lr_target_prior_cor_filtered_geo %>%
+  dplyr::select(sender, receiver, ligand, target, receptor, id) %>%
+  filter(id %in% overlap) %>%
+  mutate(origin = "geo")
+
+gse_ccc <- lr_target_prior_cor_filtered_gse %>%
+  dplyr::select(sender, receiver, ligand, target, receptor, id) %>%
+  filter(id %in% overlap) %>%
+  mutate(origin = "gse")
+
+ccc_combined <- rbind(geo_ccc, gse_ccc) %>%
+  select(sender, receiver, ligand, receptor, id) %>%
+  unique()
+```
+
+* plot CTRL LR alluvial
+```{r}
+ccc_combined$ligand <- reorder(
+  ccc_combined$ligand,
+  desc(ccc_combined$sender)
+)
+ccc_combined$receptor <- reorder(
+  ccc_combined$receptor,
+  desc(ccc_combined$sender)
+)
+
+lr_ctrl <- ggplot(ccc_combined,
+  aes(axis1 = ligand, axis2 = receptor),
+  label = stratum
+) +
+  scale_x_discrete(limits = c("Ligand", "Receptor")) +
+  xlab("Type") +
+  geom_alluvium() +
+  stat_alluvium(lode.guidance = "frontback") +
+  geom_stratum(aes(fill = sender)) +
+  geom_label(
+    stat = "stratum",
+    fill = "white",
+    aes(label = after_stat(stratum))
+  ) +
+  geom_flow(aes(fill = sender), stat = "alluvium", color = "black") +
+  scale_fill_manual(values = colors) +
+  geom_text(
+    stat = "stratum",
+    aes(label = after_stat(stratum)),
+    fontface = "bold",
+    fontsize = 12
+  ) +
+  scale_x_discrete(limits = c("Ligand", "Receptor")) +
+  theme_void() +
+  theme(
+    axis.text.x = element_text(vjust = 2, face = "bold", size = 12),
+    legend.position = c(0.9, 0.5),
+    legend.text = element_text(face = "bold", size = 12),
+    legend.title = element_text(face = "bold", size = 14)
+  ) +
+  guides(fill = guide_legend(title = "Sender"))
+
+lr_ctrl
+```
+
+# Compile figure
+```{r}
+figure_s4 <- ggarrange(lr_ad,
+  lr_ctrl,
+  labels = c("A", "B"),
+  common.legend = TRUE,
+  legend = "bottom"
+)
+
+figure_s4
+```
+
+# Save figure
+```{r}
+png(
+  here(
+    "results",
+    "figures",
+    "supp_figure4.png"
+  ),
+  height = 250,
+  width = 350,
+  units = "mm",
+  res = 300
+)
+figure_s4
+dev.off()
+```
+
+# Session info
+```{r}
+sessionInfo() # see output below
+```
+R version 4.1.3 (2022-03-10)
+Platform: x86_64-pc-linux-gnu (64-bit)
+Running under: Ubuntu 20.04.6 LTS
+
+Matrix products: default
+BLAS/LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.8.so
+
+locale:
+[1] C
+
+attached base packages:
+[1] grid      stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+ [1] lintr_3.0.2           styler_1.9.1          cowplot_1.1.1         ggpubr_0.6.0          ComplexHeatmap_2.10.0
+ [6] reshape2_1.4.4        ggalluvial_0.12.5     lubridate_1.9.2       forcats_1.0.0         stringr_1.5.0        
+[11] dplyr_1.1.3           purrr_1.0.2           readr_2.1.4           tidyr_1.3.0           tibble_3.2.1         
+[16] ggplot2_3.4.2         tidyverse_2.0.0       here_1.0.1           
+
+loaded via a namespace (and not attached):
+ [1] matrixStats_1.0.0   doParallel_1.0.17   RColorBrewer_1.1-3  rprojroot_2.0.3     R.cache_0.16.0     
+ [6] tools_4.1.3         backports_1.4.1     utf8_1.2.3          R6_2.5.1            lazyeval_0.2.2     
+[11] BiocGenerics_0.40.0 colorspace_2.1-0    GetoptLong_1.0.5    withr_2.5.0         tidyselect_1.2.0   
+[16] gridExtra_2.3       processx_3.8.1      compiler_4.1.3      cli_3.6.1           xml2_1.3.5         
+[21] desc_1.4.2          labeling_0.4.2      scales_1.2.1        callr_3.7.3         digest_0.6.33      
+[26] rmarkdown_2.25      R.utils_2.12.2      pkgconfig_2.0.3     htmltools_0.5.6     fastmap_1.1.1      
+[31] rlang_1.1.1         GlobalOptions_0.1.2 rstudioapi_0.14     shape_1.4.6         farver_2.1.1       
+[36] generics_0.1.3      car_3.1-2           R.oo_1.25.0         magrittr_2.0.3      Rcpp_1.0.11        
+[41] munsell_0.5.0       S4Vectors_0.32.4    fansi_1.0.4         abind_1.4-5         lifecycle_1.0.3    
+[46] R.methodsS3_1.8.2   stringi_1.7.12      yaml_2.3.7          carData_3.0-5       plyr_1.8.8         
+[51] parallel_4.1.3      crayon_1.5.2        circlize_0.4.15     hms_1.1.3           knitr_1.44         
+[56] ps_1.7.5            pillar_1.9.0        rjson_0.2.21        ggsignif_0.6.4      codetools_0.2-18   
+[61] stats4_4.1.3        glue_1.6.2          evaluate_0.21       rex_1.2.1           remotes_2.4.2      
+[66] png_0.1-8           vctrs_0.6.3         tzdb_0.4.0          foreach_1.5.2       gtable_0.3.3       
+[71] clue_0.3-64         xfun_0.40           broom_1.0.5         cyclocomp_1.1.0     rstatix_0.7.2      
+[76] iterators_1.0.14    IRanges_2.28.0      cluster_2.1.2       timechange_0.2.0
+
+# Time tracking
+```{r}
+fptm <- proc.time() - ptm
+
+# convert to minutes
+(fptm[3] / 60)
+
+# Time elapsed: < 5 minutes
+```
+
+# Reproducibility
+```{r}
+# styler
+style_file(here(
+  "src",
+  "manuscript_figures",
+  "figure_S4.Rmd"
+))
+
+# lintr
+lint(filename = here(
+  "src",
+  "manuscript_figures",
+  "figure_S4.Rmd"
+))
+```

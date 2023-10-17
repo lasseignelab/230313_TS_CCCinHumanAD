@@ -29,7 +29,7 @@ fs::dir_tree("src")
 
 ## Authors 
 
-Tabea M. Soelter, Timothy C. Howton, Vishal H. Oza, Amanda D. Clark, Brittany N. Lasseigne 
+Tabea M. Soelter, Timothy C. Howton, Amanda D. Clark, Vishal H. Oza, Brittany N. Lasseigne 
 
 ## Lasseigne Lab 
 
