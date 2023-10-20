@@ -1,20 +1,23 @@
 README
 ================
-2023-10-17
-
-**EDIT THIS DOCUMENT AND KNIT, DO NOT EDIT README.MD DIRECTLY**
+2023-10-20
 
 # README Template
 
 **\[Replace this header with your project name\]**
 
-## Purpose
+## Authors
+
+Tabea M. Soelter, Timothy C. Howton, Amanda D. Clark, Vishal H. Oza,
+Brittany N. Lasseigne
+
+Department of Cell, Developmental and Integrative Biology, Heersink
+School of Medicine, The University of Alabama at Birmingham, Birmingham,
+Alabama, United States of America
+
+## Overview
 
 **\[Replace this section with the purpose of your research project.\]**
-This is an R Markdown document created for the Lasseigne Lab R Project
-Template. The project and README template are designed to create
-standardized R projects for research ongoing in the [Lasseigne Lab at
-the University of Alabama at Birmingham](https://www.lasseigne.org/)
 
 ## Scripts
 
@@ -70,11 +73,6 @@ the University of Alabama at Birmingham](https://www.lasseigne.org/)
     ## \-- soupX
     ##     \-- 01_ambientRNA_removal.Rmd
 
-## Authors
-
-Tabea M. Soelter, Timothy C. Howton, Amanda D. Clark, Vishal H. Oza,
-Brittany N. Lasseigne
-
 ## Lasseigne Lab
 
 [What is Happening in the Lasseigne Lab?](https://www.lasseigne.org/)
@@ -83,13 +81,15 @@ Brittany N. Lasseigne
 
 ## Funding
 
-List project funding sources.
+This work was supported in part by the UAB Lasseigne Lab funds, the NIA
+R00HG009678-04S1, the Alzheimers of Central Alabama Lindy Harrell
+Predoctoral Scholar Program.
 
 ## Acknowledgements
 
 We would also like to thank the members of the Lasseigne Lab,
-specifically Jordan H. Whitlock and Elizabeth J. Wilk for their valuable
-input.
+specifically Jordan H. Whitlock, Emma F. Jones, and Elizabeth J. Wilk
+for their valuable input.
 
 ## License
 
