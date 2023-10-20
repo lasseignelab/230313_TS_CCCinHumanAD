@@ -8,9 +8,10 @@ date: "`r Sys.Date()`"
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-# README Template 
-**[Replace this header with your project name]**
-Add link to pre-print here
+# Replace this with paper title    
+Pre-print DOI   
+Docker DOI   
+Other DOIs   
 
 ## Authors 
 
@@ -62,7 +63,7 @@ fs::dir_tree("src/manuscript_figures/")
 
 ## Funding 
 
-This work was supported in part by the UAB Lasseigne Lab funds, the NIA R00HG009678-04S1, and TMS through the Alzheimers of Central Alabama Lindy Harrell Predoctoral Scholar Program. 
+This work was supported in part by the UAB Lasseigne Lab funds, the NIA R00HG009678-04S1, and TMS through the Alzheimer's of Central Alabama Lindy Harrell Predoctoral Scholar Program. 
 
 ## Acknowledgements 
 

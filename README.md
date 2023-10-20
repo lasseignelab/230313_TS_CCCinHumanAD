@@ -2,10 +2,11 @@ README
 ================
 2023-10-20
 
-# README Template
+# Replace this with paper title
 
-**\[Replace this header with your project name\]** Add link to pre-print
-here
+Pre-print DOI  
+Docker DOI  
+Other DOIs
 
 ## Authors
 
@@ -121,7 +122,7 @@ Manuscript figures:
 ## Funding
 
 This work was supported in part by the UAB Lasseigne Lab funds, the NIA
-R00HG009678-04S1, and TMS through the Alzheimers of Central Alabama
+R00HG009678-04S1, and TMS through the Alzheimer’s of Central Alabama
 Lindy Harrell Predoctoral Scholar Program.
 
 ## Acknowledgements
