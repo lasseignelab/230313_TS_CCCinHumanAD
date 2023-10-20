@@ -31,7 +31,8 @@ AD snRNA-seq dataset (Lau et al., 2020). We further investigated the
 resulting high-confidence ligand-receptor pairs from both data sets,
 their predicted downstream target genes, and signaling modulators
 through transcription factor (TF) and canonical signaling pathway
-activity.  
+activity.
+
 ![alt
 text](https://github.com/lasseignelab/230313_TS_CCCinHumanAD/blob/main/results/figures/overview_figure1.png)
 
@@ -131,6 +132,5 @@ for their valuable input.
 
 ## License
 
-This repository is licensed under the MIT License, see LICENSE
-documentation within this repository for more details. [![MIT
+[![MIT
 License](https://img.shields.io/badge/License-MIT-green.svg)](https://choosealicense.com/licenses/mit/)
