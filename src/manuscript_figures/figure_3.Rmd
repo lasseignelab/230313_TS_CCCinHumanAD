@@ -30,9 +30,12 @@ __Analysis Plan__:
 * Plot individual panels
   * A: stacked barplot of interactions in AD and CTRL, colored by receiver cell type
   * B: lollipop plot of JI for receptors and targets in receivers
-  * C: corr plot of JI of ligands in senders by receiver cell types
-  * D: corr plot of JI of receptors by receiver and sender cell types
-  * E: corr plot of JI of targets by receiver and sender cell types
+  * C: corr plot of JI of ligands in senders in inhibitory neurons
+  * D: corr plot of JI of receptors by senders in inhibitory neurons
+  * E: corr plot of JI of targets by senders in inhibitory neurons
+  * F: corr plot of JI of ligands in senders in excitatory neurons
+  * G: corr plot of JI of receptors by senders in excitatory neurons
+  * H: corr plot of JI of targets by senders in excitatory neurons
 * Compile figure
 * Save figure
 
