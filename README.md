@@ -1,6 +1,6 @@
 README
 ================
-2023-10-20
+2023-10-23
 
 # Replace this with paper title
 
@@ -35,7 +35,7 @@ through transcription factor (TF) and canonical signaling pathway
 activity.
 
 ![alt
-text](https://github.com/lasseignelab/230313_TS_CCCinHumanAD/blob/main/results/figures/overview_figure1.png)
+text](https://github.com/lasseignelab/230313_TS_CCCinHumanAD/blob/main/results/figures/figure1.png)
 
 ## Datasets
 
@@ -129,7 +129,7 @@ Lindy Harrell Predoctoral Scholar Program.
 
 We would also like to thank the members of the Lasseigne Lab,
 specifically Jordan H. Whitlock, Emma F. Jones, and Elizabeth J. Wilk
-for their valuable input.
+for their valuable input throughout this study.
 
 ## License
 
