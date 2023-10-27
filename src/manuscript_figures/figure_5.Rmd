@@ -200,7 +200,7 @@ gex_heatmap <- Heatmap(mat,
   row_names_gp = gpar(col = row_colors, fontface = "bold"),
   heatmap_legend_param = list(
     direction = "horizontal",
-    title = "Pseudo-bulk Expression",
+    title = "Differential Expression",
     labels_gp = gpar(fontface = "bold")
   )
 )
