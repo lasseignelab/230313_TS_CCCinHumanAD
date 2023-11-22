@@ -252,7 +252,7 @@ panel_c <-
     `AD` = "#A6CEE3",
     `CTRL` = "#1F78B4"
   )) +
-  labs(fill = "Receiver") +
+  labs(fill = "Condition") +
   theme(legend.text = element_text(face = "bold")) +
   theme(axis.text = element_text(face = "bold", size = 12)) +
   theme(
