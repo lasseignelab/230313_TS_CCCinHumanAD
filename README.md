@@ -109,6 +109,21 @@ Manuscript figures:
     ## +-- figure_S3.Rmd
     ## \-- figure_S4.Rmd
 
+## Docker
+
+We performed all analyses in docker with R version 4.1.3. The repository
+with all the Docker images used for this project can be found on Docker
+Hub at
+[tsoelter/rstudio_ccc_ad](https://hub.docker.com/repository/docker/tsoelter/rstudio_ccc_ad/general).
+While individual docker image tags are noted in every script, we provide
+an overview of analyses and their associated tags below:
+
+| Tag   | Associated Analyses                                |
+|-------|----------------------------------------------------|
+| 1.0.1 | Pre-processing of Morabito et al., 2021            |
+| 1.0.3 | Pre-processing of Lau et al., 2020, CCC, and JI    |
+| 1.0.5 | GRNs, pseudo-bulking, DEA, and biological activity |
+
 ## Lasseigne Lab
 
 [What is Happening in the Lasseigne Lab?](https://www.lasseigne.org/)
