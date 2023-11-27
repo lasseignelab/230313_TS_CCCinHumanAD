@@ -118,8 +118,8 @@ Manuscript figures:
 ## Funding
 
 This work was supported in part by the UAB Lasseigne Lab funds, the NIA
-R00HG009678-04S1, and TMS through the Alzheimer’s of Central Alabama
-Lindy Harrell Predoctoral Scholar Program.
+R00HG009678-04S1, the Alzheimer’s of Central Alabama Lindy Harrell
+Predoctoral Scholar Program.
 
 ## Acknowledgements
 
