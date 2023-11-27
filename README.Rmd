@@ -8,10 +8,7 @@ date: "`r Sys.Date()`"
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-# Replace this with paper title    
-Pre-print DOI   
-Docker DOI   
-Other DOIs   
+# Altered Glia-Neuron Communication in Alzheimer's Disease Affects WNT, p53, and NFkB Signaling Determined by snRNA-seq
 
 ## Authors 
 
