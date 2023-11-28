@@ -52,6 +52,11 @@ Manuscript figures:
 fs::dir_tree("src/manuscript_figures/")
 ```
 
+## Code and Data Availability
+Data: [![DOI](https://img.shields.io/badge/DOI-10.5281/zenodo.10214497-blue)](https://doi.org/10.5281/zenodo.10214497)  
+Docker Images: [![DOI](https://img.shields.io/badge/DOI-10.5281/zenodo.10214660-blue)](https://doi.org/10.5281/zenodo.10214660)  
+GitHub Repository: [![DOI](https://img.shields.io/badge/DOI-10.5281/zenodo.10211622-blue)](https://doi.org/10.5281/zenodo.10211622)
+
 ## Docker
 We performed all analyses in docker with R version 4.1.3. The repository with all the Docker images used for this project can be found on Docker Hub at [tsoelter/rstudio_ccc_ad](https://hub.docker.com/repository/docker/tsoelter/rstudio_ccc_ad/general). While individual docker image tags are noted in every script, we provide an overview of analyses and their associated tags below:
 
@@ -59,7 +64,7 @@ Tag | Associated Analyses
 --- | ---
 1.0.1 | Pre-processing of Morabito et al., 2021  
 1.0.3 | Pre-processing of Lau et al., 2020, CCC, and JI 
-1.0.5 | GRNs, pseudo-bulking, DEA, and biological activity  
+1.0.5 | GRNs, pseudo-bulking, DEA, biological activity, and plotting  
 
 ## Lasseigne Lab 
 

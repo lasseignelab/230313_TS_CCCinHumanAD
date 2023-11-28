@@ -1,6 +1,6 @@
 README
 ================
-2023-11-27
+2023-11-28
 
 # Altered Glia-Neuron Communication in Alzheimer’s Disease Affects WNT, p53, and NFkB Signaling Determined by snRNA-seq
 
@@ -109,6 +109,15 @@ Manuscript figures:
     ## +-- figure_S3.Rmd
     ## \-- figure_S4.Rmd
 
+## Code and Data Availability
+
+Data:
+[![DOI](https://img.shields.io/badge/DOI-10.5281/zenodo.10214497-blue)](https://doi.org/10.5281/zenodo.10214497)  
+Docker Images:
+[![DOI](https://img.shields.io/badge/DOI-10.5281/zenodo.10214660-blue)](https://doi.org/10.5281/zenodo.10214660)  
+GitHub Repository:
+[![DOI](https://img.shields.io/badge/DOI-10.5281/zenodo.10211622-blue)](https://doi.org/10.5281/zenodo.10211622)
+
 ## Docker
 
 We performed all analyses in docker with R version 4.1.3. The repository
@@ -118,11 +127,11 @@ Hub at
 While individual docker image tags are noted in every script, we provide
 an overview of analyses and their associated tags below:
 
-| Tag   | Associated Analyses                                |
-|-------|----------------------------------------------------|
-| 1.0.1 | Pre-processing of Morabito et al., 2021            |
-| 1.0.3 | Pre-processing of Lau et al., 2020, CCC, and JI    |
-| 1.0.5 | GRNs, pseudo-bulking, DEA, and biological activity |
+| Tag   | Associated Analyses                                          |
+|-------|--------------------------------------------------------------|
+| 1.0.1 | Pre-processing of Morabito et al., 2021                      |
+| 1.0.3 | Pre-processing of Lau et al., 2020, CCC, and JI              |
+| 1.0.5 | GRNs, pseudo-bulking, DEA, biological activity, and plotting |
 
 ## Lasseigne Lab
 

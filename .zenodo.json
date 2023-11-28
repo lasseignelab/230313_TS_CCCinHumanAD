@@ -1,0 +1,241 @@
+{
+"metadata": {
+    "contributors": [
+      {
+        "affiliations": [
+          {
+            "id": "008s83205",
+            "name": "University of Alabama at Birmingham"
+          }
+        ],
+        "person_or_org": {
+          "family_name": "Lasseigne",
+          "given_name": "Brittany N.",
+          "identifiers": [
+            {
+              "identifier": "0000-0002-1642-8904",
+              "scheme": "orcid"
+            }
+          ],
+          "name": "Lasseigne, Brittany N.",
+          "type": "personal"
+        },
+        "role": {
+          "id": "contactperson",
+          "title": {
+            "de": "Kontaktperson",
+            "en": "Contact person"
+          }
+        }
+      }
+    ],
+    "creators": [
+      {
+        "affiliations": [
+          {
+            "id": "008s83205",
+            "name": "University of Alabama at Birmingham"
+          }
+        ],
+        "person_or_org": {
+          "family_name": "Soelter",
+          "given_name": "Tabea M.",
+          "identifiers": [
+            {
+              "identifier": "0000-0003-1654-4240",
+              "scheme": "orcid"
+            }
+          ],
+          "name": "Soelter, Tabea M.",
+          "type": "personal"
+        },
+        "role": {
+          "id": "projectleader",
+          "title": {
+            "de": "ProjektleiterIn",
+            "en": "Project leader"
+          }
+        }
+      },
+      {
+        "affiliations": [
+          {
+            "id": "008s83205",
+            "name": "University of Alabama at Birmingham"
+          }
+        ],
+        "person_or_org": {
+          "family_name": "Howton",
+          "given_name": "Timothy C.",
+          "identifiers": [
+            {
+              "identifier": "0000-0002-9423-0135",
+              "scheme": "orcid"
+            }
+          ],
+          "name": "Howton, Timothy C.",
+          "type": "personal"
+        },
+        "role": {
+          "id": "researcher",
+          "title": {
+            "de": "WissenschaftlerIn",
+            "en": "Researcher"
+          }
+        }
+      },
+      {
+        "affiliations": [
+          {
+            "id": "008s83205",
+            "name": "University of Alabama at Birmingham"
+          }
+        ],
+        "person_or_org": {
+          "family_name": "Clark",
+          "given_name": "Amanda D.",
+          "identifiers": [
+            {
+              "identifier": "0000-0002-1186-3114",
+              "scheme": "orcid"
+            }
+          ],
+          "name": "Clark, Amanda D.",
+          "type": "personal"
+        },
+        "role": {
+          "id": "researcher",
+          "title": {
+            "de": "WissenschaftlerIn",
+            "en": "Researcher"
+          }
+        }
+      },
+      {
+        "affiliations": [
+          {
+            "id": "008s83205",
+            "name": "University of Alabama at Birmingham"
+          }
+        ],
+        "person_or_org": {
+          "family_name": "Oza",
+          "given_name": "Vishal H.",
+          "identifiers": [
+            {
+              "identifier": "0000-0001-6990-0267",
+              "scheme": "orcid"
+            }
+          ],
+          "name": "Oza, Vishal H.",
+          "type": "personal"
+        },
+        "role": {
+          "id": "researcher",
+          "title": {
+            "de": "WissenschaftlerIn",
+            "en": "Researcher"
+          }
+        }
+      },
+      {
+        "affiliations": [
+          {
+            "id": "008s83205",
+            "name": "University of Alabama at Birmingham"
+          }
+        ],
+        "person_or_org": {
+          "family_name": "Lasseigne",
+          "given_name": "Brittany N.",
+          "identifiers": [
+            {
+              "identifier": "0000-0002-1642-8904",
+              "scheme": "orcid"
+            }
+          ],
+          "name": "Lasseigne, Brittany N.",
+          "type": "personal"
+        },
+        "role": {
+          "id": "supervisor",
+          "title": {
+            "de": "SupervisorIn",
+            "en": "Supervisor"
+          }
+        }
+      }
+    ],
+    "description": "<p>Initial release:</p>\n<p>The code and results accompany the &quot;Altered Glia-Neuron Communication in Alzheimer's Disease Affects WNT, p53, and NFkB Signaling Determined by snRNA-seq&quot; manuscript.</p>",
+    "identifiers": [
+      {
+        "identifier": "10.5281/zenodo.10211623",
+        "scheme": "doi"
+      }
+    ],
+    "publication_date": "2023-11-27",
+    "publisher": "Zenodo",
+    "related_identifiers": [
+      {
+        "identifier": "https://github.com/lasseignelab/230313_TS_CCCinHumanAD/tree/v1.0.0",
+        "relation_type": {
+          "id": "issupplementto",
+          "title": {
+            "de": "Erg\u00e4nzt",
+            "en": "Is supplement to"
+          }
+        },
+        "resource_type": {
+          "id": "software",
+          "title": {
+            "de": "Software",
+            "en": "Software"
+          }
+        },
+        "scheme": "url"
+      },
+      {
+        "identifier": "10.5281/zenodo.10211623",
+        "relation_type": {
+          "id": "issupplementto",
+          "title": {
+            "de": "Erg\u00e4nzt",
+            "en": "Is supplement to"
+          }
+        },
+        "resource_type": {
+          "id": "dataset",
+          "title": {
+            "de": "Datensatz",
+            "en": "Dataset"
+          }
+        },
+        "scheme": "doi"
+      }
+    ],
+    "resource_type": {
+      "id": "software",
+      "title": {
+        "de": "Software",
+        "en": "Software"
+      }
+    },
+    "rights": [
+      {
+        "description": {
+          "en": "A short and simple permissive license with conditions only requiring preservation of copyright and license notices. Licensed works, modifications, and larger works may be distributed under different terms and without source code."
+        },
+        "id": "mit",
+        "props": {
+          "scheme": "spdx",
+          "url": "https://opensource.org/licenses/MIT"
+        },
+        "title": {
+          "en": "MIT License"
+        }
+      }
+    ],
+    "title": "lasseignelab/230313_TS_CCCinHumanAD: Altered Glia-Neuron Communication in Alzheimer's Disease Affects WNT, p53, and NFkB Signaling Determined by snRNA-seq"
+  }
+}
+
