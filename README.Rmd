@@ -10,11 +10,13 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 # Altered Glia-Neuron Communication in Alzheimer's Disease Affects WNT, p53, and NFkB Signaling Determined by snRNA-seq
 
+[![DOI:10.1101/2023.11.29.569304](http://img.shields.io/badge/DOI-10.1101/2023.11.29.569304-B31B1B.svg)](https://doi.org/10.1101/2023.11.29.569304) 
+ 
 ## Authors 
 
 **Tabea M. Soelter, Timothy C. Howton, Amanda D. Clark, Vishal H. Oza, Brittany N. Lasseigne**
 
-The University of Alabama at Birmingham, Heersink School of Medicine, Department of Cell, Developmental and Integrative Biology
+The University of Alabama at Birmingham, Heersink School of Medicine, Department of Cell, Developmental and Integrative Biology  
 
 ## Project Overview 
 We used publicly available snRNA-seq AD data (Morabito et al., 2021) generated from postmortem human PFC to study altered glia-neuron interactions and their downstream effects in AD. We inferred differential CCC interactions between astrocytes, microglia, oligodendrocytes, or OPCs (sender cell types) and inhibitory or excitatory neurons (receiver cell types). We also investigated whether CCC shows high similarity across cell types by calculating the Jaccard Similarity Index (JI) of ligands, receptors, and target genes across cell types. Since CCC inference methodologies are known to produce false positives, we validated our interactions using an independent human PFC AD snRNA-seq dataset (Lau et al., 2020). We further investigated the resulting high-confidence ligand-receptor pairs from both data sets, their predicted downstream target genes, and signaling modulators through transcription factor (TF) and canonical signaling pathway activity.   
