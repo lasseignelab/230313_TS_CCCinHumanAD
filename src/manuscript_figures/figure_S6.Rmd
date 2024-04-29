@@ -1,23 +1,23 @@
 ---
-title: "figure_S4"
+title: "figure_S6"
 author: "Tabea M. Soelter"
-date: '2023-10-12'
+date: "`r Sys.Date()`"
 output: html_document
 ---
-**Plotting Supplemental Figure 4**
+**Plotting Supplemental Figure 6**
 
-__Goal__: This is a script for generating supplemental figure 4 of my manuscript.
+__Goal__: This is a script for generating supplemental figure 6.
   
 __Reproducibility__: 
 * GitHub: lasseignelab/230313_TS_CCCinHumanAD
 * Docker: tsoelter/rstudio_ccc_ad
     * Version: 1.0.5
 * HPC: Yes
-  * Resources: long partition (150hrs), 6 CPUs, 85GB per CPU
+  * Resources: long partition (150hrs), 6 CPUs, 65GB per CPU
 
 __Data__:
 *Seurat objects*
-* Name: gse_processed_seurat.rds
+* Name: sadick_processed_seurat.rds
 * Location: data/seurat_preprocessing/
  
 __Analysis Plan__:
@@ -58,10 +58,10 @@ suppressPackageStartupMessages({
 
 # Load in object
 ```{r}
-gse_object <- readRDS(here(
+sadick_object <- readRDS(here(
   "data",
   "seurat_preprocessing",
-  "gse_processed_seurat.rds"
+  "sadick_processed_seurat.rds"
 ))
 ```
 
@@ -79,10 +79,10 @@ colors <- c(
 )
 ```
 
-# Figure S4A
+# Figure S1A
 * UMAP of assigned cell types
 ```{r}
-umap_1 <- DimPlot(gse_object,
+umap_1 <- DimPlot(sadick_object,
   cols = colors,
   label = TRUE,
   label.box = TRUE,
@@ -98,31 +98,25 @@ umap_1 <- DimPlot(gse_object,
 umap_1
 ```
 
-# Figure S4B
+# Figure S1B
 * Violin plot of the marker gene expression of the assigned cell types
 ```{r}
 markers <- c(
-  "MBP",
-  "ST18",
-  "QDPR",
-  "DOCK8",
-  "APBB1IP",
-  "ARHGAP15",
-  "PCDH15",
-  "PDGFRA",
   "ADGRV1",
   "AQP4",
-  "GFAP",
-  "RALYL",
-  "IL1RAPL2",
-  "NXPH1",
-  "GRIK1",
+  "QDPR",
+  "ST18",
+  "SLC17A7",
+  "DOCK8",
+  "APBB1IP",
+  "PCDH15",
+  "PDGFRA",
+  "GAD2",
   "PDGFRB",
-  "FLT1",
-  "VWF"
+  "FLT1"
 )
 
-violin <- VlnPlot(gse_object,
+violin <- VlnPlot(sadick_object,
   markers,
   stack = TRUE,
   sort = FALSE,
@@ -147,10 +141,10 @@ violin <- VlnPlot(gse_object,
 violin
 ```
 
-# Figure S4C
+# Figure S1C
 * UMAP split by condition
 ```{r}
-umap_2 <- DimPlot(gse_object,
+umap_2 <- DimPlot(sadick_object,
   group.by = "orig.ident",
   cols = "Paired",
   shuffle = TRUE,
@@ -167,10 +161,10 @@ umap_2 <- umap_2 + ggtitle(NULL)
 umap_2
 ```
 
-# Figure S4D
+# Figure S1D
 * Stacked barplot of cell type proportion distribution across conditions
 ```{r}
-df <- table(Idents(gse_object), gse_object$orig.ident) %>% as.data.frame()
+df <- table(Idents(sadick_object), sadick_object$orig.ident) %>% as.data.frame()
 
 df$Var1 <- as.character(df$Var1)
 
@@ -192,7 +186,7 @@ barplot
 
 # Compile supp figure 1
 ```{r}
-fig_s4 <- plot_grid(umap_1,
+fig_s1 <- plot_grid(umap_1,
   umap_2,
   violin,
   barplot,
@@ -200,13 +194,13 @@ fig_s4 <- plot_grid(umap_1,
   rel_heights = c(1, 2)
 )
 
-png(here("results", "figures", "supp_figure1.png"),
+png(here("results", "figures", "supp_figure6.png"),
   width = 300,
   height = 300,
   units = "mm",
   res = 300
 )
-fig_s4
+fig_s1
 dev.off()
 ```
 
@@ -297,13 +291,13 @@ fptm <- proc.time() - ptm
 style_file(here(
   "src",
   "manuscript_figures",
-  "figure_S4.Rmd"
+  "figure_S6.Rmd"
 ))
 
 # lintr
 lint(filename = here(
   "src",
   "manuscript_figures",
-  "figure_S4.Rmd"
+  "figure_S6.Rmd"
 ))
 ```

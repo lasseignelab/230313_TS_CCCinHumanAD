@@ -62,13 +62,13 @@ source(here("src", "functions_CCCinAD_tms.R"))
 geo_multinichenet_output <- readRDS(here(
   "data",
   "ccc",
-  "geo_multinichenet_output.rds"
+  "geo_multinichenet_output_final.rds"
 ))
 
 gse_multinichenet_output <- readRDS(here(
   "data",
   "ccc",
-  "gse_multinichenet_output.rds"
+  "gse_multinichenet_output_final.rds"
 ))
 
 multinichenet_objects <- tibble::lst(
@@ -139,7 +139,7 @@ gse_id <- gse_lr_target_prior_cor_filtered$id %>% unique()
 
 overlap <- intersect(geo_id, gse_id)
 
-length(overlap) # 51
+length(overlap) # 55
 ```
 
 # Combine filtered objects
@@ -187,7 +187,7 @@ opc <- ggplot(ccc_opc, aes(axis1 = ligand, axis2 = receptor), label = stratum) +
     stat = "stratum",
     fill = "white",
     aes(label = after_stat(stratum)),
-    size = 3,
+    size = 2,
     fontface = "bold"
   ) +
   geom_flow(aes(fill = receiver), stat = "alluvium", color = "black") +
@@ -424,15 +424,11 @@ lrt <- ggplot(ccc_combined,
   geom_label(
     stat = "stratum",
     fill = "white",
-    aes(label = after_stat(stratum))
-  ) +
-  geom_flow(aes(fill = sender), stat = "alluvium", color = "black") +
-  scale_fill_manual(values = colors) +
-  geom_text(
-    stat = "stratum",
     aes(label = after_stat(stratum)),
     fontface = "bold"
   ) +
+  geom_flow(aes(fill = sender), stat = "alluvium", color = "black") +
+  scale_fill_manual(values = colors) +
   scale_x_discrete(limits = c("Ligand", "Receptor", "Target")) +
   theme_void() +
   theme(
@@ -464,7 +460,7 @@ de_genes_filt_gse <- de_genes_gse %>%
   filter(receiver %in% receiver_oi, contrast == "AD-CTRL")
 
 # Create vector of target genes
-targets <- c("SMAD7", "LMO1", "CCND1", "PRLR")
+targets <- c("LMO1", "CCND1", "PRLR")
 
 # Filter DEGs by targets
 de_genes_filt_geo <- de_genes_filt_geo %>%
@@ -621,9 +617,9 @@ png(
   here(
     "results",
     "figures",
-    "figure4.png"
+    "figure4_final.png"
   ),
-  width = 350,
+  width = 375,
   height = 450,
   units = "mm",
   res = 300

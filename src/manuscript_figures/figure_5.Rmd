@@ -72,7 +72,7 @@ deseq2_geo <- read_csv(here(
   "intermediate_outputs",
   "geo",
   "pseudobulk",
-  "Inhibitory Neurons_group_id_AD_vs_CTRL_all_genes.csv"
+  "Inhibitory Neurons_group_id_AD_vs_CTRL_all_genes_final.csv"
 ))
 
 deseq2_gse <- read_csv(here(
@@ -80,17 +80,15 @@ deseq2_gse <- read_csv(here(
   "intermediate_outputs",
   "gse",
   "pseudobulk",
-  "Inhibitory Neurons_group_id_AD_vs_CTRL_all_genes.csv"
+  "Inhibitory Neurons_group_id_AD_vs_CTRL_all_genes_final.csv"
 ))
 
 # List of signaling mediators in inhibitory neurons
 in_mediators <- c(
   "GSK3B", "IRAK1", "CD44", "ESR1", "JUN", "MYC", "SRC",
-  "STAT3", "TLR2", "SMAD3", "TP53", "CDK5", "NRP1", "PAK2",
-  "EP300", "AKT1", "KDR", "CTNNB1", "PLXNA3", "SMAD1", "MAP3K7",
-  "ERBB2", "DAPK1", "RAC1", "LRP8", "LRP1", "MAPK8", "APP",
-  "LCK", "PTK2", "STAT1", "STAT2", "SP1", "PTEN", "CCNB1",
-  "CCND1", "IFIT3", "IRF9", "NFIL3"
+  "STAT3", "TLR2", "TP53", "AKT1", "CTNNB1", "ERBB2", "DAPK1", "RAC1", "LRP1",
+  "MAPK8", "APP", "LCK", "PTK2", "STAT1", "STAT2", "PTEN", "CCNB1",
+  "CCND1", "IFIT3", "NFIL3", "ERBB3", "CEBPD", "FST", "GFRA1", "ANGPTL4"
 )
 
 # TF activity output
@@ -98,7 +96,7 @@ tf_acts_filt <- readRDS(here(
   "results",
   "final_outputs",
   "comparison",
-  "differential_tf_activity_filt.rds"
+  "differential_tf_activity_filt_final.rds"
 ))
 
 # Pathway activity output
@@ -106,7 +104,7 @@ acts <- readRDS(here(
   "results",
   "final_outputs",
   "comparison",
-  "differential_pathway_activity.rds"
+  "differential_pathway_activity_final.rds"
 ))
 ```
 
@@ -179,8 +177,8 @@ cols <- colorRamp2(c(-0.5, 0, 0.5), rev(brewer.pal(n = 3, name = "RdBu")))
 
 # TFs that are mediators
 tfs <- c(
-  "NFIL3", "IRF9", "ESR1", "SMAD3", "STAT3", "STAT1", "SP1",
-  "TP53", "JUN", "EP300", "STAT2", "SMAD1", "CTNNB1", "MYC"
+  "NFIL3", "ESR1", "STAT3", "STAT1", "TP53",
+  "JUN", "STAT2", "CTNNB1", "MYC", "CEBPD"
 )
 
 # Grey out mediators that are not TFs
@@ -397,7 +395,7 @@ png(
   here(
     "results",
     "figures",
-    "figure5.png"
+    "figure5_final.png"
   ),
   width = 300,
   height = 200,

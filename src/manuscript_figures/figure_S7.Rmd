@@ -1,0 +1,544 @@
+---
+title: "figure_S7"
+author: "Tabea M. Soelter"
+date: "`r Sys.Date()`"
+output: html_document
+---
+**Plotting Supplemental Figure 7**
+
+__Goal__: This is a script for generating supplemental figure 7.
+  
+__Reproducibility__: 
+* GitHub: lasseignelab/230313_TS_CCCinHumanAD
+* Docker: tsoelter/rstudio_ccc_ad
+    * Version: 1.0.5
+* HPC: Yes
+  * Resources: long partition (150hrs), 6 CPUs, 65GB per CPU
+
+__Data__:
+*Seurat objects*
+* Name: geo_multinichenet_output, gse_multinichenet_output, sadick_multinichenet_output
+* Location: data/ccc/
+ 
+__Analysis Plan__:
+* Load necessary packages 
+* Load data
+  * Seurat object
+* Plot individual panels
+  * A: UpSet plot of overlapping ligand-receptor pairs
+  * B: UpSet plot of overlapping LRTs
+  * C: Alluvial of overlapping ligand-receptor pairs colored by sender
+* Compile figure
+* Save figure
+
+# Load packages
+```{r}
+# Time tracking
+ptm <- proc.time()
+
+# set seed
+set.seed(42)
+
+# Install one missing package
+install.packages("ComplexUpset")
+
+# load packages
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(ggalluvial)
+  library(UpSetR)
+  library(ggpubr)
+  library(cowplot)
+  library(RColorBrewer)
+  library(ComplexUpset)
+  library(here)
+  library(styler)
+  library(lintr)
+})
+
+source(here("src", "functions_CCCinAD_tms.R"))
+```
+
+# Load data
+```{r}
+geo_multinichenet_output <- readRDS(here(
+  "data",
+  "ccc",
+  "geo_multinichenet_output_final.rds"
+))
+
+gse_multinichenet_output <- readRDS(here(
+  "data",
+  "ccc",
+  "gse_multinichenet_output_final.rds"
+))
+
+sadick_multinichenet_output <- readRDS(here(
+  "data",
+  "ccc",
+  "sadick_multinichenet_output_final.rds"
+))
+
+multinichenet_objects <- tibble::lst(
+  geo_multinichenet_output,
+  gse_multinichenet_output,
+  sadick_multinichenet_output
+)
+```
+
+# Colors
+```{r}
+colors <- c(
+  `Oligodendrocytes` = "royalblue4",
+  `Microglia` = "orchid3",
+  `OPCs` = "mediumpurple1",
+  `Astrocytes` = "cornflowerblue",
+  `Excitatory Neurons` = "slateblue3",
+  `Inhibitory Neurons` = "darkslategray3",
+  `Pericytes` = "deepskyblue3",
+  `Endothelial cells` = "darkolivegreen4"
+)
+```
+
+# Set filtering parameters
+* NOTE: These are the same as in previous analyses.
+```{r}
+top_n_target <- 250
+
+receiver_oi <- c("Excitatory.Neurons", "Inhibitory.Neurons")
+
+sender_oi <- c("Astrocytes", "Microglia", "OPCs", "Oligodendrocytes")
+
+contrast_tbl <- tibble(
+  contrast = c("AD-CTRL", "CTRL-AD"),
+  group = c("AD", "CTRL")
+)
+```
+
+# Filter MultiNicheNet outputs
+```{r}
+filtered_objects <- filter_multinichenet(
+  object_list = multinichenet_objects,
+  sender_oi = sender_oi,
+  receiver_oi = receiver_oi,
+  contrast_tbl = contrast_tbl
+)
+
+list2env(filtered_objects, globalenv())
+
+# Rename receiver cell types
+geo_lr_target_prior_cor_filtered$receiver <- ifelse(
+  geo_lr_target_prior_cor_filtered$receiver == "Inhibitory.Neurons",
+  "Inhibitory Neurons",
+  "Excitatory Neurons"
+)
+
+gse_lr_target_prior_cor_filtered$receiver <- ifelse(
+  gse_lr_target_prior_cor_filtered$receiver == "Inhibitory.Neurons",
+  "Inhibitory Neurons",
+  "Excitatory Neurons"
+)
+
+sadick_lr_target_prior_cor_filtered$receiver <- ifelse(
+  sadick_lr_target_prior_cor_filtered$receiver == "Inhibitory.Neurons",
+  "Inhibitory Neurons",
+  "Excitatory Neurons"
+)
+```
+
+# Get overlapping LRs
+```{r}
+geo_id <- geo_lr_target_prior_cor_filtered$id %>% unique()
+
+gse_id <- gse_lr_target_prior_cor_filtered$id %>% unique()
+
+sadick_id <- sadick_lr_target_prior_cor_filtered$id %>% unique()
+
+# Number of LRs overlapping across all 3 datasets
+overlap <- Reduce(intersect, list(geo_id, gse_id, sadick_id))
+
+length(overlap) # 20
+```
+
+# Combine filtered objects for LRs
+```{r}
+geo_ccc <- geo_lr_target_prior_cor_filtered %>%
+  dplyr::select(id) %>%
+  unique() %>%
+  mutate(origin = "Morabito")
+
+gse_ccc <- gse_lr_target_prior_cor_filtered %>%
+  dplyr::select(id) %>%
+  unique() %>%
+  mutate(origin = "Lau")
+
+sadick_ccc <- sadick_lr_target_prior_cor_filtered %>%
+  dplyr::select(id) %>%
+  unique() %>%
+  mutate(origin = "Sadick")
+
+ccc_combined <- rbind(geo_ccc, gse_ccc, sadick_ccc) %>%
+  unique()
+```
+
+# Panel A
+```{r}
+# Prepare input for UpSet plot
+upset_mat <- table(ccc_combined$id, ccc_combined$origin)
+
+upset_df <- as.data.frame(upset_mat) %>%
+  pivot_wider(
+    names_from = Var2,
+    values_from = Freq
+  ) %>%
+  as.data.frame()
+
+# pull out group columns
+groups <- colnames(upset_df)[2:4]
+
+# changing 0/1 format to True/False for the group columns
+upset_df[groups] <- upset_df[groups] == 1
+
+# plot the UpSet plot
+lr_upset <- ComplexUpset::upset(upset_df,
+  groups,
+  name = "Group",
+  base_annotations = list(
+    "Intersection Size" = intersection_size(
+      counts = TRUE,
+      bar_number_threshold = 1,
+      text = list(color = "black", fontface = "bold")
+    ) +
+      theme_bw() +
+      theme(
+        axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        legend.title = element_text(
+          size = 14,
+          face = "bold"
+        ),
+        legend.text = element_text(
+          size = 12,
+          face = "bold"
+        ),
+        axis.title.y = element_text(
+          size = 14,
+          face = "bold"
+        )
+      ) +
+      expand_limits(y = 250) +
+      scale_fill_manual(values = colors)
+  ),
+  themes = upset_default_themes(
+    text = element_text(
+      face = "bold",
+      color = "black"
+    ),
+    axis.text.y = element_text(
+      color = "black",
+      face = "bold",
+      size = 12
+    ),
+    axis.title = element_text(size = 14)
+  ),
+  set_sizes = upset_set_size(position = "right") +
+    geom_text(aes(label = ..count..),
+      hjust = -0.1,
+      stat = "count",
+      size = 3.5,
+      fontface = "bold"
+    ) +
+    expand_limits(y = 350) +
+    theme(
+      axis.text.x = element_text(color = "black", size = 12),
+      axis.title.x = element_text(size = 14),
+      axis.text.y = element_blank()
+    ),
+  guides = "over"
+) +
+  theme(
+    text = element_text(face = "bold", color = "black"),
+    axis.title = element_text(size = 11)
+  )
+
+lr_upset
+```
+
+# Panel B
+```{r}
+# Combine outputs for LRTs
+geo_lrt <- geo_lr_target_prior_cor_filtered %>%
+  dplyr::select(id_target) %>%
+  unique() %>%
+  mutate(origin = "Morabito")
+
+gse_lrt <- gse_lr_target_prior_cor_filtered %>%
+  dplyr::select(id_target) %>%
+  unique() %>%
+  mutate(origin = "Lau")
+
+sadick_lrt <- sadick_lr_target_prior_cor_filtered %>%
+  dplyr::select(id_target) %>%
+  unique() %>%
+  mutate(origin = "Sadick")
+
+lrt_combined <- rbind(geo_lrt, gse_lrt, sadick_lrt) %>%
+  unique()
+
+# Prepare input for UpSet
+lrt_upset_mat <- table(lrt_combined$id_target, lrt_combined$origin)
+
+lrt_upset_df <- as.data.frame(lrt_upset_mat) %>%
+  pivot_wider(
+    names_from = Var2,
+    values_from = Freq
+  ) %>%
+  as.data.frame()
+
+# Get group columns and change their format like before
+groups <- colnames(lrt_upset_df)[2:4]
+
+lrt_upset_df[groups] <- lrt_upset_df[groups] == 1
+
+# Plot panel B
+lrt_upset <- ComplexUpset::upset(lrt_upset_df,
+  groups,
+  name = "Group",
+  base_annotations = list(
+    "Intersection Size" = intersection_size(
+      counts = TRUE,
+      bar_number_threshold = 1,
+      text = list(color = "black", fontface = "bold")
+    ) +
+      theme_bw() +
+      theme(
+        axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        legend.title = element_text(
+          size = 14,
+          face = "bold"
+        ),
+        legend.text = element_text(
+          size = 12,
+          face = "bold"
+        ),
+        axis.title.y = element_text(
+          size = 14,
+          face = "bold"
+        )
+      ) +
+      expand_limits(y = 1800) +
+      scale_fill_manual(values = colors)
+  ),
+  themes = upset_default_themes(
+    text = element_text(
+      face = "bold",
+      color = "black"
+    ),
+    axis.text.y = element_text(
+      color = "black",
+      face = "bold",
+      size = 12
+    ),
+    axis.title = element_text(size = 14)
+  ),
+  set_sizes = upset_set_size(position = "right") +
+    geom_text(aes(label = ..count..),
+      hjust = -0.1,
+      stat = "count",
+      size = 3.5,
+      fontface = "bold"
+    ) +
+    expand_limits(y = 2200) +
+    theme(
+      axis.text.x = element_text(color = "black", size = 12),
+      axis.title.x = element_text(size = 14),
+      axis.text.y = element_blank()
+    ),
+  guides = "over"
+) +
+  theme(
+    text = element_text(face = "bold", color = "black"),
+    axis.title = element_text(size = 11)
+  )
+
+
+lrt_upset
+```
+
+# Panel C
+```{r}
+# Prepare input for alluvial plot
+geo_ccc <- geo_lr_target_prior_cor_filtered %>%
+  dplyr::select(sender, receiver, ligand, target, receptor, id) %>%
+  filter(id %in% overlap) %>%
+  mutate(origin = "geo")
+
+gse_ccc <- gse_lr_target_prior_cor_filtered %>%
+  dplyr::select(sender, receiver, ligand, target, receptor, id) %>%
+  filter(id %in% overlap) %>%
+  mutate(origin = "gse")
+
+sadick_ccc <- sadick_lr_target_prior_cor_filtered %>%
+  dplyr::select(sender, receiver, ligand, target, receptor, id) %>%
+  filter(id %in% overlap) %>%
+  mutate(origin = "sadick")
+
+ccc_combined <- rbind(geo_ccc, gse_ccc, sadick_ccc) %>%
+  select(sender, receiver, ligand, receptor, id) %>%
+  unique()
+
+# Change order for plotting purposes
+ccc_combined$ligand <- reorder(
+  ccc_combined$ligand,
+  desc(ccc_combined$sender)
+)
+ccc_combined$receptor <- reorder(
+  ccc_combined$receptor,
+  desc(ccc_combined$sender)
+)
+
+# Plot panel C
+lr_alluvial <- ggplot(ccc_combined,
+  aes(axis1 = ligand, axis2 = receptor),
+  label = stratum
+) +
+  scale_x_discrete(limits = c("Ligand", "Receptor")) +
+  xlab("Type") +
+  geom_alluvium() +
+  stat_alluvium(lode.guidance = "frontback") +
+  geom_stratum(aes(fill = sender)) +
+  geom_label(
+    stat = "stratum",
+    fill = "white",
+    aes(label = after_stat(stratum))
+  ) +
+  geom_flow(aes(fill = sender), stat = "alluvium", color = "black") +
+  scale_fill_manual(values = colors) +
+  geom_text(
+    stat = "stratum",
+    aes(label = after_stat(stratum)),
+    fontface = "bold",
+    fontsize = 12
+  ) +
+  scale_x_discrete(limits = c("Ligand", "Receptor")) +
+  theme_void() +
+  theme(
+    axis.text.x = element_text(vjust = 2, face = "bold", size = 12),
+    legend.position = "bottom",
+    legend.text = element_text(face = "bold", size = 12),
+    legend.title = element_text(face = "bold", size = 14),
+    plot.margin = margin(0, -2, 0, -2, "cm")
+  ) +
+  guides(fill = guide_legend(title = "Sender"))
+
+lr_alluvial
+```
+
+# Compile figure S7
+```{r}
+left <- plot_grid(lr_upset,
+  lrt_upset,
+  nrow = 2,
+  labels = c("A", "B")
+)
+
+right <- plot_grid(lr_alluvial,
+  labels = "C"
+)
+
+fig <- plot_grid(left,
+  right,
+  ncol = 2,
+  rel_widths = c(1.5, 1)
+)
+
+fig
+```
+
+# Save final figure S7
+```{r}
+png(
+  here(
+    "results",
+    "figures",
+    "supp_figure7.png"
+  ),
+  width = 350,
+  height = 200,
+  units = "mm",
+  res = 300
+)
+fig
+dev.off()
+```
+
+# Session Info
+```{r}
+sessionInfo() # see output below
+```
+R version 4.1.3 (2022-03-10)
+Platform: x86_64-pc-linux-gnu (64-bit)
+Running under: Ubuntu 20.04.6 LTS
+
+Matrix products: default
+BLAS/LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.8.so
+
+locale:
+[1] C
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+ [1] lintr_3.0.2        styler_1.9.1       here_1.0.1         ComplexUpset_1.3.3
+ [5] RColorBrewer_1.1-3 cowplot_1.1.1      ggpubr_0.6.0       UpSetR_1.4.0      
+ [9] ggalluvial_0.12.5  lubridate_1.9.2    forcats_1.0.0      stringr_1.5.0     
+[13] dplyr_1.1.3        purrr_1.0.2        readr_2.1.4        tidyr_1.3.0       
+[17] tibble_3.2.1       ggplot2_3.4.2      tidyverse_2.0.0   
+
+loaded via a namespace (and not attached):
+ [1] Rcpp_1.0.11       ps_1.7.5          rprojroot_2.0.3   digest_0.6.33    
+ [5] utf8_1.2.3        R6_2.5.1          plyr_1.8.8        backports_1.4.1  
+ [9] pillar_1.9.0      rlang_1.1.1       lazyeval_0.2.2    rstudioapi_0.14  
+[13] car_3.1-2         callr_3.7.3       R.utils_2.12.2    R.oo_1.25.0      
+[17] labeling_0.4.2    desc_1.4.2        munsell_0.5.0     broom_1.0.5      
+[21] compiler_4.1.3    xfun_0.40         pkgconfig_2.0.3   tidyselect_1.2.0 
+[25] gridExtra_2.3     fansi_1.0.4       crayon_1.5.2      tzdb_0.4.0       
+[29] withr_2.5.0       R.methodsS3_1.8.2 grid_4.1.3        gtable_0.3.3     
+[33] lifecycle_1.0.3   magrittr_2.0.3    scales_1.2.1      cli_3.6.1        
+[37] stringi_1.7.12    carData_3.0-5     farver_2.1.1      ggsignif_0.6.4   
+[41] remotes_2.4.2     rex_1.2.1         xml2_1.3.5        generics_0.1.3   
+[45] vctrs_0.6.3       cyclocomp_1.1.0   tools_4.1.3       R.cache_0.16.0   
+[49] glue_1.6.2        hms_1.1.3         processx_3.8.1    abind_1.4-5      
+[53] timechange_0.2.0  colorspace_2.1-0  rstatix_0.7.2     knitr_1.44       
+[57] patchwork_1.1.2  
+
+# Time tracking
+```{r}
+fptm <- proc.time() - ptm
+
+# convert to minutes
+(fptm[3] / 60)
+
+# Time elapsed: 8 minutes
+```
+
+# Reproducibility
+```{r}
+# styler
+style_file(here(
+  "src",
+  "manuscript_figures",
+  "figure_S7.Rmd"
+))
+
+# lintr
+lint(filename = here(
+  "src",
+  "manuscript_figures",
+  "figure_S7.Rmd"
+))
+```
