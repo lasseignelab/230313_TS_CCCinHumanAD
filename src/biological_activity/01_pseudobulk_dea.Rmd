@@ -17,13 +17,18 @@ __Reproducibility__:
 
 __Data__:
 *Seurat objects*
-* Name: geo_processed_seurat.rds, gse_processed_seurat.rds
+* Name: geo_processed_seurat.rds, gse_processed_seurat.rds, sadick_processed_seurat.rds
 * Location: data/seurat_preprocessing/
+*Dataset metadata*
+* Name: morabito_metadata.csv, lau_metadata.csv, sadick_metadata.csv
+* Location: data/dataset_metadata/
  
 __Analysis Plan__:
 * Load necessary packages 
 * Load data
   * Seurat objects
+  * metadata CSVs
+* Add metdata information to Seurat objects
 * Create Single Cell Experiment objects
 * Prepare for DGE Analysis
   * Pseudo-bulk data by cell type across samples
@@ -60,6 +65,7 @@ source(here("src", "functions_CCCinAD_tms.R"))
 
 # Load data
 ```{r}
+# Seurat objects
 geo_processed_seurat <- readRDS(here(
   "data",
   "seurat_preprocessing",
@@ -72,10 +78,97 @@ gse_processed_seurat <- readRDS(here(
   "gse_processed_seurat.rds"
 ))
 
-object_list <- tibble::lst(
-  geo_processed_seurat,
-  gse_processed_seurat
+sadick_processed_seurat <- readRDS(here(
+  "data",
+  "seurat_preprocessing",
+  "sadick_processed_seurat.rds"
+))
+
+# Metadata files
+morabito_metadata <- read_csv(here(
+  "data",
+  "dataset_metadata",
+  "morabito_metadata.csv"
+))
+
+lau_metadata <- read_csv(here(
+  "data",
+  "dataset_metadata",
+  "lau_metadata.csv"
+))
+
+sadick_metadata <- read_csv(here(
+  "data",
+  "dataset_metadata",
+  "sadick_metadata.csv"
+))
+```
+
+# Add metadata to GEO
+```{r}
+# pull existing metadata from Seurat object
+meta <- geo_processed_seurat@meta.data
+
+# Filter patient metadata
+morabito_filt <- morabito_metadata %>%
+  select(Sample, Age, Sex, PMI)
+
+# make column names lower case
+colnames(morabito_filt) <- tolower(colnames(morabito_filt))
+
+# one sample does not have a reported PMI value
+morabito_filt$pmi <- ifelse(is.na(morabito_filt$pmi) == TRUE,
+  mean(morabito_filt$pmi, na.rm = TRUE),
+  morabito_filt$pmi
 )
+
+# remove sample which is in this sheet but not in the actual data
+morabito_filt <- morabito_filt[-20, ]
+
+# add metdata to seurat metadata
+meta_new <- left_join(meta, morabito_filt, by = "sample") %>%
+  column_to_rownames("cells")
+
+geo_processed_seurat@meta.data <- meta_new
+```
+
+# Add GSE metadata
+```{r}
+# Grab metadata
+meta <- gse_processed_seurat@meta.data
+
+# Filter patient metadata and change column names
+lau_filt <- lau_metadata %>%
+  select(SAMPLE, AGE, SEX, PMD)
+
+colnames(lau_filt) <- tolower(colnames(lau_filt))
+
+lau_filt <- lau_filt %>%
+  dplyr::rename(pmi = pmd)
+
+# Add metdata to seurat metadata
+meta_new <- left_join(meta, lau_filt, by = "sample") %>%
+  column_to_rownames("cells")
+
+gse_processed_seurat@meta.data <- meta_new
+```
+
+# Add Sadick metadata
+```{r}
+# Pull metadata
+meta <- sadick_processed_seurat@meta.data
+
+# Filter patient metadata and change column names to lowercase
+sadick_filt <- sadick_metadata %>%
+  select(sample, AGE, SEX, PMI)
+
+colnames(sadick_filt) <- tolower(colnames(sadick_filt))
+
+# Add metdata to seurat metadata
+meta_new <- left_join(meta, sadick_filt, by = "sample") %>%
+  column_to_rownames("cells")
+
+sadick_processed_seurat@meta.data <- meta_new
 ```
 
 # SCE objects creation
@@ -85,6 +178,14 @@ object_list <- tibble::lst(
   * group_id (condition information - re-leveled for CTRL)
   * cluster_id (cell types)
 ```{r}
+# create a list of all objects
+object_list <- tibble::lst(
+  geo_processed_seurat,
+  gse_processed_seurat,
+  sadick_processed_seurat
+)
+
+# make SCE objects
 sce_objects <- make_sce(object_list)
 ```
 
@@ -100,6 +201,9 @@ output:
 [1] "gse_sce"
 [1] 7
 [1] 21
+[1] "sadick_sce"
+[1] 9
+[1] 17
 
 # Get cell-type-specific metadata
 ```{r}
@@ -110,20 +214,24 @@ metadata_ls_list <- cts_metadata(
 ```
 output:
 [1] "geo_sce"
-[1] 19  2
+[1] 19  5
 [1] "gse_sce"
-[1] 21  2
+[1] 21  5
+[1] "sadick_sce"
+[1] 17  5
 
-# DE Analysis
+## DE Analysis
 * Using DESeq2, determine DEGs for each cell type between conditions
   * CTRL is our base level, while AD is the condition of interest
 * Statistics: Wald test
 * By dataset:
   * Dataset 1: geo
   * Dataset 2: gse
+  * Dataset 3: sadick
 * Wrapper will also save DEGs to specified directory
+* Before DEA, we investigated covariates
 
-Dataset 1
+# Dataset 1: GEO
 ```{r}
 # get cell types
 cluster_names <- levels(colData(sce_objects$geo_sce)$cluster_id)
@@ -132,6 +240,59 @@ cluster_names <- levels(colData(sce_objects$geo_sce)$cluster_id)
 counts_ls <- counts_ls_list[["geo_counts_ls"]]
 metadata_ls <- metadata_ls_list[["geo_metadata_ls"]]
 
+# Investigate covariates
+for (cell_type in cluster_names) {
+  idx <- which(names(counts_ls) == cell_type)
+  cluster_counts <- counts_ls[[idx]]
+  cluster_metadata <- metadata_ls[[idx]]
+  dds <- DESeqDataSetFromMatrix(cluster_counts,
+    colData = cluster_metadata,
+    design = ~group_id
+  )
+  print("normalizing")
+  rld <- rlog(dds, blind = TRUE)
+  name <- paste0(cell_type, "_pca.pdf")
+  print(name)
+  pdf(paste0(here("results/intermediate_outputs/geo/pseudobulk/pca", name)),
+    height = 5,
+    width = 5
+  )
+  plot(DESeq2::plotPCA(rld, intgroup = "sex"))
+  plot(DESeq2::plotPCA(rld, intgroup = "pmi"))
+  plot(DESeq2::plotPCA(rld, intgroup = "age"))
+  plot(DESeq2::plotPCA(rld, intgroup = "sample_id"))
+  plot(DESeq2::plotPCA(rld, intgroup = "group_id"))
+  dev.off()
+}
+
+# Account for sex
+for (cell_type in cluster_names) {
+  idx <- which(names(counts_ls) == cell_type)
+  cluster_counts <- counts_ls[[idx]]
+  cluster_metadata <- metadata_ls[[idx]]
+  dds <- DESeqDataSetFromMatrix(cluster_counts,
+    colData = cluster_metadata,
+    design = ~ sex + group_id
+  )
+  rld <- rlog(dds, blind = TRUE)
+  mat <- assay(rld)
+  mm <- model.matrix(~group_id, colData(rld))
+  mat <- limma::removeBatchEffect(mat, batch = rld$sex, design = mm)
+  assay(rld) <- mat
+  name <- paste0(cell_type, "_pca_corrected.pdf")
+  print(name)
+  pdf(paste0(here("results/intermediate_outputs/geo/pseudobulk/pca", name)),
+    width = 5,
+    height = 5
+  )
+  plot(DESeq2::plotPCA(rld, intgroup = "sex"))
+  plot(DESeq2::plotPCA(rld, intgroup = "pmi"))
+  plot(DESeq2::plotPCA(rld, intgroup = "age"))
+  plot(DESeq2::plotPCA(rld, intgroup = "sample_id"))
+  plot(DESeq2::plotPCA(rld, intgroup = "group_id"))
+  dev.off()
+}
+
 # DEA using DESeq2
 lapply(cluster_names,
   deseq2_dea,
@@ -139,11 +300,12 @@ lapply(cluster_names,
   B = "CTRL",
   path = "results/intermediate_outputs/geo/",
   metadata_ls = metadata_ls,
-  counts_ls = counts_ls
+  counts_ls = counts_ls,
+  design = ~ sex + group_id
 )
 ```
 
-Dataset 2
+# Dataset 2: GSE
 ```{r}
 # get cell types
 cluster_names <- levels(colData(sce_objects$gse_sce)$cluster_id)
@@ -152,6 +314,59 @@ cluster_names <- levels(colData(sce_objects$gse_sce)$cluster_id)
 counts_ls <- counts_ls_list[["gse_counts_ls"]]
 metadata_ls <- metadata_ls_list[["gse_metadata_ls"]]
 
+# Investigate covariates
+for (cell_type in cluster_names) {
+  idx <- which(names(counts_ls) == cell_type)
+  cluster_counts <- counts_ls[[idx]]
+  cluster_metadata <- metadata_ls[[idx]]
+  dds <- DESeqDataSetFromMatrix(cluster_counts,
+    colData = cluster_metadata,
+    design = ~group_id
+  )
+  print("normalizing")
+  rld <- rlog(dds, blind = TRUE)
+  name <- paste0(cell_type, "_pca.pdf")
+  print(name)
+  pdf(paste0(here("results/intermediate_outputs/gse/pseudobulk/pca", name)),
+    height = 5,
+    width = 5
+  )
+  plot(DESeq2::plotPCA(rld, intgroup = "sex"))
+  plot(DESeq2::plotPCA(rld, intgroup = "pmi"))
+  plot(DESeq2::plotPCA(rld, intgroup = "age"))
+  plot(DESeq2::plotPCA(rld, intgroup = "sample_id"))
+  plot(DESeq2::plotPCA(rld, intgroup = "group_id"))
+  dev.off()
+}
+
+# Account for sex
+for (cell_type in cluster_names) {
+  idx <- which(names(counts_ls) == cell_type)
+  cluster_counts <- counts_ls[[idx]]
+  cluster_metadata <- metadata_ls[[idx]]
+  dds <- DESeqDataSetFromMatrix(cluster_counts,
+    colData = cluster_metadata,
+    design = ~ sex + group_id
+  )
+  rld <- rlog(dds, blind = TRUE)
+  mat <- assay(rld)
+  mm <- model.matrix(~group_id, colData(rld))
+  mat <- limma::removeBatchEffect(mat, batch = rld$sex, design = mm)
+  assay(rld) <- mat
+  name <- paste0(cell_type, "_pca_corrected.pdf")
+  print(name)
+  pdf(paste0(here("results/intermediate_outputs/gse/pseudobulk/pca", name)),
+    height = 5,
+    width = 5
+  )
+  plot(DESeq2::plotPCA(rld, intgroup = "sex"))
+  plot(DESeq2::plotPCA(rld, intgroup = "pmi"))
+  plot(DESeq2::plotPCA(rld, intgroup = "age"))
+  plot(DESeq2::plotPCA(rld, intgroup = "sample_id"))
+  plot(DESeq2::plotPCA(rld, intgroup = "group_id"))
+  dev.off()
+}
+
 # DEA using DESeq2
 lapply(cluster_names,
   deseq2_dea,
@@ -159,7 +374,54 @@ lapply(cluster_names,
   B = "CTRL",
   path = "results/intermediate_outputs/gse/",
   metadata_ls = metadata_ls,
-  counts_ls = counts_ls
+  counts_ls = counts_ls,
+  design = ~ sex + group_id
+)
+```
+
+# Dataset 3: Sadick
+```{r}
+# get cell types
+cluster_names <- levels(colData(sce_objects$sadick_sce)$cluster_id)
+
+# get pseudo-bulked counts and their metadata
+counts_ls <- counts_ls_list[["sadick_counts_ls"]]
+metadata_ls <- metadata_ls_list[["sadick_metadata_ls"]]
+
+# Investigate covariates
+for (cell_type in cluster_names) {
+  idx <- which(names(counts_ls) == cell_type)
+  cluster_counts <- counts_ls[[idx]]
+  cluster_metadata <- metadata_ls[[idx]]
+  dds <- DESeqDataSetFromMatrix(cluster_counts,
+    colData = cluster_metadata,
+    design = ~group_id
+  )
+  print("normalizing")
+  rld <- rlog(dds, blind = TRUE)
+  name <- paste0(cell_type, "_pca.pdf")
+  print(name)
+  pdf(paste0(here("results/intermediate_outputs/sadick/pseudobulk/pca", name)),
+    height = 5,
+    width = 5
+  )
+  plot(DESeq2::plotPCA(rld, intgroup = "sex"))
+  plot(DESeq2::plotPCA(rld, intgroup = "pmi"))
+  plot(DESeq2::plotPCA(rld, intgroup = "age"))
+  plot(DESeq2::plotPCA(rld, intgroup = "sample_id"))
+  plot(DESeq2::plotPCA(rld, intgroup = "group_id"))
+  dev.off()
+}
+
+# DEA using DESeq2
+lapply(cluster_names,
+  deseq2_dea,
+  group_oi = "AD",
+  B = "CTRL",
+  path = "results/intermediate_outputs/sadick/",
+  metadata_ls = metadata_ls,
+  counts_ls = counts_ls,
+  design = ~group_id
 )
 ```
 
@@ -178,90 +440,91 @@ locale:
 [1] C
 
 attached base packages:
-[1] grid      stats4    stats     graphics  grDevices utils     datasets  methods  
-[9] base     
+[1] stats4    stats     graphics  grDevices utils     datasets  methods   base     
 
 other attached packages:
  [1] lintr_3.0.2                 styler_1.9.1               
- [3] DESeq2_1.34.0               ggpubr_0.6.0               
- [5] cowplot_1.1.1               reshape2_1.4.4             
- [7] circlize_0.4.15             ComplexHeatmap_2.10.0      
- [9] here_1.0.1                  data.table_1.14.8          
-[11] Matrix.utils_0.9.7          Matrix_1.5-4               
-[13] SingleCellExperiment_1.16.0 SummarizedExperiment_1.24.0
-[15] Biobase_2.54.0              GenomicRanges_1.46.1       
-[17] GenomeInfoDb_1.30.1         IRanges_2.28.0             
-[19] S4Vectors_0.32.4            BiocGenerics_0.40.0        
-[21] MatrixGenerics_1.6.0        matrixStats_1.0.0          
-[23] pheatmap_1.0.12             lubridate_1.9.2            
-[25] forcats_1.0.0               stringr_1.5.0              
-[27] dplyr_1.1.3                 purrr_1.0.2                
-[29] readr_2.1.4                 tidyr_1.3.0                
-[31] tibble_3.2.1                ggplot2_3.4.2              
-[33] tidyverse_2.0.0             SeuratObject_4.1.3         
-[35] Seurat_4.3.0.9011           OmnipathR_3.9.8            
-[37] decoupleR_2.7.1            
+ [3] here_1.0.1                  data.table_1.14.8          
+ [5] Matrix.utils_0.9.7          Matrix_1.5-4               
+ [7] SeuratObject_4.1.3          Seurat_4.3.0.9011          
+ [9] lubridate_1.9.2             forcats_1.0.0              
+[11] stringr_1.5.0               dplyr_1.1.3                
+[13] purrr_1.0.2                 readr_2.1.4                
+[15] tidyr_1.3.0                 tibble_3.2.1               
+[17] ggplot2_3.4.2               tidyverse_2.0.0            
+[19] DESeq2_1.34.0               SingleCellExperiment_1.16.0
+[21] SummarizedExperiment_1.24.0 Biobase_2.54.0             
+[23] GenomicRanges_1.46.1        GenomeInfoDb_1.30.1        
+[25] IRanges_2.28.0              S4Vectors_0.32.4           
+[27] BiocGenerics_0.40.0         MatrixGenerics_1.6.0       
+[29] matrixStats_1.0.0          
 
 loaded via a namespace (and not attached):
-  [1] rappdirs_0.3.3            scattermore_1.2           R.methodsS3_1.8.2        
-  [4] bit64_4.0.5               knitr_1.44                irlba_2.3.5.1            
-  [7] DelayedArray_0.20.0       R.utils_2.12.2            KEGGREST_1.34.0          
- [10] RCurl_1.98-1.12           doParallel_1.0.17         generics_0.1.3           
- [13] callr_3.7.3               RSQLite_2.3.1             RANN_2.6.1               
- [16] future_1.33.0             bit_4.0.5                 tzdb_0.4.0               
- [19] spatstat.data_3.0-1       xml2_1.3.5                httpuv_1.6.11            
- [22] xfun_0.40                 hms_1.1.3                 evaluate_0.21            
- [25] promises_1.2.0.1          fansi_1.0.4               progress_1.2.2           
- [28] readxl_1.4.3              geneplotter_1.72.0        igraph_1.5.1             
- [31] DBI_1.1.3                 htmlwidgets_1.6.2         spatstat.geom_3.2-2      
- [34] ellipsis_0.3.2            selectr_0.4-2             backports_1.4.1          
- [37] annotate_1.72.0           deldir_1.0-9              sparseMatrixStats_1.6.0  
- [40] vctrs_0.6.3               remotes_2.4.2             ROCR_1.0-11              
- [43] abind_1.4-5               cachem_1.0.8              withr_2.5.0              
- [46] grr_0.9.5                 progressr_0.13.0          checkmate_2.2.0          
- [49] vroom_1.6.3               sctransform_0.3.5.9006    prettyunits_1.2.0        
- [52] goftest_1.2-3             cyclocomp_1.1.0           cluster_2.1.2            
- [55] lazyeval_0.2.2            crayon_1.5.2              genefilter_1.76.0        
- [58] spatstat.explore_3.2-1    edgeR_3.36.0              pkgconfig_2.0.3          
- [61] labeling_0.4.2            nlme_3.1-155              xmlparsedata_1.0.5       
- [64] rlang_1.1.1               globals_0.16.2            lifecycle_1.0.3          
- [67] miniUI_0.1.1.1            rex_1.2.1                 cellranger_1.1.0         
- [70] rprojroot_2.0.3           polyclip_1.10-4           lmtest_0.9-40            
- [73] carData_3.0-5             Rhdf5lib_1.16.0           zoo_1.8-12               
- [76] processx_3.8.1            ggridges_0.5.4            GlobalOptions_0.1.2      
- [79] png_0.1-8                 viridisLite_0.4.2         rjson_0.2.21             
- [82] bitops_1.0-7              R.oo_1.25.0               KernSmooth_2.23-20       
- [85] rhdf5filters_1.6.0        Biostrings_2.62.0         blob_1.2.4               
- [88] DelayedMatrixStats_1.16.0 shape_1.4.6               parallelly_1.36.0        
- [91] spatstat.random_3.1-5     R.cache_0.16.0            rstatix_0.7.2            
- [94] ggsignif_0.6.4            beachmat_2.10.0           scales_1.2.1             
- [97] memoise_2.0.1             magrittr_2.0.3            plyr_1.8.8               
-[100] ica_1.0-3                 zlibbioc_1.40.0           compiler_4.1.3           
-[103] dqrng_0.3.0               RColorBrewer_1.1-3        clue_0.3-64              
-[106] fitdistrplus_1.1-11       cli_3.6.1                 XVector_0.34.0           
-[109] listenv_0.9.0             ps_1.7.5                  patchwork_1.1.2          
-[112] pbapply_1.7-2             MASS_7.3-55               tidyselect_1.2.0         
-[115] stringi_1.7.12            yaml_2.3.7                locfit_1.5-9.8           
-[118] ggrepel_0.9.3             tools_4.1.3               timechange_0.2.0         
-[121] future.apply_1.11.0       parallel_4.1.3            rstudioapi_0.14          
-[124] foreach_1.5.2             gridExtra_2.3             farver_2.1.1             
-[127] Rtsne_0.16                DropletUtils_1.14.2       digest_0.6.33            
-[130] shiny_1.7.4.1             Rcpp_1.0.11               car_3.1-2                
-[133] broom_1.0.5               scuttle_1.4.0             later_1.3.1              
-[136] RcppAnnoy_0.0.21          httr_1.4.7                AnnotationDbi_1.56.2     
-[139] colorspace_2.1-0          rvest_1.0.3               XML_3.99-0.14            
-[142] tensor_1.5                reticulate_1.30           splines_4.1.3            
-[145] uwot_0.1.16               spatstat.utils_3.0-3      sp_2.0-0                 
-[148] plotly_4.10.2             xtable_1.8-4              jsonlite_1.8.7           
-[151] R6_2.5.1                  pillar_1.9.0              htmltools_0.5.6          
-[154] mime_0.12                 glue_1.6.2                fastmap_1.1.1            
-[157] BiocParallel_1.28.3       codetools_0.2-18          utf8_1.2.3               
-[160] lattice_0.20-45           spatstat.sparse_3.0-2     logger_0.2.2             
-[163] curl_5.0.2                leiden_0.4.3              waldo_0.5.1              
-[166] survival_3.3-1            limma_3.50.3              rmarkdown_2.25           
-[169] desc_1.4.2                munsell_0.5.0             GetoptLong_1.0.5         
-[172] rhdf5_2.38.1              GenomeInfoDbData_1.2.7    iterators_1.0.14         
-[175] HDF5Array_1.22.1          gtable_0.3.3
+  [1] scattermore_1.2           ModelMetrics_1.2.2.2      nichenetr_2.0.0          
+  [4] R.methodsS3_1.8.2         bit64_4.0.5               knitr_1.44               
+  [7] irlba_2.3.5.1             DelayedArray_0.20.0       R.utils_2.12.2           
+ [10] rpart_4.1.16              KEGGREST_1.34.0           hardhat_1.3.0            
+ [13] RCurl_1.98-1.12           doParallel_1.0.17         generics_0.1.3           
+ [16] callr_3.7.3               cowplot_1.1.1             RSQLite_2.3.1            
+ [19] shadowtext_0.1.2          RANN_2.6.1                proxy_0.4-27             
+ [22] future_1.33.0             DiagrammeR_1.0.10         bit_4.0.5                
+ [25] tzdb_0.4.0                xml2_1.3.5                spatstat.data_3.0-1      
+ [28] httpuv_1.6.11             gower_1.0.1               xfun_0.40                
+ [31] hms_1.1.3                 evaluate_0.21             promises_1.2.0.1         
+ [34] fansi_1.0.4               caTools_1.18.2            igraph_1.5.1             
+ [37] DBI_1.1.3                 geneplotter_1.72.0        htmlwidgets_1.6.2        
+ [40] spatstat.geom_3.2-2       ellipsis_0.3.2            ggnewscale_0.4.9         
+ [43] backports_1.4.1           annotate_1.72.0           deldir_1.0-9             
+ [46] sparseMatrixStats_1.6.0   vctrs_0.6.3               remotes_2.4.2            
+ [49] ROCR_1.0-11               abind_1.4-5               caret_6.0-94             
+ [52] cachem_1.0.8              withr_2.5.0               grr_0.9.5                
+ [55] ggforce_0.4.1             progressr_0.13.0          vroom_1.6.3              
+ [58] checkmate_2.2.0           sctransform_0.3.5.9006    fdrtool_1.2.17           
+ [61] goftest_1.2-3             cyclocomp_1.1.0           cluster_2.1.2            
+ [64] lazyeval_0.2.2            crayon_1.5.2              genefilter_1.76.0        
+ [67] spatstat.explore_3.2-1    labeling_0.4.2            edgeR_3.36.0             
+ [70] recipes_1.0.6             pkgconfig_2.0.3           tweenr_2.0.2             
+ [73] nlme_3.1-155              nnet_7.3-17               rlang_1.1.1              
+ [76] globals_0.16.2            lifecycle_1.0.3           miniUI_0.1.1.1           
+ [79] rex_1.2.1                 rprojroot_2.0.3           randomForest_4.7-1.1     
+ [82] polyclip_1.10-4           lmtest_0.9-40             Rhdf5lib_1.16.0          
+ [85] zoo_1.8-12                base64enc_0.1-3           processx_3.8.1           
+ [88] ggridges_0.5.4            GlobalOptions_0.1.2       png_0.1-8                
+ [91] viridisLite_0.4.2         rjson_0.2.21              bitops_1.0-7             
+ [94] R.oo_1.25.0               KernSmooth_2.23-20        visNetwork_2.1.2         
+ [97] rhdf5filters_1.6.0        pROC_1.18.2               Biostrings_2.62.0        
+[100] blob_1.2.4                DelayedMatrixStats_1.16.0 shape_1.4.6              
+[103] parallelly_1.36.0         spatstat.random_3.1-5     R.cache_0.16.0           
+[106] beachmat_2.10.0           scales_1.2.1              memoise_2.0.1            
+[109] magrittr_2.0.3            plyr_1.8.8                ica_1.0-3                
+[112] zlibbioc_1.40.0           compiler_4.1.3            dqrng_0.3.0              
+[115] RColorBrewer_1.1-3        clue_0.3-64               fitdistrplus_1.1-11      
+[118] cli_3.6.1                 XVector_0.34.0            listenv_0.9.0            
+[121] ps_1.7.5                  patchwork_1.1.2           pbapply_1.7-2            
+[124] htmlTable_2.4.1           Formula_1.2-5             MASS_7.3-55              
+[127] tidyselect_1.2.0          stringi_1.7.12            yaml_2.3.7               
+[130] locfit_1.5-9.8            ggrepel_0.9.3             grid_4.1.3               
+[133] tools_4.1.3               timechange_0.2.0          future.apply_1.11.0      
+[136] parallel_4.1.3            circlize_0.4.15           rstudioapi_0.14          
+[139] foreach_1.5.2             foreign_0.8-82            gridExtra_2.3            
+[142] prodlim_2023.03.31        farver_2.1.1              Rtsne_0.16               
+[145] DropletUtils_1.14.2       digest_0.6.33             shiny_1.7.4.1            
+[148] lava_1.7.2.1              Rcpp_1.0.11               scuttle_1.4.0            
+[151] later_1.3.1               RcppAnnoy_0.0.21          httr_1.4.7               
+[154] AnnotationDbi_1.56.2      ComplexHeatmap_2.10.0     colorspace_2.1-0         
+[157] XML_3.99-0.14             tensor_1.5                reticulate_1.30          
+[160] splines_4.1.3             uwot_0.1.16               spatstat.utils_3.0-3     
+[163] sp_2.0-0                  plotly_4.10.2             xtable_1.8-4             
+[166] jsonlite_1.8.7            timeDate_4022.108         ipred_0.9-14             
+[169] R6_2.5.1                  Hmisc_5.1-0               pillar_1.9.0             
+[172] htmltools_0.5.6           mime_0.12                 glue_1.6.2               
+[175] fastmap_1.1.1             BiocParallel_1.28.3       class_7.3-20             
+[178] codetools_0.2-18          utf8_1.2.3                lattice_0.20-45          
+[181] spatstat.sparse_3.0-2     leiden_0.4.3              survival_3.3-1           
+[184] limma_3.50.3              rmarkdown_2.25            desc_1.4.2               
+[187] munsell_0.5.0             e1071_1.7-13              GetoptLong_1.0.5         
+[190] rhdf5_2.38.1              GenomeInfoDbData_1.2.7    iterators_1.0.14         
+[193] HDF5Array_1.22.1          reshape2_1.4.4            gtable_0.3.3
 
 # Time tracking
 ```{r}
@@ -270,7 +533,7 @@ fptm <- proc.time() - ptm
 # convert to minutes
 (fptm[3] / 60)
 
-# Time elapsed: 10 minutes
+# Time elapsed: 20 minutes
 ```
 
 # Reproducibility
