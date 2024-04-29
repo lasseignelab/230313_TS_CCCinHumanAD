@@ -41,7 +41,9 @@ The datasets used in this study can be found on GEO:
 1. [Morabito et al.,
 2021](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE174367)  
 2. [Lau et al.,
-2020](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE157827)
+2020](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE157827)  
+3. [Sadick et al.,
+2022](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE167490)
 
 ## Scripts
 
