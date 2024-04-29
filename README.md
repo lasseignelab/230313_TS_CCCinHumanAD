@@ -25,12 +25,12 @@ excitatory neurons (receiver cell types). We also investigated whether
 CCC shows high similarity across cell types by calculating the Jaccard
 Similarity Index (JI) of ligands, receptors, and target genes across
 cell types. Since CCC inference methodologies are known to produce false
-positives, we validated our interactions using an independent human PFC
-AD snRNA-seq dataset (Lau et al., 2020). We further investigated the
-resulting high-confidence ligand-receptor pairs from both data sets,
-their predicted downstream target genes, and signaling modulators
-through transcription factor (TF) and canonical signaling pathway
-activity.
+positives, we validated our interactions using two independent human PFC
+AD snRNA-seq datasets (Lau et al., 2020 & Sadick et al., 2022). We
+further investigated the resulting high-confidence ligand-receptor pairs
+from both data sets, their predicted downstream target genes, and
+signaling modulators through transcription factor (TF) and canonical
+signaling pathway activity.
 
 ![alt
 text](https://github.com/lasseignelab/230313_TS_CCCinHumanAD/blob/main/results/figures/figure1.png)
