@@ -66,7 +66,7 @@ geo_degs_in <- read_csv(
     "intermediate_outputs",
     "geo",
     "pseudobulk",
-    "Inhibitory Neurons_group_id_AD_vs_CTRL_all_genes.csv"
+    "Inhibitory Neurons_group_id_AD_vs_CTRL_all_genes_final.csv"
   )
 )
 
@@ -76,7 +76,7 @@ gse_degs_in <- read_csv(
     "intermediate_outputs",
     "gse",
     "pseudobulk",
-    "Inhibitory Neurons_group_id_AD_vs_CTRL_all_genes.csv"
+    "Inhibitory Neurons_group_id_AD_vs_CTRL_all_genes_final.csv"
   )
 )
 ```
@@ -189,7 +189,7 @@ anno <- HeatmapAnnotation(
 )
 
 # Set heatmap colors and breaks
-cols <- colorRamp2(c(-2, 0, 2), c("blue", "white", "red"))
+cols <- colorRamp2(c(-4, 0, 4), c("blue", "white", "red"))
 
 pathway_activity_heatmap <- Heatmap(t(mat),
   col = cols,
@@ -210,7 +210,7 @@ png(here(
   "results",
   "final_outputs",
   "comparison",
-  "pathway_activity_heatmap.png"
+  "pathway_activity_heatmap_final.png"
 ))
 pathway_activity_heatmap
 dev.off()
@@ -224,7 +224,7 @@ saveRDS(
     "results",
     "final_outputs",
     "comparison",
-    "differential_pathway_activity.rds"
+    "differential_pathway_activity_final.rds"
   )
 )
 ```

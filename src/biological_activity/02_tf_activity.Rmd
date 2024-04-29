@@ -63,11 +63,9 @@ source(here("src", "functions_CCCinAD_tms.R"))
 # signaling mediators in inhibitory neurons
 in_mediators <- c(
   "GSK3B", "IRAK1", "CD44", "ESR1", "JUN", "MYC", "SRC",
-  "STAT3", "TLR2", "SMAD3", "TP53", "CDK5", "NRP1", "PAK2",
-  "EP300", "AKT1", "KDR", "CTNNB1", "PLXNA3", "SMAD1", "MAP3K7",
-  "ERBB2", "DAPK1", "RAC1", "LRP8", "LRP1", "MAPK8", "APP",
-  "LCK", "PTK2", "STAT1", "STAT2", "SP1", "PTEN", "CCNB1",
-  "CCND1", "IFIT3", "IRF9", "NFIL3"
+  "STAT3", "TLR2", "TP53", "AKT1", "CTNNB1", "ERBB2", "DAPK1", "RAC1", "LRP1",
+  "MAPK8", "APP", "LCK", "PTK2", "STAT1", "STAT2", "PTEN", "CCNB1",
+  "CCND1", "IFIT3", "NFIL3", "ERBB3", "CEBPD", "FST", "GFRA1", "ANGPTL4"
 )
 
 # DEGs in inhibitory neurons from DESeq2
@@ -77,7 +75,7 @@ geo_degs_in <- read_csv(
     "intermediate_outputs",
     "geo",
     "pseudobulk",
-    "Inhibitory Neurons_group_id_AD_vs_CTRL_all_genes.csv"
+    "Inhibitory Neurons_group_id_AD_vs_CTRL_all_genes_final.csv"
   )
 )
 
@@ -87,7 +85,7 @@ gse_degs_in <- read_csv(
     "intermediate_outputs",
     "gse",
     "pseudobulk",
-    "Inhibitory Neurons_group_id_AD_vs_CTRL_all_genes.csv"
+    "Inhibitory Neurons_group_id_AD_vs_CTRL_all_genes_final.csv"
   )
 )
 ```
@@ -164,7 +162,7 @@ tf_acts_in <- run_mlm(
 tf_acts_filt <- tf_acts_in %>%
   filter(source %in% in_mediators)
 
-dim(tf_acts_filt) # 28 5
+dim(tf_acts_filt) # 20 5
 ```
 
 # Plot heatmap
@@ -202,7 +200,7 @@ anno <- HeatmapAnnotation(
 )
 
 # Set heatmap colors and breaks
-cols <- colorRamp2(c(-2, 0, 2), c("blue", "white", "red"))
+cols <- colorRamp2(c(-4, 0, 4), c("blue", "white", "red"))
 
 tf_activity_heatmap <- Heatmap(t(mat),
   col = cols,
@@ -219,7 +217,7 @@ tf_activity_heatmap
 
 # Save plot
 ```{r}
-png(here("results", "final_outputs", "comparison", "tf_activity_heatmap.png"))
+png(here("results", "final_outputs", "comparison", "tf_activity_heatmap_final.png"))
 tf_activity_heatmap
 dev.off()
 ```
@@ -231,7 +229,7 @@ saveRDS(
   here("results",
        "final_outputs",
        "comparison",
-       "differential_tf_activity_all.rds")
+       "differential_tf_activity_all_final.rds")
 )
 
 saveRDS(
@@ -239,7 +237,7 @@ saveRDS(
   here("results",
        "final_outputs",
        "comparison",
-       "differential_tf_activity_filt.rds")
+       "differential_tf_activity_filt_final.rds")
 )
 ```
 
