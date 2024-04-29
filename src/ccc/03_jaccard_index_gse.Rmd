@@ -56,7 +56,7 @@ options(encoding = "UTF-8")
 
 # Load data
 ```{r}
-output <- readRDS(here("data", "ccc", "gse_multinichenet_output.rds"))
+output <- readRDS(here("data", "ccc", "gse_multinichenet_output_final.rds"))
 ```
 
 # Set filtering parameters
@@ -99,7 +99,7 @@ lrt_cor_filtered$receiver <- ifelse(
 )
 
 # Check receivers were renamed and number
-table(lrt_cor_filtered$receiver) # Ex 344 In 544
+table(lrt_cor_filtered$receiver) # Ex 506 In 465
 ```
 
 # Calculate JI (Between senders)
@@ -196,7 +196,7 @@ png(here(
   "intermediate_outputs",
   "gse",
   "ccc",
-  "receptors_lollipop_neurons.png"
+  "receptors_lollipop_neurons_final.png"
 ))
 jaccard_receptors %>%
   arrange(jaccard_index) %>%
@@ -224,7 +224,7 @@ png(here(
   "intermediate_outputs",
   "gse",
   "ccc",
-  "targets_lollipop_neurons.png"
+  "targets_lollipop_neurons_final.png"
 ))
 jaccard_targets %>%
   arrange(jaccard_index) %>%
@@ -247,7 +247,7 @@ jaccard_targets %>%
   ggtitle("Targets")
 dev.off()
 
-png(here("results", "final_outputs", "gse", "combined_lollipop_neurons.png"))
+png(here("results", "final_outputs", "gse", "combined_lollipop_neurons_final.png"))
 jaccard_all %>%
   ggplot() +
   geom_linerange(aes(x = sender, ymin = 0, ymax = jaccard_index, colour = type),
@@ -285,7 +285,7 @@ saveRDS(
     "intermediate_outputs",
     "gse",
     "ccc",
-    "jaccard_ligands_senders.rds"
+    "jaccard_ligands_senders_final.rds"
   )
 )
 
@@ -296,7 +296,7 @@ saveRDS(
     "intermediate_outputs",
     "gse",
     "ccc",
-    "jaccard_receptors_senders.rds"
+    "jaccard_receptors_senders_final.rds"
   )
 )
 
@@ -307,7 +307,7 @@ saveRDS(
     "intermediate_outputs",
     "gse",
     "ccc",
-    "jaccard_targets_senders.rds"
+    "jaccard_targets_senders_final.rds"
   )
 )
 
@@ -318,7 +318,7 @@ saveRDS(
     "intermediate_outputs",
     "gse",
     "ccc",
-    "jaccard_receptors_receivers.rds"
+    "jaccard_receptors_receivers_final.rds"
   )
 )
 
@@ -329,7 +329,7 @@ saveRDS(
     "intermediate_outputs",
     "gse",
     "ccc",
-    "jaccard_targets_receivers.rds"
+    "jaccard_targets_receivers_final.rds"
   )
 )
 ```
@@ -352,20 +352,25 @@ attached base packages:
 [1] stats     graphics  grDevices utils     datasets  methods   base     
 
 other attached packages:
- [1] lintr_3.0.2      styler_1.9.1     here_1.0.1       ggcorrplot_0.1.4 lubridate_1.9.2  forcats_1.0.0   
- [7] stringr_1.5.0    dplyr_1.1.3      purrr_1.0.2      readr_2.1.4      tidyr_1.3.0      tibble_3.2.1    
+ [1] lintr_3.0.2      styler_1.9.1     here_1.0.1       ggcorrplot_0.1.4
+ [5] lubridate_1.9.2  forcats_1.0.0    stringr_1.5.0    dplyr_1.1.2     
+ [9] purrr_1.0.1      readr_2.1.4      tidyr_1.3.0      tibble_3.2.1    
 [13] ggplot2_3.4.2    tidyverse_2.0.0 
 
 loaded via a namespace (and not attached):
- [1] tidyselect_1.2.0  xfun_0.40         remotes_2.4.2     colorspace_2.1-0  vctrs_0.6.3       generics_0.1.3   
- [7] htmltools_0.5.6   yaml_2.3.7        utf8_1.2.3        rlang_1.1.1       R.oo_1.25.0       pillar_1.9.0     
-[13] glue_1.6.2        withr_2.5.0       R.utils_2.12.2    lifecycle_1.0.3   R.cache_0.16.0    munsell_0.5.0    
-[19] gtable_0.3.3      R.methodsS3_1.8.2 evaluate_0.21     labeling_0.4.2    knitr_1.44        fastmap_1.1.1    
-[25] tzdb_0.4.0        callr_3.7.3       ps_1.7.5          rex_1.2.1         fansi_1.0.4       scales_1.2.1     
-[31] desc_1.4.2        farver_2.1.1      hms_1.1.3         digest_0.6.33     stringi_1.7.12    processx_3.8.1   
-[37] grid_4.1.3        rprojroot_2.0.3   cli_3.6.1         tools_4.1.3       magrittr_2.0.3    lazyeval_0.2.2   
-[43] crayon_1.5.2      pkgconfig_2.0.3   xml2_1.3.5        cyclocomp_1.1.0   timechange_0.2.0  rmarkdown_2.25   
-[49] rstudioapi_0.14   R6_2.5.1          compiler_4.1.3
+ [1] tidyselect_1.2.0  xfun_0.39         remotes_2.4.2     colorspace_2.1-0 
+ [5] vctrs_0.6.3       generics_0.1.3    htmltools_0.5.5   yaml_2.3.7       
+ [9] utf8_1.2.3        rlang_1.1.1       R.oo_1.25.0       pillar_1.9.0     
+[13] glue_1.6.2        withr_2.5.0       R.utils_2.12.2    lifecycle_1.0.3  
+[17] R.cache_0.16.0    munsell_0.5.0     gtable_0.3.3      R.methodsS3_1.8.2
+[21] evaluate_0.21     labeling_0.4.2    knitr_1.43        tzdb_0.4.0       
+[25] callr_3.7.3       fastmap_1.1.1     ps_1.7.5          rex_1.2.1        
+[29] fansi_1.0.4       scales_1.2.1      desc_1.4.2        farver_2.1.1     
+[33] hms_1.1.3         digest_0.6.33     stringi_1.7.12    processx_3.8.1   
+[37] grid_4.1.3        rprojroot_2.0.3   cli_3.6.1         tools_4.1.3      
+[41] magrittr_2.0.3    lazyeval_0.2.2    crayon_1.5.2      pkgconfig_2.0.3  
+[45] xml2_1.3.3        cyclocomp_1.1.0   timechange_0.2.0  rmarkdown_2.23   
+[49] rstudioapi_0.14   R6_2.5.1          compiler_4.1.3 
 
 # Time tracking
 ```{r}

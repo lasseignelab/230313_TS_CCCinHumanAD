@@ -65,13 +65,13 @@ source(here("src", "functions_CCCinAD_tms.R"))
 geo_multinichenet_output <- readRDS(here(
   "data",
   "ccc",
-  "geo_multinichenet_output.rds"
+  "geo_multinichenet_output_final.rds"
 ))
 
 gse_multinichenet_output <- readRDS(here(
   "data",
   "ccc",
-  "gse_multinichenet_output.rds"
+  "gse_multinichenet_output_final.rds"
 ))
 
 multinichenet_objects <- tibble::lst(
@@ -207,7 +207,7 @@ gse_id_target <- gse_lr_target_prior_cor_filtered$id_target %>%
 
 # get overlapping LRTs
 overlap <- intersect(geo_id_target, gse_id_target)
-length(overlap) # 17
+length(overlap) # 7
 
 # subset based on overlap for both datasets
 geo_ccc <- geo_lr_target_prior_cor_filtered %>%
@@ -262,14 +262,14 @@ saveRDS(geo_network_proporties, file = here(
   "results",
   "final_outputs",
   "geo",
-  "signaling_grn_properties.rds"
+  "signaling_grn_properties_final.rds"
 ))
 
 saveRDS(gse_network_proporties, file = here(
   "results",
   "final_outputs",
   "gse",
-  "signaling_grn_properties.rds"
+  "signaling_grn_properties_final.rds"
 ))
 ```
 
@@ -278,13 +278,13 @@ saveRDS(gse_network_proporties, file = here(
 saveRDS(geo_igraph_objects, file = here(
   "data",
   "ccc",
-  "geo_signaling_igraph_objects.rds"
+  "geo_signaling_igraph_objects_final.rds"
 ))
 
 saveRDS(gse_igraph_objects, file = here(
   "data",
   "ccc",
-  "gse_signaling_igraph_objects.rds"
+  "gse_signaling_igraph_objects_final.rds"
 ))
 ```
 
