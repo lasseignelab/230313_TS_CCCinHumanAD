@@ -290,7 +290,7 @@ multinichenet_wrapper <- function(object_list, results_path, celltype_id, sample
     object <- object[, colData(object)[,celltype_id] %in% c(senders_oi, receivers_oi)]
     print("Grabbed senders and receivers")
     # determine whether all cell types have enough cells -----------
-    min_cells <- 10
+    min_cells <- 5
     abundance_expression_info <- get_abundance_expression_info(sce = object,
                                                                sample_id = sample_id,
                                                                group_id = group_id,
@@ -334,7 +334,7 @@ multinichenet_wrapper <- function(object_list, results_path, celltype_id, sample
     # Identify ligand activities
     fraction_cutoff <- 0.05
     n.cores <- min(cores_system, sender_receiver_de$receiver %>% unique() %>% length())
-    if(length(receivers_oi) > n.cores) {
+    if(length(receivers_oi) > cores_system) {
       print(paste0("Core req not met. Minimum number of cores needed: ",
                    length(receivers_oi)))
       stop()
@@ -345,7 +345,7 @@ multinichenet_wrapper <- function(object_list, results_path, celltype_id, sample
           receiver_de = celltype_de,
           receivers_oi = receivers_oi,
           ligand_target_matrix = ligand_target_matrix,
-          logFC_threshold = 0.50,
+          logFC_threshold = 0.5,
           p_val_threshold = 0.05,
           p_val_adj = p_val_adj,
           top_n_target = 250,
@@ -354,7 +354,7 @@ multinichenet_wrapper <- function(object_list, results_path, celltype_id, sample
         )))
     }
     # Prepare for prioritization
-    print("Prioritizing interactions")
+    print("Prepare for Prioritization")
     sender_receiver_tbl <- sender_receiver_de %>%
       dplyr::distinct(sender, receiver)
     metadata_combined <- colData(object) %>% tibble::as_tibble()
@@ -369,6 +369,7 @@ multinichenet_wrapper <- function(object_list, results_path, celltype_id, sample
         dplyr::distinct()
       colnames(grouping_tbl) <- c("sample", "group")
     }
+    print("Prioritizing interactions")
     # Prioritize interactions
     prioritization_tables <- suppressMessages(generate_prioritization_tables(
       sender_receiver_info = abundance_expression_info$sender_receiver_info,
@@ -392,7 +393,7 @@ multinichenet_wrapper <- function(object_list, results_path, celltype_id, sample
       grouping_tbl,
       prioritization_tables,
       ligand_target_matrix,
-      logFC_threshold = 0.50,
+      logFC_threshold = 0.5,
       p_val_threshold = 0.05,
       p_val_adj = p_val_adj)
     # Create combined output
@@ -813,6 +814,12 @@ make_sce <- function(object_list) {
     metadata$group_id <- relevel(metadata$group_id, "CTRL")
     # add cell type information
     metadata$cluster_id <- factor(object@active.ident)
+    # add age info
+    metadata$age <- metadata$age %>% as.numeric()
+    # add sex info
+    metadata$sex <- metadata$sex %>% as.factor()
+    # add PMI info
+    metadata$pmi <- metadata$pmi %>% as.numeric()
     # make sce object
     sce <- SingleCellExperiment(assays = list(counts = counts), colData = metadata)
     
@@ -861,7 +868,7 @@ cts_metadata <- function(object_list, counts_list) {
     sce <- object_list[[name]]
     metadata <- colData(sce) %>% 
       as.data.frame() %>% 
-      dplyr::select(group_id, sample_id)
+      dplyr::select(group_id, sample_id, age, sex, pmi)
     metadata <- metadata[!duplicated(metadata), ]
     print(dim(metadata))
     rownames(metadata) <- metadata$sample_id
@@ -897,7 +904,7 @@ cts_metadata <- function(object_list, counts_list) {
 
 ## deseq2_dea
 # A wrapper function which does DEA using DESeq2 for pseudo-bulked single cell data. It automatically saves both significant and all DEGs in a 'pseudobulk' directory at the specified path. This code is originally form the HBC training guide, but was heavily adapted.
-deseq2_dea <- function(cell_types, counts_ls, metadata_ls, group_oi, B, padj_cutoff = 0.05, path) {
+deseq2_dea <- function(cell_types, counts_ls, metadata_ls, group_oi, B, padj_cutoff = 0.05, path, design) {
   cell_type <- cell_types[1]
   print(cell_type)
   ifelse(!dir.exists(here(paste0(path, "pseudobulk/"))),
@@ -908,7 +915,7 @@ deseq2_dea <- function(cell_types, counts_ls, metadata_ls, group_oi, B, padj_cut
   cluster_metadata <- metadata_ls[[idx]]
   dds <- DESeqDataSetFromMatrix(cluster_counts, 
                                 colData = cluster_metadata, 
-                                design = ~ group_id)
+                                design = design)
   dds <- DESeq(dds)
   contrast <- paste(c("group_id", group_oi, "vs", B), collapse = "_")
   res <- results(dds, name = contrast, alpha = 0.05)
@@ -919,7 +926,7 @@ deseq2_dea <- function(cell_types, counts_ls, metadata_ls, group_oi, B, padj_cut
     as_tibble()
   # save all results
   write.csv(res_tbl,
-            here(paste0(path, "pseudobulk/", cell_type, "_", contrast, "_all_genes.csv")),
+            here(paste0(path, "pseudobulk/", cell_type, "_", contrast, "_all_genes_final.csv")),
             quote = FALSE, 
             row.names = FALSE)
   
@@ -928,7 +935,7 @@ deseq2_dea <- function(cell_types, counts_ls, metadata_ls, group_oi, B, padj_cut
     dplyr::arrange(padj)
   
   write.csv(sig_res,
-            here(paste0(path, "pseudobulk/", cell_type, "_", contrast, "_signif_genes.csv")),
+            here(paste0(path, "pseudobulk/", cell_type, "_", contrast, "_signif_genes_final.csv")),
             quote = FALSE, 
             row.names = FALSE)
 }
