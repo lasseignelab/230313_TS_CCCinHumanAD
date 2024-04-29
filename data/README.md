@@ -1,6 +1,6 @@
 README
 ================
-2023-11-27
+2024-04-29
 
 ## Data Directory Structure
 
@@ -163,6 +163,75 @@ The data directory should include the following files:
     ## |   |       \-- SAMN16100308_S19_CTRL
     ## |   |           +-- filtered_feature_bc_matrix.h5
     ## |   |           \-- raw_feature_bc_matrix.h5
+    ## |   +-- GSE167490
+    ## |   |   +-- S01-1_CTRL
+    ## |   |   |   +-- barcodes.tsv.gz
+    ## |   |   |   +-- features.tsv.gz
+    ## |   |   |   \-- matrix.mtx.gz
+    ## |   |   +-- S01-2_CTRL
+    ## |   |   |   +-- barcodes.tsv.gz
+    ## |   |   |   +-- features.tsv.gz
+    ## |   |   |   \-- matrix.mtx.gz
+    ## |   |   +-- S02_CTRL
+    ## |   |   |   +-- barcodes.tsv.gz
+    ## |   |   |   +-- features.tsv.gz
+    ## |   |   |   \-- matrix.mtx.gz
+    ## |   |   +-- S03_CTRL
+    ## |   |   |   +-- barcodes.tsv.gz
+    ## |   |   |   +-- features.tsv.gz
+    ## |   |   |   \-- matrix.mtx.gz
+    ## |   |   +-- S04_CTRL
+    ## |   |   |   +-- barcodes.tsv.gz
+    ## |   |   |   +-- features.tsv.gz
+    ## |   |   |   \-- matrix.mtx.gz
+    ## |   |   +-- S05_CTRL
+    ## |   |   |   +-- barcodes.tsv.gz
+    ## |   |   |   +-- features.tsv.gz
+    ## |   |   |   \-- matrix.mtx.gz
+    ## |   |   +-- S06_CTRL
+    ## |   |   |   +-- barcodes.tsv.gz
+    ## |   |   |   +-- features.tsv.gz
+    ## |   |   |   \-- matrix.mtx.gz
+    ## |   |   +-- S07_AD
+    ## |   |   |   +-- barcodes.tsv.gz
+    ## |   |   |   +-- features.tsv.gz
+    ## |   |   |   \-- matrix.mtx.gz
+    ## |   |   +-- S08_AD
+    ## |   |   |   +-- barcodes.tsv.gz
+    ## |   |   |   +-- features.tsv.gz
+    ## |   |   |   \-- matrix.mtx.gz
+    ## |   |   +-- S09_AD
+    ## |   |   |   +-- barcodes.tsv.gz
+    ## |   |   |   +-- features.tsv.gz
+    ## |   |   |   \-- matrix.mtx.gz
+    ## |   |   +-- S10_AD
+    ## |   |   |   +-- barcodes.tsv.gz
+    ## |   |   |   +-- features.tsv.gz
+    ## |   |   |   \-- matrix.mtx.gz
+    ## |   |   +-- S11_AD
+    ## |   |   |   +-- barcodes.tsv.gz
+    ## |   |   |   +-- features.tsv.gz
+    ## |   |   |   \-- matrix.mtx.gz
+    ## |   |   +-- S12_AD
+    ## |   |   |   +-- barcodes.tsv.gz
+    ## |   |   |   +-- features.tsv.gz
+    ## |   |   |   \-- matrix.mtx.gz
+    ## |   |   +-- S13_AD
+    ## |   |   |   +-- barcodes.tsv.gz
+    ## |   |   |   +-- features.tsv.gz
+    ## |   |   |   \-- matrix.mtx.gz
+    ## |   |   +-- S15_AD
+    ## |   |   |   +-- barcodes.tsv.gz
+    ## |   |   |   +-- features.tsv.gz
+    ## |   |   |   \-- matrix.mtx.gz
+    ## |   |   +-- S16_AD
+    ## |   |   |   +-- barcodes.tsv.gz
+    ## |   |   |   +-- features.tsv.gz
+    ## |   |   |   \-- matrix.mtx.gz
+    ## |   |   \-- S17_AD
+    ## |   |       +-- barcodes.tsv.gz
+    ## |   |       +-- features.tsv.gz
+    ## |   |       \-- matrix.mtx.gz
     ## |   \-- GSE174367
     ## |       +-- SAMN19128593_S19_CTRL
     ## |       |   +-- barcodes.tsv.gz
@@ -244,9 +313,11 @@ The data directory should include the following files:
     ## +-- README.md
     ## +-- ccc
     ## |   +-- geo_multinichenet_output.rds
-    ## |   +-- geo_signaling_igraph_objects.rds
+    ## |   +-- geo_multinichenet_output_final.rds
+    ## |   +-- geo_signaling_igraph_objects_final.rds
     ## |   +-- gse_multinichenet_output.rds
-    ## |   +-- gse_signaling_igraph_objects.rds
+    ## |   +-- gse_multinichenet_output_final.rds
+    ## |   +-- gse_signaling_igraph_objects_final.rds
     ## |   +-- nichenet_grn
     ## |   |   +-- gr_network_human_21122021.rds
     ## |   |   +-- ligand_tf_matrix_nsga2r_final.rds
@@ -255,9 +326,14 @@ The data directory should include the following files:
     ## |   +-- nichenet_prior
     ## |   |   +-- ligand_target_matrix.rds
     ## |   |   \-- lr_network.rds
-    ## |   \-- nichenet_v2_prior
-    ## |       +-- ligand_target_matrix_nsga2r_final.rds
-    ## |       \-- lr_network_human_21122021.rds
+    ## |   +-- nichenet_v2_prior
+    ## |   |   +-- ligand_target_matrix_nsga2r_final.rds
+    ## |   |   \-- lr_network_human_21122021.rds
+    ## |   \-- sadick_multinichenet_output_final.rds
+    ## +-- dataset_metadata
+    ## |   +-- lau_metadata.csv
+    ## |   +-- morabito_metadata.csv
+    ## |   \-- sadick_metadata.csv
     ## \-- seurat_preprocessing
     ##     +-- geo_clustered_seurat.rds
     ##     +-- geo_filtered_seurat.rds
@@ -266,4 +342,8 @@ The data directory should include the following files:
     ##     +-- gse_clustered_seurat.rds
     ##     +-- gse_filtered_seurat.rds
     ##     +-- gse_integrated_seurat.rds
-    ##     \-- gse_processed_seurat.rds
+    ##     +-- gse_processed_seurat.rds
+    ##     +-- sadick_clustered_seurat.rds
+    ##     +-- sadick_filtered_seurat.rds
+    ##     +-- sadick_integrated_seurat.rds
+    ##     \-- sadick_processed_seurat.rds
