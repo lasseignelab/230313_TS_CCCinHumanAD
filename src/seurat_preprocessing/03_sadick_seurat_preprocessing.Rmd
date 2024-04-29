@@ -1,0 +1,429 @@
+---
+title: "03_sadick_seurat_preprocessing"
+author: "Tabea M. Soelter"
+date: "`r Sys.Date()`"
+output: html_document
+---
+**Pre-processing of snRNA-seq data from GEO (Accession #: GSE167490)**
+
+__Goal__: Process GSE167490 (snRNA-seq) data for downstream analyses.
+  
+__Reproducibility__: 
+* GitHub: lasseignelab/230313_TS_CCCinHumanAD
+* Docker: tsoelter/rstudio_ccc_ad
+    * Version: 1.0.6 
+* HPC: Yes
+  * Resources: long partition (150hrs), 6 CPUs, 65GB per CPU
+
+__Data__: 
+* Name: N/A
+* Location: /data/user/tsoelter/projects/230313_TS_CCCinHumanAD/data/CellRangerCounts/GSE174367/
+ 
+__Analysis Plan__: 
+* Load necessary packages 
+* Load data 
+* Create Seurat object
+* Perform quality control and filtering
+* Integration
+* Clustering and cell type assignment
+* Save processed Seurat Object
+
+__Analysis__:
+# Load packages
+```{r}
+# Time tracking
+ptm <- proc.time()
+
+# Setting seed
+set.seed(42)
+
+# Load packages
+suppressPackageStartupMessages({
+  library(Seurat)
+  library(tidyverse)
+  library(harmony)
+  library(clustree)
+  library(stringr)
+  library(scCustomize)
+  library(here)
+  library(styler)
+  library(lintr)
+})
+
+source(here("src", "functions_CCCinAD_tms.R"))
+```
+
+# Create seurat object
+```{r}
+merged_seurat <- make_seurat_object(here(
+  "data",
+  "CellRangerCounts",
+  "GSE167490"
+))
+```
+
+# Calculate QC metrics
+```{r}
+merged_seurat <- calculate_qc(merged_seurat)
+```
+
+# Format metadata
+```{r}
+metadata <- format_metadata(merged_seurat)
+
+# add sample information
+metadata$sample <- ifelse(
+  str_sub(merged_seurat@assays[["RNA"]]@data@Dimnames[[2]], 1, 4) == "CTRL",
+  str_sub(merged_seurat@assays[["RNA"]]@data@Dimnames[[2]], 6, 13),
+  str_sub(merged_seurat@assays[["RNA"]]@data@Dimnames[[2]], 4, 8)
+)
+
+metadata$sample <- gsub("_", "", metadata$sample)
+
+dim(metadata) # 118378 7
+
+# Add metadata to merged_seurat
+merged_seurat@meta.data <- metadata
+```
+
+# Plot QC metrics
+```{r warning=FALSE}
+pdf(
+  file = here(
+    "results",
+    "intermediate_outputs",
+    "sadick",
+    "qc_plots.pdf"
+  )
+)
+plot_qc(metadata)
+dev.off()
+```
+
+# Filtering 
+* Performing cell-level and gene-level filtering on the data. 
+* Cell-level filtering is performed based on the plotted QC metrics (above).
+* Gene-level filtering aims at removing count values = 0, since they can skew average gene expression
+measurements.
+  * Discussed in the following review: https://genomebiology.biomedcentral.com/articles/10.1186/s13059-022-02601-5)
+```{r}
+# Cell-level filtering
+sub_seurat <- subset(merged_seurat,
+  subset =
+    nGene > 1000 &
+      nGene < 10000 &
+      mitoRatio < 0.20 &
+      log10GenesPerUMI > 0.80
+)
+
+# Gene-level filtering
+counts <- GetAssayData(sub_seurat, slot = "counts")
+
+nonzero <- counts > 0
+
+keep_genes <- rowSums(nonzero) >= 10
+
+filtered_counts <- counts[keep_genes, ]
+
+filtered_seurat <- CreateSeuratObject(filtered_counts,
+  meta.data = sub_seurat@meta.data
+)
+```
+
+# save filtered seurat object
+```{r}
+saveRDS(filtered_seurat, file = here(
+  "data",
+  "seurat_preprocessing",
+  "sadick_filtered_seurat.rds"
+))
+```
+
+# Plot QC metrics after filtering
+```{r warning=FALSE}
+metadata <- filtered_seurat@meta.data
+dim(metadata) # 101720 10
+
+# plot and save post-filter QC outputs
+pdf(file = here(
+  "results",
+  "intermediate_outputs",
+  "sadick",
+  "qc_plots_filtered.pdf"
+))
+plot_qc(metadata)
+dev.off()
+```
+
+# Determine cell cycle effects
+```{r warning=FALSE}
+pdf(
+  file = here(
+    "results",
+    "intermediate_outputs",
+    "sadick",
+    "cellcycle_pca.pdf"
+  )
+)
+filtered_seurat <- cell_cylce_effects(filtered_seurat)
+dev.off()
+```
+
+# Normalization and Integration
+* We are using harmony as it has been shown to remove technical variation while preserving biological variation.
+* We will have to provide the PCs from the elbow plot above
+```{r}
+filtered_seurat <- harmony_integration(filtered_seurat, dims = 1:30)
+# harmony converged after 8 iterations
+```
+
+# Save integrated seurat object
+```{r}
+saveRDS(filtered_seurat, file = here(
+  "data",
+  "seurat_preprocessing",
+  "sadick_integrated_seurat.rds"
+))
+```
+
+# Clustering
+* Since I am using harmony for integration, I will have to ensure to use the RNA assay and the harmony reduction for everything downstream.
+* I am using Leiden for clustering in my find_clusters function. 
+```{r warning=FALSE}
+# check active assay (needs to be RNA)
+filtered_seurat@active.assay
+
+# vector of desired resolutions
+resolutions <- c(0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.2, 1.3)
+
+# clustering of resolutions (Type "n" when asked about miniconda installation)
+filtered_seurat <- find_clusters(filtered_seurat,
+  dims = 1:30,
+  reduction = "harmony",
+  resolutions = resolutions
+)
+```
+
+# Save clustered seurat object
+```{r}
+saveRDS(filtered_seurat, file = here(
+  "data",
+  "seurat_preprocessing",
+  "sadick_clustered_seurat.rds"
+))
+```
+
+# Determine resolution
+```{r}
+# Plot resolutions
+tree <- clustree(filtered_seurat@meta.data, prefix = "RNA_snn_res.")
+
+pdf(
+  file = here(
+    "results",
+    "intermediate_outputs",
+    "sadick",
+    "clustree_umap.pdf"
+  )
+)
+
+tree
+# plotting UMAP for most stable resolution (1.2) for the number of cells
+DimPlot(filtered_seurat,
+  reduction = "umap_harmony",
+  group.by = "RNA_snn_res.0.9"
+)
+
+dev.off()
+```
+
+# Find marker genes
+```{r}
+# Set the identity as Leiden with resolution 1.2
+filtered_seurat <- SetIdent(filtered_seurat, value = "RNA_snn_res.0.9")
+
+# Find marker genes
+all_marker_genes <- FindAllMarkers(filtered_seurat,
+  log2FC.threshold = 0.2,
+  test.use = "wilcox",
+  min.pct = 0.1,
+  only.pos = TRUE,
+  max.cells.per.ident = 50,
+  assay = "RNA"
+)
+
+# Save marker genes
+saveRDS(all_marker_genes, here(
+  "results",
+  "intermediate_outputs",
+  "sadick",
+  "all_marker_genes.rds"
+))
+
+# Look at the top 25 up-regulated genes
+top25 <- all_marker_genes %>%
+  group_by(cluster) %>%
+  top_n(-25, p_val_adj)
+
+dim(top25) # 652 7
+```
+
+# Feature plots to confirm clusters
+```{r}
+pdf(file = here(
+  "results",
+  "intermediate_outputs",
+  "sadick",
+  "feature_plots.pdf"
+))
+
+FeaturePlot(filtered_seurat,
+  features = c("PDGFRB"),
+  label = TRUE
+)
+
+FeaturePlot(filtered_seurat,
+  features = c("DOCK8", "APBB1IP", "ARHGAP15"),
+  label = TRUE
+)
+
+FeaturePlot(filtered_seurat,
+  features = c("SNAP25", "RBFOX1"),
+  label = TRUE
+)
+
+FeaturePlot(filtered_seurat,
+  features = c("AQP4", "GFAP", "ADGRV1"),
+  label = TRUE
+)
+
+FeaturePlot(filtered_seurat,
+  features = c("ST18", "MBP", "QDPR"),
+  label = TRUE
+)
+
+FeaturePlot(filtered_seurat,
+  features = c("PDGFRA", "PCDH15"),
+  label = TRUE
+)
+
+FeaturePlot(filtered_seurat,
+  features = c("FLT1", "VWF"),
+  label = TRUE
+)
+
+dev.off()
+```
+
+# Identify neuronal subtypes
+```{r}
+pdf(file = here(
+  "results",
+  "intermediate_outputs",
+  "sadick",
+  "neuronal_feature_plots.pdf"
+))
+
+# Excitatory
+FeaturePlot(filtered_seurat,
+  features = c("SLC17A6", "SLC17A7"),
+  label = TRUE
+)
+
+# Inhibitory
+FeaturePlot(filtered_seurat,
+  features = c("GAD1", "GAD2"),
+  label = TRUE
+)
+
+dev.off()
+```
+
+# Assign cell types
+```{r}
+filtered_seurat <- RenameIdents(filtered_seurat,
+  `1`  = "Astrocytes",
+  `2`  = "Astrocytes",
+  `3`  = "Oligodendrocytes",
+  `4`  = "Astrocytes",
+  `5`  = "Oligodendrocytes",
+  `6`  = "Astrocytes",
+  `7`  = "Excitatory Neurons",
+  `8`  = "Oligodendrocytes",
+  `9`  = "Astrocytes",
+  `10` = "Oligodendrocytes",
+  `11` = "Microglia",
+  `12` = "Astrocytes",
+  `13` = "OPCs",
+  `14` = "Inhibitory Neurons",
+  `15` = "Inhibitory Neurons",
+  `16` = "Astrocytes",
+  `17` = "Excitatory Neurons",
+  `18` = "Pericytes",
+  `19` = "Oligodendrocytes",
+  `20` = "Unknown",
+  `21` = "Excitatory Neurons",
+  `22` = "Oligodendrocytes",
+  `23` = "Oligodendrocytes",
+  `24` = "Endothelial cells",
+  `25` = "Unknown"
+)
+```
+
+# Removal of unknown clusters
+```{r}
+filtered_seurat_final <- subset(filtered_seurat,
+  idents = "Unknown",
+  invert = TRUE
+)
+```
+
+# Save UMAP with assigned cell types
+```{r}
+png(file = here("results", "intermediate_outputs", "sadick", "UMAP_final.png"))
+DimPlot(filtered_seurat_final)
+dev.off()
+```
+
+# Save processed seurat object
+```{r}
+saveRDS(filtered_seurat, here(
+  "data",
+  "seurat_preprocessing",
+  "sadick_processed_seurat.rds"
+))
+```
+
+# Session Info
+```{r}
+sessionInfo() # see output below
+```
+
+
+# Time tracking
+```{r}
+fptm <- proc.time() - ptm
+
+# convert to hours
+(fptm[3] / 60) / 60
+
+# Time elapsed: 4 hours
+# Hands-on time however is between 30-60 minutes!
+```
+
+# Reproducibility
+```{r eval=FALSE, include=FALSE}
+# styler
+style_file(here(
+  "src",
+  "seurat_preprocessing",
+  "03_sadick_seurat_preprocessing.Rmd"
+))
+
+# lintr
+lint(filename = here(
+  "src",
+  "seurat_preprocessing",
+  "03_sadick_seurat_preprocessing.Rmd"
+))
+```
