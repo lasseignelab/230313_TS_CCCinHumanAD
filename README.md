@@ -1,9 +1,13 @@
 README
 ================
-2024-04-29
+2024-06-12
 
 # Altered Glia-Neuron Communication in Alzheimer’s Disease Affects WNT, p53, and NFkB Signaling Determined by snRNA-seq
 
+Peer-reviewed manuscript:  
+[![DOI](https://img.shields.io/badge/DOI-CellCommunicationAndSignaling-blue)](https://doi.org/10.1186/s12964-024-01686-8)
+
+Pre-print:  
 [![DOI:10.1101/2023.11.29.569304](http://img.shields.io/badge/DOI-10.1101/2023.11.29.569304-B31B1B.svg)](https://doi.org/10.1101/2023.11.29.569304)
 
 ## Authors
