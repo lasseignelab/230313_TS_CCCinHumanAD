@@ -1,0 +1,22 @@
+﻿ID,CONDITION,AGE,SEX,PMD,HIST DIAGNOSIS,DIAG 1,DIAG 2,DIAG 3,AGE-RELATED PLAQUE SCORE,Braak tangle stage,APOE,SAMPLE
+AD1,AD,69,M,7.75,AD definite,AD,NO,NO,C,6,E3/E3,S01AD
+AD2,AD,71,M,14,"AD definite, severe CAA",AD,CAA,NO,C,6,E4/E4,S02AD
+AD4,AD,72,F,11.5,"AD definite, severe CAA, hippocampal sclerosis",AD,CAA,Hippocampal sclerosis,C,6,E4/E4,S03AD
+AD5,AD,85,M,58,AD,AD,NO,NO,NA,4,E3/E4,S04AD
+AD6,AD,62,M,24.5,AD,AD,NO,NO,C,6,E3/E4,S05AD
+AD8,AD,69,M,12,AD mod severe,AD,NO,NO,C,5,E3/E4,S06AD
+AD9,AD,60,F,18.75,AD definite (severe),AD,NO,NO,C,6,E3/E3,S07AD
+AD10,AD,95,M,27,"AD probable, mod CAA, mod small vessel disease",AD,NO,NO,B,4,E3/E4,S08AD
+AD13,AD,78,F,61,AD definite,AD,NO,NO,C,6,E2/E4,S09AD
+AD19,AD,87,F,15,"AD probable, high likelihood that AD pathology caused the dementia (NIA-AA). TDP43 inclusions in temporal lobe",AD,TDP43 inclusions (temporal only),NO,B,4,E3/E3,S10AD
+AD20,AD,84,M,13.75,Definite AD,AD,NO,NO,C,5,E3/E4,S11AD
+AD21,AD,63,M,21.25,AD definite,AD,NO,NO,C,6,E3/E3,S12AD
+NC3,NC,93,M,34.5,No significant abnormalities apart from microinfarct in putamen,CONTROL,Microinfarct in putamen,NO,0,2,E2/E3,S13CTRL
+NC7,NC,90,M,5.5,NORMAL,CONTROL,NO,NO,0,2,E2/E3,S14CTRL
+NC11,NC,87,M,24,No AD or other significant neuropath abnormalities,CONTROL,NO,NO,0,2,E3/E3,S15CTRL
+NC12,NC,85,M,30.5,"Control, no significant abnormalities",CONTROL,NO,NO,A,2,E3/E3,S16CTRL
+NC14,NC,74,F,39.5,"Control, no significant abnormalities",CONTROL,NO,NO,0,1,E3/E3,S17CTRL
+NC15,NC,79,F,48,No significant neuropathological abnormality,CONTROL,NO,NO,0,2,E3/E3,S18CTRL
+NC16,NC,89,M,54.5,"Control, moderate CAA",CONTROL,CAA,NO,0,2,E3/E4,S19CTRL
+NC17,NC,78,M,51.5,"Control, mild SVD",CONTROL,NO,NO,0,2,E3/E3,S20CTRL
+NC18,NC,94,F,29.5,"Control, moderate CAA",CONTROL,CAA,NO,0,2,E3/E4,S21CTRL

@@ -1,0 +1,21 @@
+﻿Sample.ID,Case.Year,Library.Batch,Case.Num,SampleID_Box,Region,Neuropath.Dx.1,Neuropath.Dx.2,Age,Sex,PMI,APoE,Clinical.Syndrome,Tangle.Stage,Plaque.Stage,Diagnosis,Plaques.Tangles,Braak...Braak.Stage,RIN,Assay,Total cells in snRNA-seq,Genes detected in snRNA-seq,Sample
+Sample-27,2011,1,28,28-11,FC,Alzheimer's disease,Unused,81,M,2.87,e23,[Dem],Stage 6,Stage B,AD,NA,NA,8.8,both,3766,2867,S6AD
+Sample-50,2018,1,22,22-18,FC,Alzheimer's disease,Unused,89,F,4.08,e33,[Dem],Stage 6,Stage C,AD,NA,NA,8.3,both,2679,2627,S13AD
+Sample-46,2017,1,21,21-17,FC,Alzheimer's disease,Unused,90,M,4.23,e23,[Dem],Stage 5,Stage C,AD,NA,NA,7.9,both,3466,2472,S11AD
+Sample-37,2015,1,37,37-15,FC,Alzheimer's disease,Meningiom- Left Hemi (frozen tissue from right hemi),87,F,4.25,e34,[Dem],Stage 6,Stage C,AD,NA,NA,7,both,3825,2572,S8AD
+Sample-19,2008,1,1,43108,FC,Alzheimer's disease,Unused,90,F,4.42,e33,[Dem],Stage 6,Stage C,AD,NA,NA,6.8,both,3066,2595,S4AD
+Sample-33,2013,1,27,27-13,FC,Alzheimer's disease,Unused,80,M,3.75,e33,[Dem],Stage 5,Stage C,AD,NA,NA,7.3,both,3711,2796,S7AD
+Sample-17,2006,1,40,40-06,FC,Alzheimer's disease,Unused,90,F,3.88,e33,[Dem],Stage 6,Stage C,AD,NA,NA,9.3,both,3836,2616,S3AD
+Sample-82,1991,2,6,33390,FC,Normal - No Pathology Detected,Unused,79,M,5,NA,NA,NA,NA,Control,No plaques/tangles found,NA,9,both,2555,2630,S17CTRL
+Sample-66,2012,2,9,43355,FC,Normal (Mild Braak Changes),Unused,90,F,2.92,e33,[Norm],Stage 2,None,Control,NA,NA,10,both,2868,2432,S16CTRL
+Sample-101,1999,2,37,37-99,FC,Normal (Mild Braak Changes),Unused,74,F,7.75,NA,NA,Stage I,NA,Control,Mild plaques/tangles,Stage I,8.1,ATAC only,NA,NA,S2CTRL
+Sample-52,2001,2,25,25-01,FC,Normal (Mild Braak Changes),Unused,83,M,1.8,e33,NA,Stage 2,None,Control,NA,NA,7.2,both,2911,1728,S14CTRL
+Sample-58,2008,2,18,18-08,FC,Normal (Mild Braak Changes),Unused,90,M,4,e33,[Norm],Stage 2,Stage B,Control,NA,NA,8.1,both,2806,2057,S15CTRL
+Sample-90,1996,2,34,34-96,FC,Normal (Mild Braak Changes),Unused,79,F,4.25,NA,NA,Stage 1,NA,Control,"No plaques, a few tangles in entorhinal cortex and hippocampus",Stage 1,7.3,both,2613,2370,S18CTRL
+Sample-22,2008,2,14,14-08,FC,Alzheimer's disease,Hippocampal Sclerosis,86,M,4.47,e34,[Dem],Stage 6,Stage C,AD,NA,NA,7.5,both,2858,2433,S5AD
+Sample-47,2017,2,22,22-17,FC,Alzheimer's disease,Unused,90,M,5,e33,[Dem],Stage 5,Stage B,AD,NA,NA,8,both,3030,2345,S12AD
+Sample-45,2017,3,13,13-17,FC,Alzheimer's disease,Unused,89,F,3.88,e34,[Dem],Stage 6,Stage B,AD,NA,NA,7.8,both,4740,2597,S10AD
+Sample-43,2016,3,47,47-16,FC,Alzheimer's disease,Unused,90,F,4.17,NA,[Dem],Stage 6,Stage B,AD,NA,NA,8.9,both,4852,2544,S9AD
+Sample-100,1999,3,26,26-99,FC,Normal (Mild Braak Changes),Unused,79,M,NA,NA,NA,Stage 2,NA,Control,Mild plaques/tangles found,Stage II,8.7,both,4605,3002,S1CTRL
+Sample-96,1997,3,31,31-97,FC,Normal (Mild Braak Changes) *Cerebral Arteriosclerosis,Cerebral Arteriosclerosis,79,M,7,NA,NA,Stage 0,NA,Control,"No tangles, rare plaques in hippocampus",Stage 0,7.1,both,4482,2912,S19CTRL
+Sample-40,2016,2,22,22-16,FC,Alzheimer's disease,Unused,90,M,3.75,e34,[Dem],Stage 6,Stage B,AD,NA,NA,7.5,ATAC only,NA,NA,NA
